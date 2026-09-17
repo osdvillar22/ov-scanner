@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+scan_run.log
+.claude/scheduled_tasks.lock
+
+# Scanner output — regenerated every run, not historical record.
+# Committing these would grow the repo indefinitely (candle history
+# makes them 8MB+ each). Each run just overwrites them in place.
+state.json
+data.json
