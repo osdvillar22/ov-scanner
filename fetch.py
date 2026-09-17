@@ -85,61 +85,72 @@ def fetch_yfinance_ohlc(ticker: str, timeframe: str) -> pd.DataFrame | None:
 
 
 # ---------------------------------------------------------------------------
-# Binance (crypto) — native support for every timeframe we use, no resampling
+# Kraken (crypto) — native support for every timeframe we use, no resampling
 # ---------------------------------------------------------------------------
 
-def get_binance_usdt_pairs() -> list[str]:
+def get_kraken_usd_pairs() -> list[str]:
     """
-    Dynamically resolve the current USDT pair universe from Binance's
-    exchangeInfo endpoint, so new listings are picked up automatically
-    with zero config changes (per learnings.md).
+    Dynamically resolve the current USD pair universe from Kraken's
+    AssetPairs endpoint, so new listings are picked up automatically with
+    zero config changes. Each dict key (e.g. "PAXGUSD") is directly usable
+    as the `pair` param for the OHLC endpoint below — verified against a
+    random sample of the full listing, including legacy-named pairs like
+    "XXMRZUSD".
     """
-    url = f"{config.BINANCE_BASE_URL}/api/v3/exchangeInfo"
+    url = f"{config.KRAKEN_BASE_URL}/0/public/AssetPairs"
     try:
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
-        symbols = resp.json()["symbols"]
+        pairs = resp.json()["result"]
         return [
-            s["symbol"]
-            for s in symbols
-            if s.get("quoteAsset") == config.BINANCE_QUOTE_ASSET
-            and s.get("status") == "TRADING"
+            name
+            for name, info in pairs.items()
+            if info.get("quote") == config.KRAKEN_QUOTE_ASSET
+            and info.get("status") == "online"
         ]
     except Exception as exc:  # noqa: BLE001
-        logger.error("Failed to resolve Binance USDT pairs: %s", exc)
+        logger.error("Failed to resolve Kraken USD pairs: %s", exc)
         return []
 
 
-def fetch_binance_klines(symbol: str, timeframe: str, limit: int = 500) -> pd.DataFrame | None:
-    """Fetch klines for one symbol/timeframe. limit=500 comfortably covers MIN_WARMUP_BARS."""
-    interval = config.BINANCE_NATIVE_INTERVAL.get(timeframe)
+def fetch_kraken_ohlc(pair: str, timeframe: str) -> pd.DataFrame | None:
+    """Fetch OHLC candles for one Kraken pair/timeframe. Returns 350-720 bars
+    depending on interval — comfortably above MIN_WARMUP_BARS either way."""
+    interval = config.KRAKEN_NATIVE_INTERVAL.get(timeframe)
     if interval is None:
-        logger.error("No Binance interval mapping for timeframe %s", timeframe)
+        logger.error("No Kraken interval mapping for timeframe %s", timeframe)
         return None
 
-    url = f"{config.BINANCE_BASE_URL}/api/v3/klines"
-    params = {"symbol": symbol, "interval": interval, "limit": limit}
+    url = f"{config.KRAKEN_BASE_URL}/0/public/OHLC"
+    params = {"pair": pair, "interval": interval}
     try:
         resp = requests.get(url, params=params, timeout=15)
         resp.raise_for_status()
-        raw = resp.json()
+        payload = resp.json()
+        if payload.get("error"):
+            logger.warning("Kraken fetch failed for %s@%s: %s", pair, timeframe, payload["error"])
+            return None
+        result = payload.get("result", {})
+        # `result` has one key holding the candles — Kraken's own name for
+        # the pair, which can differ slightly from the requested altname —
+        # plus a "last" key we don't want.
+        candle_keys = [k for k in result if k != "last"]
+        if not candle_keys:
+            return None
+        raw = result[candle_keys[0]]
         if not raw:
             return None
         df = pd.DataFrame(
             raw,
-            columns=[
-                "open_time", "open", "high", "low", "close", "volume",
-                "close_time", "quote_volume", "trades",
-                "taker_buy_base", "taker_buy_quote", "ignore",
-            ],
+            columns=["open_time", "open", "high", "low", "close", "vwap", "volume", "trades"],
         )
-        df["open_time"] = pd.to_datetime(df["open_time"], unit="ms")
+        df["open_time"] = pd.to_datetime(df["open_time"], unit="s")
         df = df.set_index("open_time")
         for col in ["open", "high", "low", "close", "volume"]:
             df[col] = df[col].astype(float)
         return df[["open", "high", "low", "close", "volume"]]
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Binance fetch failed for %s@%s: %s", symbol, timeframe, exc)
+        logger.warning("Kraken fetch failed for %s@%s: %s", pair, timeframe, exc)
         return None
 
 
@@ -152,11 +163,11 @@ def fetch_ohlc(asset_class: str, symbol_or_ticker: str, timeframe: str) -> pd.Da
     Single entry point scan.py should call, regardless of asset class.
 
     asset_class: one of "forex", "metals", "crypto"
-    symbol_or_ticker: the yfinance ticker (forex/metals) or Binance
-                       symbol (crypto) — NOT the display name.
+    symbol_or_ticker: the yfinance ticker (forex/metals) or Kraken pair
+                       (crypto) — NOT the display name.
     """
     if asset_class == "crypto":
-        return fetch_binance_klines(symbol_or_ticker, timeframe)
+        return fetch_kraken_ohlc(symbol_or_ticker, timeframe)
     if asset_class in ("forex", "metals"):
         return fetch_yfinance_ohlc(symbol_or_ticker, timeframe)
 

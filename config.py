@@ -31,14 +31,15 @@ YFINANCE_NATIVE_INTERVAL = {
     "1W": "1wk",
 }
 
-# Binance supports all of these natively — no resampling needed for crypto.
-BINANCE_NATIVE_INTERVAL = {
-    "15m": "15m",
-    "30m": "30m",
-    "1H": "1h",
-    "4H": "4h",
-    "1D": "1d",
-    "1W": "1w",
+# Kraken's OHLC endpoint takes interval-in-minutes and supports all of these
+# natively — no resampling needed for crypto.
+KRAKEN_NATIVE_INTERVAL = {
+    "15m": 15,
+    "30m": 30,
+    "1H": 60,
+    "4H": 240,
+    "1D": 1440,
+    "1W": 10080,
 }
 
 # yfinance's unofficial intraday endpoint only keeps ~60 days of history for
@@ -141,8 +142,12 @@ METALS = {
     "PALLADIUM": "PA=F",
 }
 
-BINANCE_BASE_URL = "https://api.binance.com"
-BINANCE_QUOTE_ASSET = "USDT"  # crypto universe = all Binance USDT pairs
+# Kraken, not Binance: Binance.com geo-blocks GitHub Actions' US-based
+# runner IPs with HTTP 451 (confirmed in production — see git history).
+# Kraken is US-licensed and has no such block. Its dollar-quoted pairs use
+# the asset code "ZUSD", not "USD" — that's Kraken's own convention.
+KRAKEN_BASE_URL = "https://api.kraken.com"
+KRAKEN_QUOTE_ASSET = "ZUSD"  # crypto universe = all Kraken USD pairs
 
 # ---------------------------------------------------------------------------
 # I/O

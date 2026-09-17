@@ -50,7 +50,7 @@ def build_universe() -> list[dict]:
     for display_name, ticker in config.METALS.items():
         universe.append({"asset_class": "metals", "ticker": ticker, "display_name": display_name})
 
-    for symbol in fetch.get_binance_usdt_pairs():
+    for symbol in fetch.get_kraken_usd_pairs():
         universe.append({"asset_class": "crypto", "ticker": symbol, "display_name": symbol})
 
     logger.info("Universe built: %d assets", len(universe))
