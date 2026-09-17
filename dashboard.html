@@ -32,16 +32,6 @@
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--font-ui); -webkit-font-smoothing: antialiased; }
   body { min-height: 100vh; }
 
-  .tape-wrap { background: var(--ink); border-bottom: 1px solid var(--border); overflow: hidden; white-space: nowrap; padding: 9px 0; }
-  .tape-track { display: inline-flex; animation: tape-scroll 38s linear infinite; }
-  @keyframes tape-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  @media (prefers-reduced-motion: reduce) { .tape-track { animation: none; } }
-  .tape-item { font-family: var(--font-mono); font-size: 12.5px; color: var(--bg); padding: 0 22px; display: inline-flex; align-items: center; gap: 7px; opacity: 0.92; cursor: pointer; }
-  .tape-item:hover { opacity: 1; text-decoration: underline; }
-  .tape-item .sym { font-weight: 600; }
-  .tape-item .bullish { color: #6FCB8F; }
-  .tape-item .bearish { color: #F0917A; }
-
   header.page { max-width: 1180px; margin: 0 auto; padding: 34px 20px 18px; }
   .title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   h1 { font-size: 27px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
@@ -49,14 +39,10 @@
   .scan-meta { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-dim); }
   .scan-meta strong { color: var(--ink); font-weight: 500; }
 
-  .summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 22px; }
-  .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 13px 14px; }
-  .summary-card .tf { font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); }
-  .summary-card .count { font-family: var(--font-mono); font-size: 24px; font-weight: 600; margin-top: 3px; }
-
   .controls { max-width: 1180px; margin: 0 auto; padding: 6px 20px 0; display: flex; gap: 8px; flex-wrap: wrap; }
   .chip { font-family: var(--font-mono); font-size: 12px; padding: 6px 13px; border: 1px solid var(--border); border-radius: 999px; color: var(--ink-dim); background: var(--surface); cursor: pointer; user-select: none; }
   .chip.active { color: var(--bg); background: var(--ink); border-color: var(--ink); }
+  .chip .chip-count { opacity: 0.7; }
 
   .layout { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; display: flex; gap: 16px; align-items: flex-start; }
 
@@ -128,8 +114,6 @@
   .load-error strong { color: var(--ink); }
   .load-error code { background: var(--surface-raised); padding: 1px 5px; border-radius: 2px; }
 
-  footer { max-width: 1180px; margin: 0 auto; padding: 0 20px 40px; font-size: 11.5px; color: var(--ink-dim); }
-
   @media (max-width: 860px) {
     .layout { flex-direction: column; padding: 18px 14px 40px; }
     header.page { padding: 24px 14px 14px; }
@@ -141,7 +125,6 @@
     .wl-item { flex-direction: column; align-items: flex-start; min-width: 165px; border-bottom: none; border-right: 1px solid var(--border); }
     .wl-right { flex-direction: row; align-items: center; gap: 8px; margin-top: 5px; }
     .wl-item.active { box-shadow: inset 0 3px 0 var(--gold-bright); }
-    .summary-row { grid-template-columns: repeat(2, 1fr); }
     h1 { font-size: 22px; }
     .detail-panel { padding: 14px; }
     .chart-box, .chart-placeholder { height: 260px; }
@@ -150,18 +133,10 @@
 </head>
 <body>
 
-  <div class="tape-wrap"><div class="tape-track" id="tapeTrack"></div></div>
-
   <header class="page">
     <div class="title-row">
       <h1>Signal <span class="accent">Scanner</span></h1>
       <div class="scan-meta" id="scanMeta">Loading…</div>
-    </div>
-    <div class="summary-row">
-      <div class="summary-card"><div class="tf">1H on watch</div><div class="count" id="count-1H">0</div></div>
-      <div class="summary-card"><div class="tf">4H on watch</div><div class="count" id="count-4H">0</div></div>
-      <div class="summary-card"><div class="tf">1D on watch</div><div class="count" id="count-1D">0</div></div>
-      <div class="summary-card"><div class="tf">1W on watch</div><div class="count" id="count-1W">0</div></div>
     </div>
   </header>
 
@@ -180,10 +155,6 @@
     </div>
     <div class="detail-panel" id="detail"></div>
   </div>
-
-  <footer id="footerText">
-    RSI &gt; 70 = bullish continuation bias (buy on confirmed pullback); RSI &lt; 30 = bearish continuation bias (sell on confirmed pullback). Entry confirms when price breaks back through LSMA(50,3) and MACD flips to the trend direction (or MACD/Signal gap is within 2%).
-  </footer>
 
 <script>
 const CATEGORY_LABELS = { forex: 'Forex', metals: 'Metals', indices: 'Indices', energy: 'Energy', crypto: 'Crypto' };
@@ -206,7 +177,7 @@ const cssVar = (name) => css.getPropertyValue(name).trim();
 const chartTheme = {
   layout: { background: { type: 'solid', color: 'transparent' }, textColor: cssVar('--ink-dim'), fontFamily: "'IBM Plex Mono', monospace", fontSize: 10 },
   grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-  rightPriceScale: { borderColor: cssVar('--border'), scaleMargins: { top: 0.12, bottom: 0.18 } },
+  rightPriceScale: { borderColor: cssVar('--border'), scaleMargins: { top: 0.12, bottom: 0.18 }, minimumWidth: 66 },
   timeScale: { borderColor: cssVar('--border'), timeVisible: false, secondsVisible: false },
   crosshair: { mode: 0 },
   handleScroll: false,
@@ -251,7 +222,7 @@ function renderBlock(candles, chartElId, macdElId, stopInfo, visibleCount) {
     });
   }
 
-  const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderColor: cssVar('--border'), visible: false }, timeScale: { visible: false, borderColor: cssVar('--border') } });
+  const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderColor: cssVar('--border'), visible: false, minimumWidth: 66 }, timeScale: { visible: false, borderColor: cssVar('--border') } });
   activeCharts.push(macdChart);
   const histSeries = macdChart.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
   histSeries.setData(candles.filter(c => c.macd_hist != null).map(c => ({ time: c.time, value: c.macd_hist, color: c.macd_hist >= 0 ? 'rgba(79,169,114,0.55)' : 'rgba(168,64,44,0.55)' })));
@@ -391,26 +362,22 @@ async function init() {
 
   const counts = { '1H': 0, '4H': 0, '1D': 0, '1W': 0 };
   assets.forEach(a => { if (counts[a.higher_tf] != null) counts[a.higher_tf]++; });
-  Object.entries(counts).forEach(([tf, c]) => { const el = document.getElementById(`count-${tf}`); if (el) el.textContent = c; });
+  document.querySelectorAll('#controls .chip').forEach(chip => {
+    const tf = chip.dataset.tf;
+    const label = tf === 'ALL' ? 'All timeframes' : tf;
+    const count = tf === 'ALL' ? assets.length : counts[tf];
+    chip.innerHTML = `${label} <span class="chip-count">${count}</span>`;
+  });
 
   if (assets.length === 0) {
     document.getElementById('watchlist').innerHTML = '';
     document.getElementById('detail').innerHTML = '';
     document.querySelector('.layout').insertAdjacentHTML('beforeend', '<div class="empty-state" style="grid-column:1/-1;width:100%">No assets currently on watch — nothing has hit an RSI extreme this run.</div>');
-    document.getElementById('tapeTrack').innerHTML = '';
     return;
   }
 
   const assetsById = {};
   assets.forEach(a => { a._id = `${a.asset_class}__${a.ticker}__${a.higher_tf}`; assetsById[a._id] = a; });
-
-  const tapeHTML = assets.map(a => {
-    const dc = dirClass(a.direction);
-    const arrow = a.direction === 'BULLISH' ? '▲' : '▼';
-    return `<span class="tape-item" data-id="${a._id}"><span class="sym">${a.display_name}</span><span class="${dc}">${arrow} RSI ${a.last_rsi ?? a.rsi_at_trigger}</span><span>${a.higher_tf}</span></span>`;
-  }).join('');
-  document.getElementById('tapeTrack').innerHTML = tapeHTML + tapeHTML;
-  document.querySelectorAll('.tape-item').forEach(el => el.addEventListener('click', () => selectAsset(el.dataset.id, assetsById)));
 
   const grouped = {};
   assets.forEach(a => { (grouped[a.asset_class] = grouped[a.asset_class] || []).push(a); });
