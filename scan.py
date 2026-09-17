@@ -28,6 +28,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+import backtest
 import config
 import fetch
 import indicators
@@ -148,24 +149,45 @@ def scan_higher_timeframe(asset: dict, htf: str, state: dict, watch_events: list
 
     if entry is None and (is_overbought or is_oversold):
         direction = config.DIRECTION_BULLISH if is_overbought else config.DIRECTION_BEARISH
+
+        # Don't cold-start at "just triggered now" — replay the history we
+        # already fetched to find the *real* trigger bar. Without this, an
+        # asset whose RSI crossed 70 a week ago (before this scanner ever
+        # ran, or before this specific entry existed) would show up as if
+        # it just triggered this instant, with its lower-tf tracking blind
+        # to everything that already happened since the real trigger.
+        origin = backtest.htf_trigger_origin(df)
+        if origin is not None and origin["direction"] == direction:
+            htf_candle_count = origin["htf_candle_count"]
+            rsi_at_trigger = origin["rsi_at_trigger"]
+            trigger_time_iso = origin["trigger_time"].isoformat()
+        else:
+            htf_candle_count = 0
+            rsi_at_trigger = round(float(rsi), 2)
+            trigger_time_iso = None
+
         entry = {
             "asset_class": asset["asset_class"],
             "ticker": asset["ticker"],
             "display_name": asset["display_name"],
             "higher_tf": htf,
             "direction": direction,
-            "rsi_at_trigger": round(float(rsi), 2),
-            "first_seen": now_iso(),
-            "htf_candle_count": 0,
+            "rsi_at_trigger": rsi_at_trigger,
+            "first_seen": trigger_time_iso or now_iso(),
+            "htf_candle_count": htf_candle_count,
             "last_htf_bar_time": latest_bar_time,
+            "htf_trigger_time": trigger_time_iso,
             "lower_tf_states": {
-                ltf: {"state": config.STATE_WATCHING, "updated_at": now_iso()}
+                ltf: {"state": config.STATE_WATCHING, "updated_at": now_iso(), "needs_backfill": True}
                 for ltf in config.LOWER_TF_MAP[htf]
             },
         }
         state[key] = entry
         watch_events.append(entry)
-        logger.info("NEW WATCH: %s %s RSI=%.1f (%s)", asset["display_name"], htf, rsi, direction)
+        logger.info(
+            "NEW WATCH: %s %s RSI=%.1f (%s) [real trigger %s, %d candles ago]",
+            asset["display_name"], htf, rsi, direction, trigger_time_iso, htf_candle_count,
+        )
 
     if entry is not None:
         entry["last_rsi"] = round(float(rsi), 2)
@@ -198,6 +220,29 @@ def update_lower_tf_state(entry: dict, ltf: str, trigger_events: list) -> None:
         return
 
     df = indicators.compute_all(df)
+    ltf_state = entry["lower_tf_states"].setdefault(
+        ltf, {"state": config.STATE_WATCHING, "updated_at": now_iso()}
+    )
+
+    # First time we're touching this lower-tf state: replay the history we
+    # already fetched (from the real higher-tf trigger bar onward) instead
+    # of cold-starting at WATCHING, blind to a pullback/entry that may have
+    # already fully played out before this entry existed.
+    needs_backfill = ltf_state.pop("needs_backfill", False)
+    if needs_backfill and entry.get("htf_trigger_time") is not None:
+        bias = pd.Series(None, index=df.index, dtype=object)
+        trigger_ts = pd.Timestamp(entry["htf_trigger_time"])
+        bias[df.index >= trigger_ts] = entry["direction"]
+        _, current_state = backtest.replay_lower_tf(df, bias, entry, entry["higher_tf"], ltf)
+        ltf_state.update(current_state)
+        ltf_state["updated_at"] = now_iso()
+        ltf_state["candles"] = serialize_candles(df)
+        logger.info(
+            "BACKFILLED: %s %s -> %s (replayed from real trigger %s)",
+            entry["display_name"], ltf, ltf_state["state"], entry["htf_trigger_time"],
+        )
+        return
+
     latest = df.iloc[-1]
 
     price = latest["close"]
@@ -210,9 +255,6 @@ def update_lower_tf_state(entry: dict, ltf: str, trigger_events: list) -> None:
         return  # indicators not warmed up yet for this slice — try again next run
 
     direction = entry["direction"]
-    ltf_state = entry["lower_tf_states"].setdefault(
-        ltf, {"state": config.STATE_WATCHING, "updated_at": now_iso()}
-    )
     prev_state = ltf_state["state"]
 
     # "Wrong side" of LSMA depends on direction: bullish continuation wants

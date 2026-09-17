@@ -74,42 +74,86 @@ class Setup:
     target_price: float
 
 
-def htf_bias_series(df_htf: pd.DataFrame) -> pd.Series:
-    """Bar-by-bar active direction bias, replaying scan.py's WATCHING window."""
+def htf_bias_series(df_htf: pd.DataFrame) -> pd.DataFrame:
+    """
+    Bar-by-bar active direction bias, replaying scan.py's WATCHING window
+    exactly (expiry after VISIBILITY_WINDOW_CANDLES, immediate re-arm on a
+    fresh extreme the same bar an old one expires).
+
+    Returns a DataFrame (indexed like df_htf) with:
+      bias         - active direction or None
+      age          - candles since the current active window's trigger bar
+      trigger_idx  - integer position of that trigger bar
+      trigger_rsi  - RSI value at that trigger bar
+    trigger_idx/trigger_rsi let a caller find the *real* origin of the
+    currently-active window, not just "now" — used to backfill a
+    newly-discovered entry's true history instead of cold-starting it.
+    """
     rsi = df_htf["rsi"]
-    bias = pd.Series(index=df_htf.index, dtype=object)
+    n = len(df_htf)
+    bias = [None] * n
+    age = [None] * n
+    trigger_idx_col = [None] * n
+    trigger_rsi_col = [None] * n
     active_direction = None
     candles_since_trigger = 0
-    for i in range(len(df_htf)):
+    trigger_idx = None
+    for i in range(n):
         r = rsi.iloc[i]
         if pd.isna(r):
-            bias.iloc[i] = None
             continue
         is_ob = r > config.RSI_OVERBOUGHT
         is_os = r < config.RSI_OVERSOLD
         if active_direction is None:
             if is_ob:
-                active_direction = config.DIRECTION_BULLISH
-                candles_since_trigger = 0
+                active_direction, candles_since_trigger, trigger_idx = config.DIRECTION_BULLISH, 0, i
             elif is_os:
-                active_direction = config.DIRECTION_BEARISH
-                candles_since_trigger = 0
+                active_direction, candles_since_trigger, trigger_idx = config.DIRECTION_BEARISH, 0, i
         else:
             candles_since_trigger += 1
             if candles_since_trigger > config.VISIBILITY_WINDOW_CANDLES:
-                active_direction = None
-                candles_since_trigger = 0
+                active_direction, candles_since_trigger, trigger_idx = None, 0, None
                 if is_ob:
-                    active_direction = config.DIRECTION_BULLISH
+                    active_direction, trigger_idx = config.DIRECTION_BULLISH, i
                 elif is_os:
-                    active_direction = config.DIRECTION_BEARISH
-        bias.iloc[i] = active_direction
-    return bias
+                    active_direction, trigger_idx = config.DIRECTION_BEARISH, i
+        bias[i] = active_direction
+        if active_direction is not None:
+            age[i] = candles_since_trigger
+            trigger_idx_col[i] = trigger_idx
+            trigger_rsi_col[i] = float(rsi.iloc[trigger_idx])
+    return pd.DataFrame(
+        {"bias": bias, "age": age, "trigger_idx": trigger_idx_col, "trigger_rsi": trigger_rsi_col},
+        index=df_htf.index,
+    )
 
 
-def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.Series, asset: dict, higher_tf: str, entry_tf: str) -> list:
+def htf_trigger_origin(df_htf: pd.DataFrame) -> dict | None:
+    """The real origin of the higher-tf window active as of the latest bar,
+    or None if no window is currently active. Used by scan.py to backfill a
+    newly-created entry's htf_candle_count/rsi_at_trigger/first_seen from
+    already-fetched history instead of always starting at "now"."""
+    info = htf_bias_series(df_htf)
+    last = info.iloc[-1]
+    if last["bias"] is None:
+        return None
+    return {
+        "direction": last["bias"],
+        "htf_candle_count": int(last["age"]),
+        "rsi_at_trigger": round(float(last["trigger_rsi"]), 2),
+        "trigger_time": df_htf.index[int(last["trigger_idx"])],
+    }
+
+
+def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.Series, asset: dict, higher_tf: str, entry_tf: str):
     """Walk the lower-tf bars in order, replaying PULLBACK/CONVERGING/TRIGGERED,
-    and simulate fill + win/loss/unresolved for every setup it produces."""
+    simulate fill + win/loss/unresolved for every setup it produces, and track
+    the state as of the final bar.
+
+    Returns (trades, current_state) — current_state is a dict matching
+    scan.py's ltf_state schema (state/price/lsma/macd_gap_pct[/stop_price/
+    stop_type]), used to backfill a freshly-discovered entry's real state
+    instead of cold-starting it at WATCHING."""
     trades: list[Trade] = []
     state = config.STATE_WATCHING
     direction = None
@@ -117,6 +161,9 @@ def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.Series, asset: dict, higher_t
     pullback_high = None
     pending_setup: Setup | None = None
     fill_wait = 0
+    last_stop_price = None
+    last_stop_type = None
+    last_macd_gap_pct = None
 
     n = len(df_ltf)
     for i in range(n):
@@ -163,6 +210,7 @@ def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.Series, asset: dict, higher_t
 
         macd_gap_pct = abs(macd - macd_signal) / abs(macd) if macd != 0 else float("inf")
         macd_close = macd_gap_pct <= config.MACD_CLOSENESS_PCT
+        last_macd_gap_pct = macd_gap_pct
 
         prev_state = state
         if prev_state == config.STATE_TRIGGERED:
@@ -188,10 +236,26 @@ def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.Series, asset: dict, higher_t
                 target_price = entry_price + risk if direction == config.DIRECTION_BULLISH else entry_price - risk
                 pending_setup = Setup(i, direction, entry_price, stop_loss_price, target_price)
                 fill_wait = 0
+                # scan.py's ltf_state["stop_price"] means the entry buy/sell-stop
+                # order price — same thing as Setup.entry_price here, not the
+                # risk stop-loss (naming collision between the two modules).
+                last_stop_price = round(entry_price, 6)
+                last_stop_type = "BUY_STOP" if direction == config.DIRECTION_BULLISH else "SELL_STOP"
 
         state = new_state
 
-    return trades
+    last_row = df_ltf.iloc[-1]
+    current_state = {
+        "state": state,
+        "price": round(float(last_row["close"]), 6),
+        "lsma": round(float(last_row["lsma"]), 6) if not pd.isna(last_row["lsma"]) else None,
+        "macd_gap_pct": round(float(last_macd_gap_pct), 4) if last_macd_gap_pct not in (None, float("inf")) else None,
+    }
+    if state == config.STATE_TRIGGERED and last_stop_price is not None:
+        current_state["stop_price"] = last_stop_price
+        current_state["stop_type"] = last_stop_type
+
+    return trades, current_state
 
 
 def simulate_outcome(df: pd.DataFrame, fill_idx: int, setup: Setup) -> str:
@@ -219,8 +283,7 @@ def backtest_asset_timeframe(asset: dict, higher_tf: str) -> list:
     if df_htf is None or len(df_htf) < config.MIN_WARMUP_BARS:
         return []
     df_htf = indicators.compute_all(df_htf)
-    bias_htf = htf_bias_series(df_htf)
-    bias_df = pd.DataFrame({"bias": bias_htf})
+    bias_df = htf_bias_series(df_htf)
 
     all_trades = []
     for entry_tf in config.LOWER_TF_MAP[higher_tf]:
@@ -238,7 +301,7 @@ def backtest_asset_timeframe(asset: dict, higher_tf: str) -> list:
         )["bias"]
         bias_aligned.index = df_ltf.index
 
-        trades = replay_lower_tf(df_ltf, bias_aligned, asset, higher_tf, entry_tf)
+        trades, _ = replay_lower_tf(df_ltf, bias_aligned, asset, higher_tf, entry_tf)
         all_trades.extend(trades)
     return all_trades
 
