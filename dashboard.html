@@ -140,12 +140,20 @@
     </div>
   </header>
 
-  <div class="controls" id="controls">
+  <div class="controls" id="tf-controls">
     <span class="chip active" data-tf="ALL">All timeframes</span>
     <span class="chip" data-tf="1H">1H</span>
     <span class="chip" data-tf="4H">4H</span>
     <span class="chip" data-tf="1D">1D</span>
     <span class="chip" data-tf="1W">1W</span>
+  </div>
+
+  <div class="controls" id="state-controls">
+    <span class="chip active" data-state="ALL">All statuses</span>
+    <span class="chip" data-state="WATCHING">Watching</span>
+    <span class="chip" data-state="PULLBACK">Pullback</span>
+    <span class="chip" data-state="CONVERGING">Converging</span>
+    <span class="chip" data-state="TRIGGERED">Triggered</span>
   </div>
 
   <div class="layout">
@@ -234,11 +242,21 @@ function renderBlock(candles, chartElId, macdElId, stopInfo, visibleCount) {
   chart.timeScale().subscribeVisibleLogicalRangeChange(range => { if (range) macdChart.timeScale().setVisibleLogicalRange(range); });
 }
 
-function bestLowerTfStatus(entry) {
+function bestLowerTf(entry) {
   let best = null;
   for (const [ltf, s] of Object.entries(entry.lower_tf_states || {})) {
     if (!best || STATE_PRIORITY[s.state] > STATE_PRIORITY[best.s.state]) best = { ltf, s };
   }
+  return best;
+}
+
+function bestLowerTfState(entry) {
+  const best = bestLowerTf(entry);
+  return best ? best.s.state : 'WATCHING';
+}
+
+function bestLowerTfStatus(entry) {
+  const best = bestLowerTf(entry);
   if (!best) return 'Watching';
   const { ltf, s } = best;
   if (s.state === 'TRIGGERED' && s.stop_price != null) {
@@ -360,13 +378,22 @@ async function init() {
   const scanTime = data.generated_at ? new Date(data.generated_at).toLocaleString() : '—';
   metaEl.innerHTML = `Last scan <strong>${scanTime}</strong> · <strong>${assets.length}</strong> on watch`;
 
-  const counts = { '1H': 0, '4H': 0, '1D': 0, '1W': 0 };
-  assets.forEach(a => { if (counts[a.higher_tf] != null) counts[a.higher_tf]++; });
-  document.querySelectorAll('#controls .chip').forEach(chip => {
+  const tfCounts = { '1H': 0, '4H': 0, '1D': 0, '1W': 0 };
+  assets.forEach(a => { if (tfCounts[a.higher_tf] != null) tfCounts[a.higher_tf]++; });
+  document.querySelectorAll('#tf-controls .chip').forEach(chip => {
     const tf = chip.dataset.tf;
     const label = tf === 'ALL' ? 'All timeframes' : tf;
-    const count = tf === 'ALL' ? assets.length : counts[tf];
+    const count = tf === 'ALL' ? assets.length : tfCounts[tf];
     chip.innerHTML = `${label} <span class="chip-count">${count}</span>`;
+  });
+
+  const stateCounts = { WATCHING: 0, PULLBACK: 0, CONVERGING: 0, TRIGGERED: 0 };
+  assets.forEach(a => { stateCounts[bestLowerTfState(a)]++; });
+  const stateLabels = { ALL: 'All statuses', WATCHING: 'Watching', PULLBACK: 'Pullback', CONVERGING: 'Converging', TRIGGERED: 'Triggered' };
+  document.querySelectorAll('#state-controls .chip').forEach(chip => {
+    const st = chip.dataset.state;
+    const count = st === 'ALL' ? assets.length : stateCounts[st];
+    chip.innerHTML = `${stateLabels[st]} <span class="chip-count">${count}</span>`;
   });
 
   if (assets.length === 0) {
@@ -387,7 +414,7 @@ async function init() {
     <div class="wl-group">
       <div class="wl-group-label">${CATEGORY_LABELS[cls] || cls}</div>
       ${grouped[cls].map(a => `
-        <div class="wl-item" data-id="${a._id}" data-tf="${a.higher_tf}">
+        <div class="wl-item" data-id="${a._id}" data-tf="${a.higher_tf}" data-state="${bestLowerTfState(a)}">
           <div class="wl-left">
             <div class="wl-sym">${a.display_name}</div>
             <div class="wl-name">${a.ticker}</div>
@@ -403,12 +430,22 @@ async function init() {
   `).join('');
   document.querySelectorAll('.wl-item').forEach(el => el.addEventListener('click', () => selectAsset(el.dataset.id, assetsById)));
 
-  document.querySelectorAll('#controls .chip').forEach(chip => {
+  function applyFilters() {
+    const activeTf = document.querySelector('#tf-controls .chip.active')?.dataset.tf || 'ALL';
+    const activeState = document.querySelector('#state-controls .chip.active')?.dataset.state || 'ALL';
+    document.querySelectorAll('.wl-item').forEach(item => {
+      const tfMatch = activeTf === 'ALL' || item.dataset.tf === activeTf;
+      const stateMatch = activeState === 'ALL' || item.dataset.state === activeState;
+      item.style.display = (tfMatch && stateMatch) ? '' : 'none';
+    });
+  }
+
+  document.querySelectorAll('#tf-controls .chip, #state-controls .chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      document.querySelectorAll('#controls .chip').forEach(c => c.classList.remove('active'));
+      const group = chip.closest('.controls');
+      group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
-      const tf = chip.dataset.tf;
-      document.querySelectorAll('.wl-item').forEach(item => { item.style.display = (tf === 'ALL' || item.dataset.tf === tf) ? '' : 'none'; });
+      applyFilters();
     });
   });
 
