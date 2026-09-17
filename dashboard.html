@@ -86,7 +86,10 @@
   .chart-block { margin-bottom: 10px; }
   .chart-block-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }
   .chart-block-label { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--ink); }
-  .chart-box { width: 100%; height: 320px; }
+  .chart-box { width: 100%; height: 320px; position: relative; }
+  .stop-price-label { position: absolute; left: 6px; transform: translateY(-50%); font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 2px; z-index: 3; white-space: nowrap; pointer-events: none; }
+  .stop-price-label.buy { background: var(--gain); color: var(--surface); }
+  .stop-price-label.sell { background: var(--loss); color: var(--surface); }
   .macd-box { width: 100%; height: 110px; margin-top: 4px; }
   .chart-placeholder { width: 100%; height: 320px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); background: var(--surface-raised); border: 1px dashed var(--border); border-radius: 3px; text-align: center; padding: 0 20px; }
 
@@ -225,9 +228,21 @@ function renderBlock(candles, chartElId, macdElId, stopInfo, visibleCount) {
     candleSeries.createPriceLine({
       price: stopInfo.price,
       color: stopInfo.side === 'buy' ? cssVar('--gain') : cssVar('--loss'),
-      lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
-      title: stopInfo.side === 'buy' ? 'Buy Stop' : 'Sell Stop'
+      lineWidth: 1, lineStyle: 2, axisLabelVisible: false,
+      title: ''
     });
+    // Built-in axis labels only dock to the right price scale, where they
+    // sit on top of the most recent candles. Draw our own label pinned to
+    // the left edge instead, at the same price-derived y-coordinate.
+    const y = candleSeries.priceToCoordinate(stopInfo.price);
+    if (y != null) {
+      const clampedY = Math.max(10, Math.min(chartEl.clientHeight - 10, y));
+      const label = document.createElement('div');
+      label.className = `stop-price-label ${stopInfo.side}`;
+      label.textContent = `${stopInfo.side === 'buy' ? 'Buy' : 'Sell'} Stop ${stopInfo.price}`;
+      label.style.top = `${clampedY}px`;
+      chartEl.appendChild(label);
+    }
   }
 
   const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderColor: cssVar('--border'), visible: false, minimumWidth: 66 }, timeScale: { visible: false, borderColor: cssVar('--border') } });
