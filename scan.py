@@ -230,9 +230,16 @@ def update_lower_tf_state(entry: dict, ltf: str, trigger_events: list) -> None:
     # already fully played out before this entry existed.
     needs_backfill = ltf_state.pop("needs_backfill", False)
     if needs_backfill and entry.get("htf_trigger_time") is not None:
-        bias = pd.Series(None, index=df.index, dtype=object)
+        # tz-normalize before comparing — df.index may be tz-aware (e.g.
+        # yfinance returns exchange-local tz for some tickers) while
+        # trigger_ts's offset, parsed back from a stored ISO string, isn't
+        # guaranteed to match; comparing mismatched tz-awareness raises.
+        idx = df.index.tz_localize(None) if df.index.tz is not None else df.index
         trigger_ts = pd.Timestamp(entry["htf_trigger_time"])
-        bias[df.index >= trigger_ts] = entry["direction"]
+        if trigger_ts.tzinfo is not None:
+            trigger_ts = trigger_ts.tz_localize(None)
+        active_mask = idx >= trigger_ts
+        bias = pd.Series([entry["direction"] if m else None for m in active_mask], index=df.index)
         _, current_state = backtest.replay_lower_tf(df, bias, entry, entry["higher_tf"], ltf)
         ltf_state.update(current_state)
         ltf_state["updated_at"] = now_iso()
