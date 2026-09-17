@@ -142,6 +142,25 @@ METALS = {
     "PALLADIUM": "PA=F",
 }
 
+INDICES = {
+    # display_name: yfinance index ticker (Yahoo's "^"-prefixed symbols)
+    "US30": "^DJI",
+    "US500": "^GSPC",
+    "USNAS100": "^IXIC",
+    "UK100": "^FTSE",
+    "GER40": "^GDAXI",
+    "JPN225": "^N225",
+    "HK50": "^HSI",
+    "FRA40": "^FCHI",
+    "AUS200": "^AXJO",
+    "INDIA_SENSEX": "^BSESN",
+}
+
+ENERGY = {
+    "OIL_WTI": "CL=F",
+    "OIL_BRENT": "BZ=F",
+}
+
 # Kraken, not Binance: Binance.com geo-blocks GitHub Actions' US-based
 # runner IPs with HTTP 451 (confirmed in production — see git history).
 # Kraken is US-licensed and has no such block. Its dollar-quoted pairs use

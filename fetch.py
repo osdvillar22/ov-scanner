@@ -162,13 +162,13 @@ def fetch_ohlc(asset_class: str, symbol_or_ticker: str, timeframe: str) -> pd.Da
     """
     Single entry point scan.py should call, regardless of asset class.
 
-    asset_class: one of "forex", "metals", "crypto"
-    symbol_or_ticker: the yfinance ticker (forex/metals) or Kraken pair
-                       (crypto) — NOT the display name.
+    asset_class: one of "forex", "metals", "indices", "energy", "crypto"
+    symbol_or_ticker: the yfinance ticker (forex/metals/indices/energy) or
+                       Kraken pair (crypto) — NOT the display name.
     """
     if asset_class == "crypto":
         return fetch_kraken_ohlc(symbol_or_ticker, timeframe)
-    if asset_class in ("forex", "metals"):
+    if asset_class in ("forex", "metals", "indices", "energy"):
         return fetch_yfinance_ohlc(symbol_or_ticker, timeframe)
 
     logger.error("Unknown asset class: %s", asset_class)
