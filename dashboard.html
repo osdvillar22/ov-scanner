@@ -188,7 +188,7 @@ const cssVar = (name) => css.getPropertyValue(name).trim();
 const chartTheme = {
   layout: { background: { type: 'solid', color: 'transparent' }, textColor: cssVar('--ink-dim'), fontFamily: "'IBM Plex Mono', monospace", fontSize: 10 },
   grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-  rightPriceScale: { borderColor: cssVar('--border'), scaleMargins: { top: 0.12, bottom: 0.18 }, minimumWidth: 66 },
+  rightPriceScale: { borderColor: cssVar('--border'), scaleMargins: { top: 0.12, bottom: 0.18 }, minimumWidth: 80 },
   timeScale: { borderColor: cssVar('--border'), timeVisible: false, secondsVisible: false },
   crosshair: { mode: 0 },
   handleScroll: false,
@@ -245,7 +245,7 @@ function renderBlock(candles, chartElId, macdElId, stopInfo, visibleCount) {
     }
   }
 
-  const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderColor: cssVar('--border'), visible: false, minimumWidth: 66 }, timeScale: { visible: false, borderColor: cssVar('--border') } });
+  const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderVisible: false, textColor: 'transparent', minimumWidth: 80 }, timeScale: { visible: false, borderColor: cssVar('--border') } });
   activeCharts.push(macdChart);
   const histSeries = macdChart.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
   histSeries.setData(candles.filter(c => c.macd_hist != null).map(c => ({ time: c.time, value: c.macd_hist, color: c.macd_hist >= 0 ? 'rgba(79,169,114,0.55)' : 'rgba(168,64,44,0.55)' })));
