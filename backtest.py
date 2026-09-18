@@ -151,11 +151,21 @@ def htf_trigger_origin(df_htf: pd.DataFrame) -> dict | None:
     # element access), so `is None` would never actually match here.
     if pd.isna(last["bias"]):
         return None
+    trigger_time = df_htf.index[int(last["trigger_idx"])]
+    # Always return a tz-AWARE UTC timestamp, even when the source data is
+    # tz-naive (Kraken's OHLC index has no tzinfo, though its values are
+    # UTC). Without this, .isoformat() on a naive Timestamp omits the
+    # offset (e.g. "2026-09-18T06:00:00"), and a browser's `new Date(...)`
+    # interprets a timezone-less string as LOCAL time, not UTC — shifting
+    # the dashboard's RSI-trigger marker onto the wrong candle by however
+    # many hours the viewer's timezone is offset from UTC. Only crypto hit
+    # this (yfinance's tz-aware timestamps already carry an explicit offset).
+    trigger_time = trigger_time.tz_localize("UTC") if trigger_time.tzinfo is None else trigger_time.tz_convert("UTC")
     return {
         "direction": last["bias"],
         "htf_candle_count": int(last["age"]),
         "rsi_at_trigger": round(float(last["trigger_rsi"]), 2),
-        "trigger_time": df_htf.index[int(last["trigger_idx"])],
+        "trigger_time": trigger_time,
     }
 
 
