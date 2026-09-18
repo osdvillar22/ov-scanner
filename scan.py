@@ -139,13 +139,34 @@ def scan_higher_timeframe(asset: dict, htf: str, state: dict, watch_events: list
 
     # Advance the visibility-window counter exactly once per new closed bar,
     # regardless of whether RSI is still outside the band.
+    new_bar_closed = False
     if entry is not None:
         if entry.get("last_htf_bar_time") != latest_bar_time:
             entry["htf_candle_count"] = entry.get("htf_candle_count", 0) + 1
             entry["last_htf_bar_time"] = latest_bar_time
+            new_bar_closed = True
 
     is_overbought = rsi > config.RSI_OVERBOUGHT
     is_oversold = rsi < config.RSI_OVERSOLD
+
+    if entry is not None and new_bar_closed and (is_overbought or is_oversold):
+        # A fresh RSI extreme just printed on an already-watchlisted asset —
+        # re-anchor the entry setup to THIS candle instead of the stale one
+        # that first triggered the watch (same rule as htf_bias_series).
+        # Any pullback/breakout progress tied to the old anchor no longer
+        # applies, so every lower-tf tracker resets to WATCHING.
+        new_direction = config.DIRECTION_BULLISH if is_overbought else config.DIRECTION_BEARISH
+        entry["direction"] = new_direction
+        entry["rsi_at_trigger"] = round(float(rsi), 2)
+        entry["htf_candle_count"] = 0
+        entry["htf_trigger_time"] = df.index[-1].isoformat()
+        for ltf_state in entry["lower_tf_states"].values():
+            ltf_state.clear()
+            ltf_state.update({"state": config.STATE_WATCHING, "updated_at": now_iso()})
+        logger.info(
+            "RE-ANCHORED: %s %s RSI=%.1f (%s) — fresh extreme, entry-setup tracking reset",
+            asset["display_name"], htf, rsi, new_direction,
+        )
 
     if entry is None and (is_overbought or is_oversold):
         direction = config.DIRECTION_BULLISH if is_overbought else config.DIRECTION_BEARISH
@@ -239,8 +260,16 @@ def update_lower_tf_state(entry: dict, ltf: str, trigger_events: list) -> None:
         if trigger_ts.tzinfo is not None:
             trigger_ts = trigger_ts.tz_localize(None)
         active_mask = idx >= trigger_ts
-        bias = pd.Series([entry["direction"] if m else None for m in active_mask], index=df.index)
-        _, current_state = backtest.replay_lower_tf(df, bias, entry, entry["higher_tf"], ltf)
+        # A single constant anchor (trigger_ts) for the whole active stretch
+        # is correct here, not just a simplification: htf_trigger_origin
+        # already found the LATEST anchor as of the latest bar (that's what
+        # "origin" means post re-anchoring — see htf_bias_series), so there
+        # is no later re-anchor event hiding inside this replay window.
+        bias_df = pd.DataFrame({
+            "bias": [entry["direction"] if m else None for m in active_mask],
+            "anchor": [trigger_ts if m else None for m in active_mask],
+        }, index=df.index)
+        _, current_state = backtest.replay_lower_tf(df, bias_df, entry, entry["higher_tf"], ltf)
         ltf_state.update(current_state)
         ltf_state["updated_at"] = now_iso()
         ltf_state["candles"] = serialize_candles(df)
@@ -253,6 +282,8 @@ def update_lower_tf_state(entry: dict, ltf: str, trigger_events: list) -> None:
     latest = df.iloc[-1]
 
     price = latest["close"]
+    high = latest["high"]
+    low = latest["low"]
     lsma = latest["lsma"]
     macd_hist = latest["macd_hist"]
     macd = latest["macd"]
@@ -262,6 +293,45 @@ def update_lower_tf_state(entry: dict, ltf: str, trigger_events: list) -> None:
         return  # indicators not warmed up yet for this slice — try again next run
 
     direction = entry["direction"]
+
+    # A live-but-unfilled entry order needs two checks before anything else:
+    # did price reach it (fill), or did price invalidate it (a new swing
+    # past the recorded risk stop before it ever filled)? Either way this
+    # candle's normal pullback logic doesn't apply this run — a fill just
+    # updates price/candles and stays sticky; a cancel falls through below
+    # to re-track a fresh pullback under the same still-active bias.
+    if ltf_state["state"] == config.STATE_TRIGGERED and not ltf_state.get("filled", False):
+        stop_price = ltf_state.get("stop_price")
+        filled_now = stop_price is not None and (
+            (high >= stop_price) if direction == config.DIRECTION_BULLISH else (low <= stop_price)
+        )
+        if filled_now:
+            ltf_state["filled"] = True
+            ltf_state["filled_at"] = now_iso()
+            ltf_state["updated_at"] = now_iso()
+            ltf_state["price"] = round(float(price), 6)
+            ltf_state["candles"] = serialize_candles(df)
+            logger.info("FILLED: %s %s entry order filled @ %.6f", entry["display_name"], ltf, stop_price)
+            return
+
+        risk_stop = ltf_state.get("risk_stop_price")
+        invalidated = risk_stop is not None and (
+            (low < risk_stop) if direction == config.DIRECTION_BULLISH else (high > risk_stop)
+        )
+        if invalidated:
+            logger.info(
+                "CANCELLED: %s %s setup invalidated before fill (new swing past stop %.6f) — resetting to WATCHING",
+                entry["display_name"], ltf, risk_stop,
+            )
+            ltf_state.clear()
+            ltf_state.update({"state": config.STATE_WATCHING, "updated_at": now_iso()})
+            # fall through — re-evaluate this same bar fresh below
+        else:
+            ltf_state["updated_at"] = now_iso()
+            ltf_state["price"] = round(float(price), 6)
+            ltf_state["candles"] = serialize_candles(df)
+            return
+
     prev_state = ltf_state["state"]
 
     # "Wrong side" of LSMA depends on direction: bullish continuation wants
@@ -278,8 +348,8 @@ def update_lower_tf_state(entry: dict, ltf: str, trigger_events: list) -> None:
     macd_close = macd_gap_pct <= config.MACD_CLOSENESS_PCT
 
     if prev_state == config.STATE_TRIGGERED:
-        # Sticky once triggered — the stop level already fired, we just keep
-        # showing it for the rest of the visibility window.
+        # Only reachable here already-filled (unfilled TRIGGERED is handled
+        # + returned above) — sticky for the rest of the visibility window.
         new_state = config.STATE_TRIGGERED
     elif on_wrong_side:
         new_state = config.STATE_CONVERGING if macd_close else config.STATE_PULLBACK
@@ -291,6 +361,15 @@ def update_lower_tf_state(entry: dict, ltf: str, trigger_events: list) -> None:
             new_state = config.STATE_TRIGGERED
         else:
             new_state = config.STATE_WATCHING
+
+    if new_state in (config.STATE_PULLBACK, config.STATE_CONVERGING):
+        # Running extreme of the whole pullback episode — this becomes the
+        # risk stop-loss if/when it breaks out into TRIGGERED.
+        prev_extreme = ltf_state.get("risk_stop_price")
+        if direction == config.DIRECTION_BULLISH:
+            ltf_state["risk_stop_price"] = round(float(low) if prev_extreme is None else min(prev_extreme, float(low)), 6)
+        else:
+            ltf_state["risk_stop_price"] = round(float(high) if prev_extreme is None else max(prev_extreme, float(high)), 6)
 
     ltf_state["state"] = new_state
     ltf_state["updated_at"] = now_iso()
@@ -304,6 +383,7 @@ def update_lower_tf_state(entry: dict, ltf: str, trigger_events: list) -> None:
         stop_price = float(latest["high"]) if direction == config.DIRECTION_BULLISH else float(latest["low"])
         ltf_state["stop_price"] = round(stop_price, 6)
         ltf_state["stop_type"] = "BUY_STOP" if direction == config.DIRECTION_BULLISH else "SELL_STOP"
+        ltf_state["filled"] = False
         trigger_events.append({
             "display_name": entry["display_name"],
             "asset_class": entry["asset_class"],

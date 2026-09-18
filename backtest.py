@@ -80,9 +80,15 @@ def htf_bias_series(df_htf: pd.DataFrame) -> pd.DataFrame:
     exactly (expiry after VISIBILITY_WINDOW_CANDLES, immediate re-arm on a
     fresh extreme the same bar an old one expires).
 
+    A fresh RSI extreme ALWAYS re-anchors trigger_idx/age to itself, even if
+    a window is already active in the same direction — the lower-tf entry
+    setup should only ever track the pullback since the LATEST extreme, not
+    a stale earlier one from the same window (this is what makes the
+    strategy a momentum strategy, per the user's explicit rule).
+
     Returns a DataFrame (indexed like df_htf) with:
       bias         - active direction or None
-      age          - candles since the current active window's trigger bar
+      age          - candles since the current anchor's trigger bar
       trigger_idx  - integer position of that trigger bar
       trigger_rsi  - RSI value at that trigger bar
     trigger_idx/trigger_rsi let a caller find the *real* origin of the
@@ -104,19 +110,16 @@ def htf_bias_series(df_htf: pd.DataFrame) -> pd.DataFrame:
             continue
         is_ob = r > config.RSI_OVERBOUGHT
         is_os = r < config.RSI_OVERSOLD
-        if active_direction is None:
-            if is_ob:
-                active_direction, candles_since_trigger, trigger_idx = config.DIRECTION_BULLISH, 0, i
-            elif is_os:
-                active_direction, candles_since_trigger, trigger_idx = config.DIRECTION_BEARISH, 0, i
-        else:
+
+        if active_direction is not None:
             candles_since_trigger += 1
             if candles_since_trigger > config.VISIBILITY_WINDOW_CANDLES:
                 active_direction, candles_since_trigger, trigger_idx = None, 0, None
-                if is_ob:
-                    active_direction, trigger_idx = config.DIRECTION_BULLISH, i
-                elif is_os:
-                    active_direction, trigger_idx = config.DIRECTION_BEARISH, i
+
+        fresh_extreme = config.DIRECTION_BULLISH if is_ob else (config.DIRECTION_BEARISH if is_os else None)
+        if fresh_extreme is not None:
+            active_direction, candles_since_trigger, trigger_idx = fresh_extreme, 0, i
+
         bias[i] = active_direction
         if active_direction is not None:
             age[i] = candles_since_trigger
@@ -135,7 +138,10 @@ def htf_trigger_origin(df_htf: pd.DataFrame) -> dict | None:
     already-fetched history instead of always starting at "now"."""
     info = htf_bias_series(df_htf)
     last = info.iloc[-1]
-    if last["bias"] is None:
+    # pd.isna(), not `is None`: a "bias" column mixing strings and None gets
+    # silently coerced (pandas 3.x string dtype turns None into float nan on
+    # element access), so `is None` would never actually match here.
+    if pd.isna(last["bias"]):
         return None
     return {
         "direction": last["bias"],
@@ -145,34 +151,56 @@ def htf_trigger_origin(df_htf: pd.DataFrame) -> dict | None:
     }
 
 
-def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.Series, asset: dict, higher_tf: str, entry_tf: str):
+def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.DataFrame, asset: dict, higher_tf: str, entry_tf: str):
     """Walk the lower-tf bars in order, replaying PULLBACK/CONVERGING/TRIGGERED,
     simulate fill + win/loss/unresolved for every setup it produces, and track
     the state as of the final bar.
 
+    `bias` is a DataFrame (indexed like df_ltf) with columns:
+      bias    - active direction (BULLISH/BEARISH) or None
+      anchor  - an opaque identity for the CURRENT anchor bar (its higher-tf
+                trigger timestamp). Needed alongside `bias` because a fresh
+                RSI extreme can re-anchor the window to itself without the
+                *direction* changing (see htf_bias_series) — the lower-tf
+                machine has to reset in that case too, not just on a
+                direction flip.
+
+    A TRIGGERED setup that hasn't filled yet gets cancelled — dropped back
+    to WATCHING to immediately re-track a fresh pullback under the same
+    still-active bias — if either: price makes a new swing past the
+    setup's own risk stop-loss before it ever fills, or it simply times
+    out (FILL_TIMEOUT_BARS). Neither counts as a trade.
+
     Returns (trades, current_state) — current_state is a dict matching
     scan.py's ltf_state schema (state/price/lsma/macd_gap_pct[/stop_price/
-    stop_type]), used to backfill a freshly-discovered entry's real state
-    instead of cold-starting it at WATCHING."""
+    stop_type/risk_stop_price/filled]), used to backfill a freshly-discovered
+    entry's real state instead of cold-starting it at WATCHING."""
     trades: list[Trade] = []
     state = config.STATE_WATCHING
     direction = None
+    anchor = None
     pullback_low = None
     pullback_high = None
     pending_setup: Setup | None = None
     fill_wait = 0
+    filled = False
     last_stop_price = None
     last_stop_type = None
+    last_risk_stop_price = None
     last_macd_gap_pct = None
 
     n = len(df_ltf)
     for i in range(n):
         row = df_ltf.iloc[i]
-        bar_bias = bias.iloc[i]
+        bar_bias = bias["bias"].iloc[i]
+        bar_anchor = bias["anchor"].iloc[i]
         close, high, low = row["close"], row["high"], row["low"]
         lsma, macd, macd_signal, macd_hist = row["lsma"], row["macd"], row["macd_signal"], row["macd_hist"]
 
-        # Handle a pending (TRIGGERED but not yet filled) setup first.
+        # Handle a pending (TRIGGERED but not yet filled) setup first: fill,
+        # price-based invalidation, or timeout. Any discard here drops
+        # straight back to WATCHING and falls through to re-evaluate this
+        # same bar fresh, instead of staying stuck sticky at TRIGGERED.
         if pending_setup is not None:
             fill_wait += 1
             hit = (high >= pending_setup.entry_price) if pending_setup.direction == config.DIRECTION_BULLISH \
@@ -187,19 +215,32 @@ def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.Series, asset: dict, higher_t
                     target_price=pending_setup.target_price, outcome=outcome,
                 ))
                 pending_setup = None
-            elif fill_wait > FILL_TIMEOUT_BARS:
-                pending_setup = None
+                filled = True
+            else:
+                invalidated = (low < pending_setup.stop_loss_price) if pending_setup.direction == config.DIRECTION_BULLISH \
+                    else (high > pending_setup.stop_loss_price)
+                if invalidated or fill_wait > FILL_TIMEOUT_BARS:
+                    pending_setup = None
+                    state = config.STATE_WATCHING
+                    pullback_low = pullback_high = None
 
-        if bar_bias is None or pd.isna(lsma) or pd.isna(macd):
+        # pd.isna(), not `is None` — see htf_trigger_origin's note: a "bias"
+        # column mixing strings and None gets coerced under pandas 3.x, so
+        # `bar_bias is None` would never match an inactive bar here.
+        if pd.isna(bar_bias) or pd.isna(lsma) or pd.isna(macd):
             state = config.STATE_WATCHING
             direction = None
+            anchor = None
             continue
 
-        if bar_bias != direction:
-            # Bias changed (new trigger, flipped, or expired) — reset the lower-tf machine.
+        if bar_bias != direction or bar_anchor != anchor:
+            # Bias/anchor changed (new trigger, flip, re-anchor to a fresher
+            # extreme, or expiry) — reset the lower-tf machine.
             direction = bar_bias
+            anchor = bar_anchor
             state = config.STATE_WATCHING
             pullback_low = pullback_high = None
+            filled = False
 
         if direction == config.DIRECTION_BULLISH:
             on_wrong_side = close < lsma
@@ -236,11 +277,13 @@ def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.Series, asset: dict, higher_t
                 target_price = entry_price + risk if direction == config.DIRECTION_BULLISH else entry_price - risk
                 pending_setup = Setup(i, direction, entry_price, stop_loss_price, target_price)
                 fill_wait = 0
+                filled = False
                 # scan.py's ltf_state["stop_price"] means the entry buy/sell-stop
                 # order price — same thing as Setup.entry_price here, not the
                 # risk stop-loss (naming collision between the two modules).
                 last_stop_price = round(entry_price, 6)
                 last_stop_type = "BUY_STOP" if direction == config.DIRECTION_BULLISH else "SELL_STOP"
+                last_risk_stop_price = round(stop_loss_price, 6)
 
         state = new_state
 
@@ -254,6 +297,8 @@ def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.Series, asset: dict, higher_t
     if state == config.STATE_TRIGGERED and last_stop_price is not None:
         current_state["stop_price"] = last_stop_price
         current_state["stop_type"] = last_stop_type
+        current_state["risk_stop_price"] = last_risk_stop_price
+        current_state["filled"] = filled
 
     return trades, current_state
 
@@ -284,6 +329,14 @@ def backtest_asset_timeframe(asset: dict, higher_tf: str) -> list:
         return []
     df_htf = indicators.compute_all(df_htf)
     bias_df = htf_bias_series(df_htf)
+    # anchor = the actual timestamp of each bar's current trigger bar, so a
+    # same-direction re-anchor (a fresher extreme superseding an older one,
+    # per htf_bias_series) is still detectable after merge_asof onto the
+    # lower tf — trigger_idx alone wouldn't survive the join meaningfully.
+    htf_anchor_time = [
+        df_htf.index[int(t)] if t is not None else None
+        for t in bias_df["trigger_idx"]
+    ]
 
     all_trades = []
     for entry_tf in config.LOWER_TF_MAP[higher_tf]:
@@ -294,11 +347,12 @@ def backtest_asset_timeframe(asset: dict, higher_tf: str) -> list:
 
         idx_htf = bias_df.index.tz_localize(None) if bias_df.index.tz is not None else bias_df.index
         idx_ltf = df_ltf.index.tz_localize(None) if df_ltf.index.tz is not None else df_ltf.index
-        bias_aligned = pd.merge_asof(
+        merged = pd.merge_asof(
             pd.DataFrame({"t": idx_ltf}).sort_values("t"),
-            pd.DataFrame({"t": idx_htf, "bias": bias_df["bias"].values}).sort_values("t"),
+            pd.DataFrame({"t": idx_htf, "bias": bias_df["bias"].values, "anchor": htf_anchor_time}).sort_values("t"),
             on="t", direction="backward",
-        )["bias"]
+        )
+        bias_aligned = pd.DataFrame({"bias": merged["bias"].values, "anchor": merged["anchor"].values})
         bias_aligned.index = df_ltf.index
 
         trades, _ = replay_lower_tf(df_ltf, bias_aligned, asset, higher_tf, entry_tf)

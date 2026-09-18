@@ -94,8 +94,10 @@ DIRECTION_BEARISH = "BEARISH"  # RSI < 30 -> continuation bias down -> sell the 
 
 # How many candles of the *triggering* (higher) timeframe an asset stays
 # visible for once it enters WATCHING — even if RSI reverts back inside
-# 30/70 partway through. Confirmed default; tune once you've watched it run.
-VISIBILITY_WINDOW_CANDLES = 20
+# 30/70 partway through. Lowered from 20 to 10: this is a momentum strategy,
+# so the entry-setup re-tracking window (see htf_bias_series's re-anchoring)
+# should stay short-lived too.
+VISIBILITY_WINDOW_CANDLES = 10
 
 # How many trailing candles of OHLC + indicator history to persist per
 # (asset, timeframe) into state.json/data.json for dashboard.html's charts.
