@@ -21,6 +21,16 @@ LOWER_TF_MAP = {
     "1W": ["1D", "4H"],
 }
 
+# The "one step up" timeframe used only for the watch-trigger's cross-
+# timeframe LSMA confirmation (see scan.find_phase_a_origin) — never
+# scanned or watchlisted on its own, and never shown on the dashboard.
+AUTO_HIGHER_TF = {
+    "1H": "4H",
+    "4H": "1D",
+    "1D": "1W",
+    "1W": "1M",
+}
+
 # yfinance's native intraday intervals. Anything not in this dict (4H) has to
 # be resampled from 1H bars ourselves — see fetch.resample_to_4h().
 YFINANCE_NATIVE_INTERVAL = {
@@ -30,6 +40,7 @@ YFINANCE_NATIVE_INTERVAL = {
     "1H": "60m",
     "1D": "1d",
     "1W": "1wk",
+    "1M": "1mo",
 }
 
 # Kraken's OHLC endpoint takes interval-in-minutes and supports all of these
@@ -82,6 +93,12 @@ MACD_CLOSENESS_PCT = 0.02
 # some cushion for missing/holiday bars.
 MIN_WARMUP_BARS = 250
 
+# The AUTO_HIGHER_TF lookup only ever needs that timeframe's LSMA — not
+# RSI/MACD — so it doesn't need MIN_WARMUP_BARS' full headroom. That
+# matters most for "1M": 250 *months* of history doesn't exist for most
+# tickers, but LSMA(50) only needs 50 bars regardless of timeframe.
+LSMA_WARMUP_BARS = LSMA_LENGTH + 10
+
 # ---------------------------------------------------------------------------
 # State machine — used only by backtest.py's standalone pullback-entry
 # research tool now. The live scanner (scan.py) is Phase A only: it just
@@ -97,11 +114,10 @@ STATE_TRIGGERED = "TRIGGERED"
 DIRECTION_BULLISH = "BULLISH"  # RSI > 70 -> bullish continuation bias
 DIRECTION_BEARISH = "BEARISH"  # RSI < 30 -> bearish continuation bias
 
-# How many candles of the *triggering* (higher) timeframe an asset stays
-# visible for once it enters WATCHING — even if RSI reverts back inside
-# 30/70 partway through. A fresh RSI extreme within this window always
-# re-anchors the count and the trigger candle to itself (see
-# backtest.htf_trigger_origin) instead of staying pinned to the original one.
+# Used only by backtest.py's standalone RSI-only research tool now. The
+# live scanner's Phase A watchlist (scan.find_phase_a_origin) has no fixed
+# candle cap — an asset stays watchlisted until the trend-break invalidation
+# condition fires, however long that takes.
 VISIBILITY_WINDOW_CANDLES = 20
 
 # How many trailing candles of OHLC + indicator history to persist per

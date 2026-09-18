@@ -76,8 +76,6 @@
   .rsi-badge.bearish { background: rgba(168,64,44,0.12); color: var(--loss); border-color: rgba(168,64,44,0.3); }
 
   .watch-window { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-dim); margin-top: 10px; padding: 8px 10px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 3px; }
-  .watch-window .bar { display: inline-block; height: 4px; background: var(--border); border-radius: 2px; flex: 1; overflow: hidden; margin: 0 8px; position: relative; top: 1px; }
-  .watch-window .bar-fill { display: block; height: 100%; background: var(--gold-bright); }
   .watch-window-row { display: flex; align-items: center; }
 
   .legend-row { display: flex; gap: 12px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); margin: 14px 0 14px; }
@@ -243,26 +241,22 @@ function selectAsset(id, assetsById) {
   const detailEl = document.getElementById('detail');
   const direction = entry.direction;
   const dc = dirClass(direction);
-  const visWindow = entry._visWindow || 20;
-  const barsLeft = Math.max(0, visWindow - entry.htf_candle_count);
-  const windowPct = Math.min(100, (entry.htf_candle_count / visWindow) * 100);
   const lowerTfs = Object.keys(entry.lower_tf_candles || {});
+  const sinceWord = entry.candles_since_trigger === 1 ? 'candle' : 'candles';
 
   detailEl.innerHTML = `
     <div class="detail-top">
       <div>
         <div class="detail-sym">${entry.display_name}</div>
         <div class="detail-name">${entry.ticker}</div>
-        <div class="detail-thesis">${entry.higher_tf} RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} (fired at ${entry.rsi_at_trigger}) — <strong>${dc} continuation</strong>.</div>
+        <div class="detail-thesis">${entry.higher_tf} trend + LSMA + RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} aligned (fired at RSI ${entry.rsi_at_trigger}) — <strong>${dc} continuation</strong>.</div>
       </div>
       <div class="badge-group"><span class="tf-badge">${entry.higher_tf}</span><span class="rsi-badge ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
     </div>
 
     <div class="watch-window">
       <div class="watch-window-row">
-        <span>Bar ${entry.htf_candle_count} / ${visWindow} (${entry.higher_tf})</span>
-        <span class="bar"><span class="bar-fill" style="width:${windowPct}%"></span></span>
-        <span>${entry.htf_candle_count > visWindow ? 'past default window — kept visible' : barsLeft + ' left'}</span>
+        <span>Triggered ${entry.candles_since_trigger} ${sinceWord} ago (${entry.higher_tf}) — stays until price closes back through LSMA + EMA20</span>
       </div>
     </div>
 
@@ -329,8 +323,6 @@ async function init() {
   }
 
   const assets = data.assets || [];
-  const visWindow = data.visibility_window_candles || 20;
-  assets.forEach(a => { a._visWindow = visWindow; });
 
   const metaEl = document.getElementById('scanMeta');
   const scanTime = data.generated_at ? new Date(data.generated_at).toLocaleString() : '—';
@@ -376,7 +368,7 @@ async function init() {
           <div class="wl-left">
             <div class="wl-sym">${a.display_name}</div>
             <div class="wl-name">${a.ticker}</div>
-            <div class="wl-sub">Bar ${a.htf_candle_count} / ${a._visWindow}</div>
+            <div class="wl-sub">${a.candles_since_trigger} ${a.candles_since_trigger === 1 ? 'candle' : 'candles'} ago</div>
           </div>
           <div class="wl-right">
             <span class="wl-tf">${a.higher_tf}</span>

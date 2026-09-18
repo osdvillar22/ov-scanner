@@ -71,6 +71,19 @@ def resample_to_4h(df_1h: pd.DataFrame, session_anchor_hour: int = 9) -> pd.Data
     return resampled.dropna(subset=["open", "high", "low", "close"])
 
 
+def resample_to_1mo(df_1d: pd.DataFrame) -> pd.DataFrame:
+    """Kraken has no native monthly interval (its OHLC endpoint tops out at
+    a 15-day bucket), so "1M" is built from daily bars — calendar-month
+    buckets, same as yfinance's own "1mo" interval. The most recent bucket
+    is necessarily partial until the month actually closes."""
+    if df_1d is None or df_1d.empty:
+        return df_1d
+    resampled = df_1d.resample("MS").agg(
+        {"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}
+    )
+    return resampled.dropna(subset=["open", "high", "low", "close"])
+
+
 def fetch_yfinance_ohlc(ticker: str, timeframe: str) -> pd.DataFrame | None:
     """Public entry point for any yfinance-backed asset (forex/metals)."""
     if timeframe == "4H":
@@ -116,6 +129,9 @@ def get_kraken_usd_pairs() -> list[str]:
 def fetch_kraken_ohlc(pair: str, timeframe: str) -> pd.DataFrame | None:
     """Fetch OHLC candles for one Kraken pair/timeframe. Returns 350-720 bars
     depending on interval — comfortably above MIN_WARMUP_BARS either way."""
+    if timeframe == "1M":
+        return resample_to_1mo(fetch_kraken_ohlc(pair, "1D"))
+
     interval = config.KRAKEN_NATIVE_INTERVAL.get(timeframe)
     if interval is None:
         logger.error("No Kraken interval mapping for timeframe %s", timeframe)
