@@ -223,7 +223,7 @@ function addLevelLabel(chartEl, candleSeries, price, text, colorVar) {
   chartEl.appendChild(label);
 }
 
-function renderBlock(candles, chartElId, macdElId, setupInfo, visibleCount) {
+function renderBlock(candles, chartElId, macdElId, setupInfo, visibleCount, rsiTriggerInfo) {
   const chartEl = document.getElementById(chartElId);
   const macdEl = document.getElementById(macdElId);
 
@@ -294,6 +294,25 @@ function renderBlock(candles, chartElId, macdElId, setupInfo, visibleCount) {
       });
     }
     if (markers.length) candleSeries.setMarkers(markers);
+  }
+
+  if (rsiTriggerInfo) {
+    // The trigger-timeframe chart has no entry/stop/target — just mark the
+    // latest RSI-extreme candle itself. Neutral ink color (white in dark
+    // mode, black in light mode) on purpose, so it never blends into
+    // either a green or a red candle the way a gain/loss-colored arrow
+    // would on one of the two.
+    const t = toUnixTime(rsiTriggerInfo.time);
+    if (t != null) {
+      const isBuy = rsiTriggerInfo.direction === 'BULLISH';
+      candleSeries.setMarkers([{
+        time: t,
+        position: isBuy ? 'belowBar' : 'aboveBar',
+        color: cssVar('--ink'),
+        shape: isBuy ? 'arrowUp' : 'arrowDown',
+        text: 'RSI TRIGGER',
+      }]);
+    }
   }
 
   const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderVisible: false, textColor: 'transparent', minimumWidth: 80 }, timeScale: { visible: false, borderColor: cssVar('--border') } });
@@ -394,7 +413,8 @@ function selectAsset(id, assetsById) {
   `;
 
   const candles = entry.candles || [];
-  renderBlock(candles, 'detail-chart', 'detail-macd', null, 25);
+  const rsiTriggerInfo = entry.htf_trigger_time ? { time: entry.htf_trigger_time, direction } : null;
+  renderBlock(candles, 'detail-chart', 'detail-macd', null, 25, rsiTriggerInfo);
 
   if (candles.length > 1) {
     const lastClose = candles[candles.length - 1].close, firstClose = candles[0].close;
