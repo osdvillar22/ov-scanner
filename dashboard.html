@@ -87,32 +87,15 @@
   .chart-block-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }
   .chart-block-label { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--ink); }
   .chart-box { width: 100%; height: 320px; position: relative; }
-  .level-label { position: absolute; left: 6px; transform: translateY(-50%); font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 2px; z-index: 3; white-space: nowrap; pointer-events: none; color: var(--surface); background: var(--label-color, var(--ink-dim)); }
   .macd-box { width: 100%; height: 110px; margin-top: 4px; }
   .chart-placeholder { width: 100%; height: 320px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); background: var(--surface-raised); border: 1px dashed var(--border); border-radius: 3px; text-align: center; padding: 0 20px; }
-
-  .status-tag { font-family: var(--font-mono); font-size: 10px; padding: 3px 8px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; border: 1px solid transparent; }
-  .status-tag.watching { color: var(--ink-dim); background: var(--surface-raised); border-color: var(--border); }
-  .status-tag.pullback { color: var(--gold); background: rgba(201,162,39,0.14); border-color: rgba(201,162,39,0.35); }
-  .status-tag.converging { color: var(--blue); background: rgba(62,111,168,0.12); border-color: rgba(62,111,168,0.32); }
-  .status-tag.triggered-buy { color: var(--gain); background: rgba(47,122,79,0.16); border-color: rgba(47,122,79,0.4); }
-  .status-tag.triggered-sell { color: var(--loss); background: rgba(168,64,44,0.16); border-color: rgba(168,64,44,0.4); }
-  .status-tag.filled-buy { color: var(--surface); background: var(--gain); border-color: var(--gain); }
-  .status-tag.filled-sell { color: var(--surface); background: var(--loss); border-color: var(--loss); }
-
-  .stop-callout { font-family: var(--font-mono); font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 3px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-  .stop-callout.buy { background: rgba(47,122,79,0.12); color: var(--gain); border: 1px solid rgba(47,122,79,0.35); }
-  .stop-callout.sell { background: rgba(168,64,44,0.12); color: var(--loss); border: 1px solid rgba(168,64,44,0.35); }
-  .stop-callout.filled.buy { background: var(--gain); color: var(--surface); border-color: var(--gain); }
-  .stop-callout.filled.sell { background: var(--loss); color: var(--surface); border-color: var(--loss); }
-  .stop-callout .tag { font-size: 9.5px; opacity: 0.75; text-transform: uppercase; }
 
   .card-bottom { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 14px; padding: 10px 0; margin: -6px 0 18px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
   .card-bottom .price { font-weight: 600; }
   .card-bottom .pct.up { color: var(--gain); }
   .card-bottom .pct.down { color: var(--loss); }
 
-  .entry-setup-label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 0 12px; }
+  .section-label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 0 12px; }
 
   .empty-state { max-width: 1180px; margin: 60px auto; padding: 0 20px; text-align: center; color: var(--ink-dim); font-family: var(--font-mono); font-size: 13px; }
   .load-error { max-width: 1180px; margin: 60px auto; padding: 20px; text-align: left; color: var(--ink-dim); font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
@@ -153,12 +136,10 @@
     <span class="chip" data-tf="1W">1W</span>
   </div>
 
-  <div class="controls" id="state-controls">
-    <span class="chip active" data-state="ALL">All statuses</span>
-    <span class="chip" data-state="WATCHING">Watching</span>
-    <span class="chip" data-state="PULLBACK">Pullback</span>
-    <span class="chip" data-state="CONVERGING">Converging</span>
-    <span class="chip" data-state="TRIGGERED">Triggered</span>
+  <div class="controls" id="direction-controls">
+    <span class="chip active" data-direction="ALL">All directions</span>
+    <span class="chip" data-direction="BULLISH">Bullish</span>
+    <span class="chip" data-direction="BEARISH">Bearish</span>
   </div>
 
   <div class="layout">
@@ -172,17 +153,8 @@
 <script>
 const CATEGORY_LABELS = { forex: 'Forex', metals: 'Metals', indices: 'Indices', energy: 'Energy', crypto: 'Crypto' };
 const CATEGORY_ORDER = ['forex', 'metals', 'indices', 'energy', 'crypto'];
-const STATE_PRIORITY = { TRIGGERED: 3, CONVERGING: 2, PULLBACK: 1, WATCHING: 0 };
 
 const dirClass = (d) => (d || '').toLowerCase();
-
-function statusClass(state, direction, filled) {
-  if (state === 'TRIGGERED') {
-    const side = direction === 'BULLISH' ? 'buy' : 'sell';
-    return filled ? `filled-${side}` : `triggered-${side}`;
-  }
-  return dirClass(state) === '' ? 'watching' : state.toLowerCase();
-}
 
 function toUnixTime(iso) {
   return iso ? Math.floor(new Date(iso).getTime() / 1000) : null;
@@ -206,24 +178,7 @@ const chartTheme = {
 
 const LINE_STYLE_DOTTED = (window.LightweightCharts && LightweightCharts.LineStyle) ? LightweightCharts.LineStyle.Dotted : 1;
 
-// Pins a label to the left edge of the chart at a price-derived y-coordinate.
-// Built-in axis labels only dock to the right price scale, where they can
-// crowd together when several levels sit close to each other — this reads
-// clearer with three levels (entry/stop/target) on screen at once.
-function addLevelLabel(chartEl, candleSeries, price, text, colorVar) {
-  if (price == null) return;
-  const y = candleSeries.priceToCoordinate(price);
-  if (y == null) return;
-  const clampedY = Math.max(10, Math.min(chartEl.clientHeight - 10, y));
-  const label = document.createElement('div');
-  label.className = 'level-label';
-  label.style.setProperty('--label-color', cssVar(colorVar));
-  label.textContent = text;
-  label.style.top = `${clampedY}px`;
-  chartEl.appendChild(label);
-}
-
-function renderBlock(candles, chartElId, macdElId, setupInfo, visibleCount, rsiTriggerInfo) {
+function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo) {
   const chartEl = document.getElementById(chartElId);
   const macdEl = document.getElementById(macdElId);
 
@@ -250,58 +205,11 @@ function renderBlock(candles, chartElId, macdElId, setupInfo, visibleCount, rsiT
   const from = Math.max(0, candles.length - visibleCount);
   chart.timeScale().setVisibleLogicalRange({ from, to: candles.length - 1 });
 
-  if (setupInfo) {
-    const isBuy = setupInfo.direction === 'BULLISH';
-    const entryColorVar = isBuy ? '--gain' : '--loss';
-
-    candleSeries.createPriceLine({ price: setupInfo.entryPrice, color: cssVar(entryColorVar), lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
-    addLevelLabel(chartEl, candleSeries, setupInfo.entryPrice, `ENTRY ${setupInfo.entryPrice}`, entryColorVar);
-
-    if (setupInfo.stopLossPrice != null) {
-      candleSeries.createPriceLine({ price: setupInfo.stopLossPrice, color: cssVar('--loss'), lineWidth: 1, lineStyle: 3, axisLabelVisible: false, title: '' });
-      addLevelLabel(chartEl, candleSeries, setupInfo.stopLossPrice, `STOP ${setupInfo.stopLossPrice}`, '--loss');
-    }
-    if (setupInfo.targetPrice != null) {
-      candleSeries.createPriceLine({ price: setupInfo.targetPrice, color: cssVar('--gain'), lineWidth: 1, lineStyle: 3, axisLabelVisible: false, title: '' });
-      addLevelLabel(chartEl, candleSeries, setupInfo.targetPrice, `TARGET ${setupInfo.targetPrice}`, '--gain');
-    }
-
-    // Mark the actual candle the setup was defined on, and — separately,
-    // if it differs — the candle where the order actually filled. This is
-    // the point: a price line alone can't show WHEN the setup happened
-    // relative to where price is now, which is exactly what read as
-    // misleading before.
-    const triggerUnix = toUnixTime(setupInfo.triggerTime);
-    const filledUnix = setupInfo.filled ? toUnixTime(setupInfo.filledTime) : null;
-    const sameBar = triggerUnix != null && filledUnix != null && triggerUnix === filledUnix;
-    const markers = [];
-    if (triggerUnix != null) {
-      markers.push({
-        time: triggerUnix,
-        position: isBuy ? 'belowBar' : 'aboveBar',
-        color: cssVar(entryColorVar),
-        shape: isBuy ? 'arrowUp' : 'arrowDown',
-        text: sameBar ? 'FILLED' : (setupInfo.filled ? 'SET UP' : 'SET UP (pending)'),
-      });
-    }
-    if (filledUnix != null && !sameBar) {
-      markers.push({
-        time: filledUnix,
-        position: isBuy ? 'belowBar' : 'aboveBar',
-        color: cssVar('--gold-bright'),
-        shape: 'circle',
-        text: 'FILLED',
-      });
-    }
-    if (markers.length) candleSeries.setMarkers(markers);
-  }
-
   if (rsiTriggerInfo) {
-    // The trigger-timeframe chart has no entry/stop/target — just mark the
-    // latest RSI-extreme candle itself. Neutral ink color (white in dark
-    // mode, black in light mode) on purpose, so it never blends into
-    // either a green or a red candle the way a gain/loss-colored arrow
-    // would on one of the two.
+    // Mark the latest RSI-extreme candle itself. Neutral ink color (white
+    // in dark mode, black in light mode) on purpose, so it never blends
+    // into either a green or a red candle the way a gain/loss-colored
+    // arrow would on one of the two.
     const t = toUnixTime(rsiTriggerInfo.time);
     if (t != null) {
       const isBuy = rsiTriggerInfo.direction === 'BULLISH';
@@ -327,32 +235,6 @@ function renderBlock(candles, chartElId, macdElId, setupInfo, visibleCount, rsiT
   chart.timeScale().subscribeVisibleLogicalRangeChange(range => { if (range) macdChart.timeScale().setVisibleLogicalRange(range); });
 }
 
-function bestLowerTf(entry) {
-  let best = null;
-  for (const [ltf, s] of Object.entries(entry.lower_tf_states || {})) {
-    if (!best || STATE_PRIORITY[s.state] > STATE_PRIORITY[best.s.state]) best = { ltf, s };
-  }
-  return best;
-}
-
-function bestLowerTfState(entry) {
-  const best = bestLowerTf(entry);
-  return best ? best.s.state : 'WATCHING';
-}
-
-function bestLowerTfStatus(entry) {
-  const best = bestLowerTf(entry);
-  if (!best) return 'Watching';
-  const { ltf, s } = best;
-  if (s.state === 'TRIGGERED' && s.stop_price != null) {
-    const word = (s.stop_type || '').replace('_STOP', '');
-    const status = s.filled ? 'Filled' : 'Pending';
-    return `${status} ${word.toLowerCase()} @ ${s.stop_price} (${ltf})`;
-  }
-  if (s.state === 'WATCHING') return 'Watching';
-  return `${s.state} (${ltf})`;
-}
-
 function selectAsset(id, assetsById) {
   const entry = assetsById[id];
   document.querySelectorAll('.wl-item').forEach(el => el.classList.toggle('active', el.dataset.id === id));
@@ -361,18 +243,17 @@ function selectAsset(id, assetsById) {
   const detailEl = document.getElementById('detail');
   const direction = entry.direction;
   const dc = dirClass(direction);
-  const dirWord = direction === 'BULLISH' ? 'BUY' : 'SELL';
   const visWindow = entry._visWindow || 20;
   const barsLeft = Math.max(0, visWindow - entry.htf_candle_count);
   const windowPct = Math.min(100, (entry.htf_candle_count / visWindow) * 100);
-  const lowerTfs = Object.keys(entry.lower_tf_states || {});
+  const lowerTfs = Object.keys(entry.lower_tf_candles || {});
 
   detailEl.innerHTML = `
     <div class="detail-top">
       <div>
         <div class="detail-sym">${entry.display_name}</div>
         <div class="detail-name">${entry.ticker}</div>
-        <div class="detail-thesis">${entry.higher_tf} RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} (fired at ${entry.rsi_at_trigger}) — <strong>${dc} continuation</strong>. Waiting for a pullback on the lower timeframe, then a confirmed ${dirWord} on the LSMA reclaim.</div>
+        <div class="detail-thesis">${entry.higher_tf} RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} (fired at ${entry.rsi_at_trigger}) — <strong>${dc} continuation</strong>.</div>
       </div>
       <div class="badge-group"><span class="tf-badge">${entry.higher_tf}</span><span class="rsi-badge ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
     </div>
@@ -398,13 +279,11 @@ function selectAsset(id, assetsById) {
     </div>
     <div class="card-bottom"><span class="price" id="detail-price">—</span><span class="pct" id="detail-pct">—</span></div>
 
-    <div class="entry-setup-label">Entry setup — lower timeframes</div>
+    <div class="section-label">Lower timeframes</div>
     ${lowerTfs.map((ltf, li) => `
-      <div id="stopcallout-${li}"></div>
       <div class="chart-block">
         <div class="chart-block-head">
           <span class="chart-block-label">${ltf}</span>
-          <span class="status-tag ${statusClass(entry.lower_tf_states[ltf].state, direction, entry.lower_tf_states[ltf].filled)}">${entry.lower_tf_states[ltf].state === 'TRIGGERED' ? (entry.lower_tf_states[ltf].filled ? 'Filled — ' + dirWord : 'Pending — ' + dirWord + ' STOP') : entry.lower_tf_states[ltf].state}</span>
         </div>
         <div class="chart-box" id="detail-mini-${li}"></div>
         <div class="macd-box" id="detail-minimacd-${li}"></div>
@@ -414,7 +293,7 @@ function selectAsset(id, assetsById) {
 
   const candles = entry.candles || [];
   const rsiTriggerInfo = entry.htf_trigger_time ? { time: entry.htf_trigger_time, direction } : null;
-  renderBlock(candles, 'detail-chart', 'detail-macd', null, 25, rsiTriggerInfo);
+  renderBlock(candles, 'detail-chart', 'detail-macd', 25, rsiTriggerInfo);
 
   if (candles.length > 1) {
     const lastClose = candles[candles.length - 1].close, firstClose = candles[0].close;
@@ -426,21 +305,8 @@ function selectAsset(id, assetsById) {
   }
 
   lowerTfs.forEach((ltf, li) => {
-    const s = entry.lower_tf_states[ltf];
-    const calloutEl = document.getElementById(`stopcallout-${li}`);
     const visibleCount = 25 * Math.pow(2, li + 1); // first lower tf = 2x trigger tf, next = 4x, etc.
-    if (s.state === 'TRIGGERED' && s.stop_price != null) {
-      const side = direction === 'BULLISH' ? 'buy' : 'sell';
-      const statusWord = s.filled ? 'FILLED' : 'PENDING';
-      const priceLabel = s.filled ? `Entered @ ${s.stop_price}` : `${dirWord} STOP @ ${s.stop_price}`;
-      calloutEl.innerHTML = `<div class="stop-callout ${side} ${s.filled ? 'filled' : ''}"><span>${statusWord} — ${priceLabel}</span><span class="tag">${ltf} entry</span></div>`;
-      renderBlock(s.candles, `detail-mini-${li}`, `detail-minimacd-${li}`, {
-        direction, entryPrice: s.stop_price, stopLossPrice: s.risk_stop_price, targetPrice: s.target_price,
-        triggerTime: s.trigger_time, filled: s.filled, filledTime: s.filled_time,
-      }, visibleCount);
-    } else {
-      renderBlock(s.candles, `detail-mini-${li}`, `detail-minimacd-${li}`, null, visibleCount);
-    }
+    renderBlock(entry.lower_tf_candles[ltf], `detail-mini-${li}`, `detail-minimacd-${li}`, visibleCount);
   });
 }
 
@@ -479,13 +345,13 @@ async function init() {
     chip.innerHTML = `${label} <span class="chip-count">${count}</span>`;
   });
 
-  const stateCounts = { WATCHING: 0, PULLBACK: 0, CONVERGING: 0, TRIGGERED: 0 };
-  assets.forEach(a => { stateCounts[bestLowerTfState(a)]++; });
-  const stateLabels = { ALL: 'All statuses', WATCHING: 'Watching', PULLBACK: 'Pullback', CONVERGING: 'Converging', TRIGGERED: 'Triggered' };
-  document.querySelectorAll('#state-controls .chip').forEach(chip => {
-    const st = chip.dataset.state;
-    const count = st === 'ALL' ? assets.length : stateCounts[st];
-    chip.innerHTML = `${stateLabels[st]} <span class="chip-count">${count}</span>`;
+  const directionCounts = { BULLISH: 0, BEARISH: 0 };
+  assets.forEach(a => { if (directionCounts[a.direction] != null) directionCounts[a.direction]++; });
+  const directionLabels = { ALL: 'All directions', BULLISH: 'Bullish', BEARISH: 'Bearish' };
+  document.querySelectorAll('#direction-controls .chip').forEach(chip => {
+    const d = chip.dataset.direction;
+    const count = d === 'ALL' ? assets.length : directionCounts[d];
+    chip.innerHTML = `${directionLabels[d]} <span class="chip-count">${count}</span>`;
   });
 
   if (assets.length === 0) {
@@ -506,11 +372,11 @@ async function init() {
     <div class="wl-group">
       <div class="wl-group-label">${CATEGORY_LABELS[cls] || cls}</div>
       ${grouped[cls].map(a => `
-        <div class="wl-item" data-id="${a._id}" data-tf="${a.higher_tf}" data-state="${bestLowerTfState(a)}">
+        <div class="wl-item" data-id="${a._id}" data-tf="${a.higher_tf}" data-direction="${a.direction}">
           <div class="wl-left">
             <div class="wl-sym">${a.display_name}</div>
             <div class="wl-name">${a.ticker}</div>
-            <div class="wl-sub">${bestLowerTfStatus(a)}</div>
+            <div class="wl-sub">Bar ${a.htf_candle_count} / ${a._visWindow}</div>
           </div>
           <div class="wl-right">
             <span class="wl-tf">${a.higher_tf}</span>
@@ -524,15 +390,15 @@ async function init() {
 
   function applyFilters() {
     const activeTf = document.querySelector('#tf-controls .chip.active')?.dataset.tf || 'ALL';
-    const activeState = document.querySelector('#state-controls .chip.active')?.dataset.state || 'ALL';
+    const activeDirection = document.querySelector('#direction-controls .chip.active')?.dataset.direction || 'ALL';
     document.querySelectorAll('.wl-item').forEach(item => {
       const tfMatch = activeTf === 'ALL' || item.dataset.tf === activeTf;
-      const stateMatch = activeState === 'ALL' || item.dataset.state === activeState;
-      item.style.display = (tfMatch && stateMatch) ? '' : 'none';
+      const directionMatch = activeDirection === 'ALL' || item.dataset.direction === activeDirection;
+      item.style.display = (tfMatch && directionMatch) ? '' : 'none';
     });
   }
 
-  document.querySelectorAll('#tf-controls .chip, #state-controls .chip').forEach(chip => {
+  document.querySelectorAll('#tf-controls .chip, #direction-controls .chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const group = chip.closest('.controls');
       group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));

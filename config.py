@@ -12,11 +12,11 @@ indicators.py never hardcode a threshold or a ticker list inline.
 # The timeframes we scan the FULL universe on, looking for an RSI extreme.
 HIGHER_TIMEFRAMES = ["1H", "4H", "1D", "1W"]
 
-# Once a higher-timeframe RSI trigger fires, these are the lower timeframes
-# we drop down to and watch for the pullback -> entry setup.
+# Purely for the dashboard's two extra reference charts per watchlisted
+# asset — these are NOT scanned or tracked for any kind of setup/state.
 LOWER_TF_MAP = {
-    "1H": ["30m", "15m"],
-    "4H": ["1H", "30m"],
+    "1H": ["15m", "5m"],
+    "4H": ["1H", "15m"],
     "1D": ["4H", "1H"],
     "1W": ["1D", "4H"],
 }
@@ -24,6 +24,7 @@ LOWER_TF_MAP = {
 # yfinance's native intraday intervals. Anything not in this dict (4H) has to
 # be resampled from 1H bars ourselves — see fetch.resample_to_4h().
 YFINANCE_NATIVE_INTERVAL = {
+    "5m": "5m",
     "15m": "15m",
     "30m": "30m",
     "1H": "60m",
@@ -34,6 +35,7 @@ YFINANCE_NATIVE_INTERVAL = {
 # Kraken's OHLC endpoint takes interval-in-minutes and supports all of these
 # natively — no resampling needed for crypto.
 KRAKEN_NATIVE_INTERVAL = {
+    "5m": 5,
     "15m": 15,
     "30m": 30,
     "1H": 60,
@@ -46,6 +48,7 @@ KRAKEN_NATIVE_INTERVAL = {
 # sub-daily intervals. We ask for the max allowed per interval; anything
 # beyond this is simply unavailable for free.
 YFINANCE_MAX_INTRADAY_PERIOD = {
+    "5m": "60d",
     "15m": "60d",
     "30m": "60d",
     "60m": "730d",  # Yahoo allows longer history for 60m than for 15m/30m
@@ -80,24 +83,26 @@ MACD_CLOSENESS_PCT = 0.02
 MIN_WARMUP_BARS = 250
 
 # ---------------------------------------------------------------------------
-# State machine
+# State machine — used only by backtest.py's standalone pullback-entry
+# research tool now. The live scanner (scan.py) is Phase A only: it just
+# watchlists RSI extremes, it no longer tracks a WATCHING -> PULLBACK ->
+# CONVERGING -> TRIGGERED entry setup.
 # ---------------------------------------------------------------------------
 
-# WATCHING -> PULLBACK -> CONVERGING -> TRIGGERED
 STATE_WATCHING = "WATCHING"
 STATE_PULLBACK = "PULLBACK"
 STATE_CONVERGING = "CONVERGING"
 STATE_TRIGGERED = "TRIGGERED"
 
-DIRECTION_BULLISH = "BULLISH"  # RSI > 70 -> continuation bias up -> buy the pullback
-DIRECTION_BEARISH = "BEARISH"  # RSI < 30 -> continuation bias down -> sell the pullback
+DIRECTION_BULLISH = "BULLISH"  # RSI > 70 -> bullish continuation bias
+DIRECTION_BEARISH = "BEARISH"  # RSI < 30 -> bearish continuation bias
 
 # How many candles of the *triggering* (higher) timeframe an asset stays
 # visible for once it enters WATCHING — even if RSI reverts back inside
-# 30/70 partway through. Lowered from 20 to 10: this is a momentum strategy,
-# so the entry-setup re-tracking window (see htf_bias_series's re-anchoring)
-# should stay short-lived too.
-VISIBILITY_WINDOW_CANDLES = 10
+# 30/70 partway through. A fresh RSI extreme within this window always
+# re-anchors the count and the trigger candle to itself (see
+# backtest.htf_trigger_origin) instead of staying pinned to the original one.
+VISIBILITY_WINDOW_CANDLES = 20
 
 # How many trailing candles of OHLC + indicator history to persist per
 # (asset, timeframe) into state.json/data.json for dashboard.html's charts.
