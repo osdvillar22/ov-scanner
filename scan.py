@@ -87,6 +87,14 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def to_utc_iso(ts: pd.Timestamp) -> str:
+    """A candle's own timestamp, UTC-normalized — same convention
+    serialize_candles uses, so a marker built from this lines up exactly
+    with that candle's `time` on the dashboard's chart."""
+    ts_utc = ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
+    return ts_utc.isoformat()
+
+
 def serialize_candles(df: pd.DataFrame, n: int = config.DASHBOARD_CANDLE_WINDOW) -> list:
     """
     Trailing window of OHLC + indicator values for dashboard.html's charts.
@@ -308,6 +316,7 @@ def update_lower_tf_state(entry: dict, ltf: str, trigger_events: list) -> None:
         if filled_now:
             ltf_state["filled"] = True
             ltf_state["filled_at"] = now_iso()
+            ltf_state["filled_time"] = to_utc_iso(df.index[-1])
             ltf_state["updated_at"] = now_iso()
             ltf_state["price"] = round(float(price), 6)
             ltf_state["candles"] = serialize_candles(df)
@@ -384,6 +393,13 @@ def update_lower_tf_state(entry: dict, ltf: str, trigger_events: list) -> None:
         ltf_state["stop_price"] = round(stop_price, 6)
         ltf_state["stop_type"] = "BUY_STOP" if direction == config.DIRECTION_BULLISH else "SELL_STOP"
         ltf_state["filled"] = False
+        ltf_state["trigger_time"] = to_utc_iso(latest.name)
+        risk_stop = ltf_state.get("risk_stop_price")
+        if risk_stop is not None:
+            risk = abs(stop_price - risk_stop)
+            ltf_state["target_price"] = round(
+                stop_price + risk if direction == config.DIRECTION_BULLISH else stop_price - risk, 6
+            )
         trigger_events.append({
             "display_name": entry["display_name"],
             "asset_class": entry["asset_class"],

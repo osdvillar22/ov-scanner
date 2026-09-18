@@ -87,9 +87,7 @@
   .chart-block-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }
   .chart-block-label { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--ink); }
   .chart-box { width: 100%; height: 320px; position: relative; }
-  .stop-price-label { position: absolute; left: 6px; transform: translateY(-50%); font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 2px; z-index: 3; white-space: nowrap; pointer-events: none; }
-  .stop-price-label.buy { background: var(--gain); color: var(--surface); }
-  .stop-price-label.sell { background: var(--loss); color: var(--surface); }
+  .level-label { position: absolute; left: 6px; transform: translateY(-50%); font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 2px; z-index: 3; white-space: nowrap; pointer-events: none; color: var(--surface); background: var(--label-color, var(--ink-dim)); }
   .macd-box { width: 100%; height: 110px; margin-top: 4px; }
   .chart-placeholder { width: 100%; height: 320px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); background: var(--surface-raised); border: 1px dashed var(--border); border-radius: 3px; text-align: center; padding: 0 20px; }
 
@@ -99,10 +97,14 @@
   .status-tag.converging { color: var(--blue); background: rgba(62,111,168,0.12); border-color: rgba(62,111,168,0.32); }
   .status-tag.triggered-buy { color: var(--gain); background: rgba(47,122,79,0.16); border-color: rgba(47,122,79,0.4); }
   .status-tag.triggered-sell { color: var(--loss); background: rgba(168,64,44,0.16); border-color: rgba(168,64,44,0.4); }
+  .status-tag.filled-buy { color: var(--surface); background: var(--gain); border-color: var(--gain); }
+  .status-tag.filled-sell { color: var(--surface); background: var(--loss); border-color: var(--loss); }
 
   .stop-callout { font-family: var(--font-mono); font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 3px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
   .stop-callout.buy { background: rgba(47,122,79,0.12); color: var(--gain); border: 1px solid rgba(47,122,79,0.35); }
   .stop-callout.sell { background: rgba(168,64,44,0.12); color: var(--loss); border: 1px solid rgba(168,64,44,0.35); }
+  .stop-callout.filled.buy { background: var(--gain); color: var(--surface); border-color: var(--gain); }
+  .stop-callout.filled.sell { background: var(--loss); color: var(--surface); border-color: var(--loss); }
   .stop-callout .tag { font-size: 9.5px; opacity: 0.75; text-transform: uppercase; }
 
   .card-bottom { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 14px; padding: 10px 0; margin: -6px 0 18px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
@@ -174,9 +176,16 @@ const STATE_PRIORITY = { TRIGGERED: 3, CONVERGING: 2, PULLBACK: 1, WATCHING: 0 }
 
 const dirClass = (d) => (d || '').toLowerCase();
 
-function statusClass(state, direction) {
-  if (state === 'TRIGGERED') return direction === 'BULLISH' ? 'triggered-buy' : 'triggered-sell';
+function statusClass(state, direction, filled) {
+  if (state === 'TRIGGERED') {
+    const side = direction === 'BULLISH' ? 'buy' : 'sell';
+    return filled ? `filled-${side}` : `triggered-${side}`;
+  }
   return dirClass(state) === '' ? 'watching' : state.toLowerCase();
+}
+
+function toUnixTime(iso) {
+  return iso ? Math.floor(new Date(iso).getTime() / 1000) : null;
 }
 
 let activeCharts = [];
@@ -197,7 +206,24 @@ const chartTheme = {
 
 const LINE_STYLE_DOTTED = (window.LightweightCharts && LightweightCharts.LineStyle) ? LightweightCharts.LineStyle.Dotted : 1;
 
-function renderBlock(candles, chartElId, macdElId, stopInfo, visibleCount) {
+// Pins a label to the left edge of the chart at a price-derived y-coordinate.
+// Built-in axis labels only dock to the right price scale, where they can
+// crowd together when several levels sit close to each other — this reads
+// clearer with three levels (entry/stop/target) on screen at once.
+function addLevelLabel(chartEl, candleSeries, price, text, colorVar) {
+  if (price == null) return;
+  const y = candleSeries.priceToCoordinate(price);
+  if (y == null) return;
+  const clampedY = Math.max(10, Math.min(chartEl.clientHeight - 10, y));
+  const label = document.createElement('div');
+  label.className = 'level-label';
+  label.style.setProperty('--label-color', cssVar(colorVar));
+  label.textContent = text;
+  label.style.top = `${clampedY}px`;
+  chartEl.appendChild(label);
+}
+
+function renderBlock(candles, chartElId, macdElId, setupInfo, visibleCount) {
   const chartEl = document.getElementById(chartElId);
   const macdEl = document.getElementById(macdElId);
 
@@ -224,25 +250,50 @@ function renderBlock(candles, chartElId, macdElId, stopInfo, visibleCount) {
   const from = Math.max(0, candles.length - visibleCount);
   chart.timeScale().setVisibleLogicalRange({ from, to: candles.length - 1 });
 
-  if (stopInfo) {
-    candleSeries.createPriceLine({
-      price: stopInfo.price,
-      color: stopInfo.side === 'buy' ? cssVar('--gain') : cssVar('--loss'),
-      lineWidth: 1, lineStyle: 2, axisLabelVisible: false,
-      title: ''
-    });
-    // Built-in axis labels only dock to the right price scale, where they
-    // sit on top of the most recent candles. Draw our own label pinned to
-    // the left edge instead, at the same price-derived y-coordinate.
-    const y = candleSeries.priceToCoordinate(stopInfo.price);
-    if (y != null) {
-      const clampedY = Math.max(10, Math.min(chartEl.clientHeight - 10, y));
-      const label = document.createElement('div');
-      label.className = `stop-price-label ${stopInfo.side}`;
-      label.textContent = `${stopInfo.side === 'buy' ? 'Buy' : 'Sell'} Stop ${stopInfo.price}`;
-      label.style.top = `${clampedY}px`;
-      chartEl.appendChild(label);
+  if (setupInfo) {
+    const isBuy = setupInfo.direction === 'BULLISH';
+    const entryColorVar = isBuy ? '--gain' : '--loss';
+
+    candleSeries.createPriceLine({ price: setupInfo.entryPrice, color: cssVar(entryColorVar), lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
+    addLevelLabel(chartEl, candleSeries, setupInfo.entryPrice, `ENTRY ${setupInfo.entryPrice}`, entryColorVar);
+
+    if (setupInfo.stopLossPrice != null) {
+      candleSeries.createPriceLine({ price: setupInfo.stopLossPrice, color: cssVar('--loss'), lineWidth: 1, lineStyle: 3, axisLabelVisible: false, title: '' });
+      addLevelLabel(chartEl, candleSeries, setupInfo.stopLossPrice, `STOP ${setupInfo.stopLossPrice}`, '--loss');
     }
+    if (setupInfo.targetPrice != null) {
+      candleSeries.createPriceLine({ price: setupInfo.targetPrice, color: cssVar('--gain'), lineWidth: 1, lineStyle: 3, axisLabelVisible: false, title: '' });
+      addLevelLabel(chartEl, candleSeries, setupInfo.targetPrice, `TARGET ${setupInfo.targetPrice}`, '--gain');
+    }
+
+    // Mark the actual candle the setup was defined on, and — separately,
+    // if it differs — the candle where the order actually filled. This is
+    // the point: a price line alone can't show WHEN the setup happened
+    // relative to where price is now, which is exactly what read as
+    // misleading before.
+    const triggerUnix = toUnixTime(setupInfo.triggerTime);
+    const filledUnix = setupInfo.filled ? toUnixTime(setupInfo.filledTime) : null;
+    const sameBar = triggerUnix != null && filledUnix != null && triggerUnix === filledUnix;
+    const markers = [];
+    if (triggerUnix != null) {
+      markers.push({
+        time: triggerUnix,
+        position: isBuy ? 'belowBar' : 'aboveBar',
+        color: cssVar(entryColorVar),
+        shape: isBuy ? 'arrowUp' : 'arrowDown',
+        text: sameBar ? 'FILLED' : (setupInfo.filled ? 'SET UP' : 'SET UP (pending)'),
+      });
+    }
+    if (filledUnix != null && !sameBar) {
+      markers.push({
+        time: filledUnix,
+        position: isBuy ? 'belowBar' : 'aboveBar',
+        color: cssVar('--gold-bright'),
+        shape: 'circle',
+        text: 'FILLED',
+      });
+    }
+    if (markers.length) candleSeries.setMarkers(markers);
   }
 
   const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderVisible: false, textColor: 'transparent', minimumWidth: 80 }, timeScale: { visible: false, borderColor: cssVar('--border') } });
@@ -276,7 +327,8 @@ function bestLowerTfStatus(entry) {
   const { ltf, s } = best;
   if (s.state === 'TRIGGERED' && s.stop_price != null) {
     const word = (s.stop_type || '').replace('_STOP', '');
-    return `${word} stop @ ${s.stop_price} (${ltf})`;
+    const status = s.filled ? 'Filled' : 'Pending';
+    return `${status} ${word.toLowerCase()} @ ${s.stop_price} (${ltf})`;
   }
   if (s.state === 'WATCHING') return 'Watching';
   return `${s.state} (${ltf})`;
@@ -333,7 +385,7 @@ function selectAsset(id, assetsById) {
       <div class="chart-block">
         <div class="chart-block-head">
           <span class="chart-block-label">${ltf}</span>
-          <span class="status-tag ${statusClass(entry.lower_tf_states[ltf].state, direction)}">${entry.lower_tf_states[ltf].state === 'TRIGGERED' ? 'Triggered — ' + dirWord + ' STOP' : entry.lower_tf_states[ltf].state}</span>
+          <span class="status-tag ${statusClass(entry.lower_tf_states[ltf].state, direction, entry.lower_tf_states[ltf].filled)}">${entry.lower_tf_states[ltf].state === 'TRIGGERED' ? (entry.lower_tf_states[ltf].filled ? 'Filled — ' + dirWord : 'Pending — ' + dirWord + ' STOP') : entry.lower_tf_states[ltf].state}</span>
         </div>
         <div class="chart-box" id="detail-mini-${li}"></div>
         <div class="macd-box" id="detail-minimacd-${li}"></div>
@@ -359,8 +411,13 @@ function selectAsset(id, assetsById) {
     const visibleCount = 25 * Math.pow(2, li + 1); // first lower tf = 2x trigger tf, next = 4x, etc.
     if (s.state === 'TRIGGERED' && s.stop_price != null) {
       const side = direction === 'BULLISH' ? 'buy' : 'sell';
-      calloutEl.innerHTML = `<div class="stop-callout ${side}"><span>${dirWord} STOP @ ${s.stop_price}</span><span class="tag">${ltf} entry</span></div>`;
-      renderBlock(s.candles, `detail-mini-${li}`, `detail-minimacd-${li}`, { price: s.stop_price, side }, visibleCount);
+      const statusWord = s.filled ? 'FILLED' : 'PENDING';
+      const priceLabel = s.filled ? `Entered @ ${s.stop_price}` : `${dirWord} STOP @ ${s.stop_price}`;
+      calloutEl.innerHTML = `<div class="stop-callout ${side} ${s.filled ? 'filled' : ''}"><span>${statusWord} — ${priceLabel}</span><span class="tag">${ltf} entry</span></div>`;
+      renderBlock(s.candles, `detail-mini-${li}`, `detail-minimacd-${li}`, {
+        direction, entryPrice: s.stop_price, stopLossPrice: s.risk_stop_price, targetPrice: s.target_price,
+        triggerTime: s.trigger_time, filled: s.filled, filledTime: s.filled_time,
+      }, visibleCount);
     } else {
       renderBlock(s.candles, `detail-mini-${li}`, `detail-minimacd-${li}`, null, visibleCount);
     }

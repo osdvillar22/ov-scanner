@@ -48,6 +48,14 @@ FILL_TIMEOUT_BARS = 10
 MAX_HOLD_BARS = 200
 
 
+def to_utc_iso(ts: pd.Timestamp) -> str:
+    """A candle's own timestamp, UTC-normalized — same convention
+    scan.serialize_candles uses, so a marker built from this lines up
+    exactly with that candle's `time` on the dashboard's chart."""
+    ts_utc = ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
+    return ts_utc.isoformat()
+
+
 @dataclass
 class Trade:
     asset_class: str
@@ -173,8 +181,9 @@ def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.DataFrame, asset: dict, highe
 
     Returns (trades, current_state) — current_state is a dict matching
     scan.py's ltf_state schema (state/price/lsma/macd_gap_pct[/stop_price/
-    stop_type/risk_stop_price/filled]), used to backfill a freshly-discovered
-    entry's real state instead of cold-starting it at WATCHING."""
+    stop_type/risk_stop_price/target_price/trigger_time/filled/filled_time]),
+    used to backfill a freshly-discovered entry's real state instead of
+    cold-starting it at WATCHING."""
     trades: list[Trade] = []
     state = config.STATE_WATCHING
     direction = None
@@ -187,6 +196,9 @@ def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.DataFrame, asset: dict, highe
     last_stop_price = None
     last_stop_type = None
     last_risk_stop_price = None
+    last_target_price = None
+    last_trigger_time = None
+    last_filled_time = None
     last_macd_gap_pct = None
 
     n = len(df_ltf)
@@ -216,6 +228,7 @@ def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.DataFrame, asset: dict, highe
                 ))
                 pending_setup = None
                 filled = True
+                last_filled_time = df_ltf.index[i]
             else:
                 invalidated = (low < pending_setup.stop_loss_price) if pending_setup.direction == config.DIRECTION_BULLISH \
                     else (high > pending_setup.stop_loss_price)
@@ -284,6 +297,9 @@ def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.DataFrame, asset: dict, highe
                 last_stop_price = round(entry_price, 6)
                 last_stop_type = "BUY_STOP" if direction == config.DIRECTION_BULLISH else "SELL_STOP"
                 last_risk_stop_price = round(stop_loss_price, 6)
+                last_target_price = round(target_price, 6)
+                last_trigger_time = df_ltf.index[i]
+                last_filled_time = None
 
         state = new_state
 
@@ -298,7 +314,11 @@ def replay_lower_tf(df_ltf: pd.DataFrame, bias: pd.DataFrame, asset: dict, highe
         current_state["stop_price"] = last_stop_price
         current_state["stop_type"] = last_stop_type
         current_state["risk_stop_price"] = last_risk_stop_price
+        current_state["target_price"] = last_target_price
         current_state["filled"] = filled
+        current_state["trigger_time"] = to_utc_iso(last_trigger_time) if last_trigger_time is not None else None
+        if filled and last_filled_time is not None:
+            current_state["filled_time"] = to_utc_iso(last_filled_time)
 
     return trades, current_state
 
