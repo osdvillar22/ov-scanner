@@ -115,15 +115,22 @@ def fetch_and_compute(asset: dict, tf: str, min_bars: int = config.MIN_WARMUP_BA
     return indicators.compute_all(df)
 
 
-def serialize_candles(df: pd.DataFrame, n: int = config.DASHBOARD_CANDLE_WINDOW) -> list:
+def serialize_candles(df: pd.DataFrame, n: int = config.DASHBOARD_CANDLE_WINDOW, lsma2: pd.Series | None = None) -> list:
     """
     Trailing window of OHLC + indicator values for dashboard.html's charts.
     `time` is Unix seconds (UTC) — lightweight-charts' native format.
+
+    `lsma2`, when given, is the next-higher timeframe's LSMA already
+    aligned onto df's index (see _align_auto_lsma) — only meaningful for
+    the trigger-timeframe chart, since it's what the watch condition
+    itself compares against.
     """
+    tail = df.tail(n)
+    lsma2_tail = lsma2.tail(n) if lsma2 is not None else None
     candles = []
-    for ts, row in df.tail(n).iterrows():
+    for i, (ts, row) in enumerate(tail.iterrows()):
         ts_utc = ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
-        candles.append({
+        candle = {
             "time": int(ts_utc.timestamp()),
             "open": round(float(row["open"]), 6),
             "high": round(float(row["high"]), 6),
@@ -135,7 +142,11 @@ def serialize_candles(df: pd.DataFrame, n: int = config.DASHBOARD_CANDLE_WINDOW)
             "macd": None if pd.isna(row["macd"]) else round(float(row["macd"]), 6),
             "macd_signal": None if pd.isna(row["macd_signal"]) else round(float(row["macd_signal"]), 6),
             "macd_hist": None if pd.isna(row["macd_hist"]) else round(float(row["macd_hist"]), 6),
-        })
+        }
+        if lsma2_tail is not None:
+            v = lsma2_tail.iloc[i]
+            candle["lsma2"] = None if pd.isna(v) else round(float(v), 6)
+        candles.append(candle)
     return candles
 
 
@@ -183,12 +194,17 @@ def _align_auto_lsma(df_htf: pd.DataFrame, df_auto: pd.DataFrame) -> pd.Series:
     return pd.Series(merged["lsma_auto"].values, index=df_htf.index)
 
 
-def find_phase_a_origin(df_htf: pd.DataFrame, df_auto: pd.DataFrame) -> dict | None:
+def find_phase_a_origin(df_htf: pd.DataFrame, aligned_auto_lsma: pd.Series) -> dict | None:
     """
     Walk the full fetched history to determine whether an asset is
     CURRENTLY watchlisted, and if so, since which candle. Entirely
     stateless — recomputed fresh from real data every call, so it can't
     drift out of sync the way an incrementally-tallied counter could.
+
+    `aligned_auto_lsma` is the next-higher timeframe's LSMA already backward-
+    aligned onto df_htf's index (see _align_auto_lsma) — the caller builds
+    it once and reuses it for both this walk and the dashboard's "LSMA2"
+    chart series, rather than recomputing it twice.
 
     A fresh entry condition on a later candle re-anchors the trigger to
     itself (even immediately after an invalidation on the very same bar —
@@ -197,8 +213,6 @@ def find_phase_a_origin(df_htf: pd.DataFrame, df_auto: pd.DataFrame) -> dict | N
     the condition has never fired within the fetched history, or it fired
     and has since been invalidated.
     """
-    aligned_auto_lsma = _align_auto_lsma(df_htf, df_auto)
-
     active = False
     direction = None
     origin_idx = None
@@ -248,7 +262,8 @@ def scan_higher_timeframe(
             logger.warning("Fetch too short/failed for tracked entry %s — leaving state untouched this run", key)
         return
 
-    origin = find_phase_a_origin(df_htf, df_auto)
+    aligned_auto_lsma = _align_auto_lsma(df_htf, df_auto)
+    origin = find_phase_a_origin(df_htf, aligned_auto_lsma)
 
     if origin is None:
         if entry is not None:
@@ -267,6 +282,7 @@ def scan_higher_timeframe(
             "ticker": asset["ticker"],
             "display_name": asset["display_name"],
             "higher_tf": htf,
+            "auto_higher_tf": config.AUTO_HIGHER_TF[htf],
             "direction": origin["direction"],
             "rsi_at_trigger": origin["rsi_at_trigger"],
             "first_seen": new_trigger_iso,
@@ -293,7 +309,7 @@ def scan_higher_timeframe(
             )
 
     entry["last_rsi"] = round(float(df_htf.iloc[-1]["rsi"]), 2)
-    entry["candles"] = serialize_candles(df_htf)
+    entry["candles"] = serialize_candles(df_htf, lsma2=aligned_auto_lsma)
     entry["lower_tf_candles"] = {}
     for ltf in config.LOWER_TF_MAP[htf]:
         df_ltf = fetch_and_compute(asset, ltf)

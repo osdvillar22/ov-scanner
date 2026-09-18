@@ -131,7 +131,6 @@
     <span class="chip" data-tf="1H">1H</span>
     <span class="chip" data-tf="4H">4H</span>
     <span class="chip" data-tf="1D">1D</span>
-    <span class="chip" data-tf="1W">1W</span>
   </div>
 
   <div class="controls" id="direction-controls">
@@ -175,6 +174,7 @@ const chartTheme = {
 };
 
 const LINE_STYLE_DOTTED = (window.LightweightCharts && LightweightCharts.LineStyle) ? LightweightCharts.LineStyle.Dotted : 1;
+const LINE_STYLE_DASHED = (window.LightweightCharts && LightweightCharts.LineStyle) ? LightweightCharts.LineStyle.Dashed : 2;
 
 function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo) {
   const chartEl = document.getElementById(chartElId);
@@ -195,6 +195,7 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo)
     { key: 'ema10', c: '#D9A441', style: 0, width: 1 },
     { key: 'ema20', c: cssVar('--violet'), style: 0, width: 1 },
     { key: 'lsma', c: cssVar('--blue'), style: LINE_STYLE_DOTTED, width: 2 },
+    { key: 'lsma2', c: cssVar('--gold-bright'), style: LINE_STYLE_DASHED, width: 2 },
   ].forEach(o => {
     const s = chart.addLineSeries({ color: o.c, lineWidth: o.width, lineStyle: o.style, priceLineVisible: false, lastValueVisible: false });
     s.setData(candles.map(c => ({ time: c.time, value: c[o.key] })).filter(p => p.value != null));
@@ -263,7 +264,8 @@ function selectAsset(id, assetsById) {
     <div class="legend-row">
       <span><span class="dot" style="background:#D9A441"></span>EMA10</span>
       <span><span class="dot" style="background:var(--violet)"></span>EMA20</span>
-      <span><span class="dot" style="background:var(--blue);border-bottom:2px dotted var(--blue);height:0"></span>LSMA 50,3</span>
+      <span><span class="dot" style="background:var(--blue);border-bottom:2px dotted var(--blue);height:0"></span>LSMA 50,3 (${entry.higher_tf})</span>
+      <span><span class="dot" style="background:var(--gold-bright);border-bottom:2px dashed var(--gold-bright);height:0"></span>LSMA 50,3 (${entry.auto_higher_tf})</span>
     </div>
 
     <div class="chart-block">
@@ -328,7 +330,7 @@ async function init() {
   const scanTime = data.generated_at ? new Date(data.generated_at).toLocaleString() : '—';
   metaEl.innerHTML = `Last scan <strong>${scanTime}</strong> · <strong>${assets.length}</strong> on watch`;
 
-  const tfCounts = { '1H': 0, '4H': 0, '1D': 0, '1W': 0 };
+  const tfCounts = { '1H': 0, '4H': 0, '1D': 0 };
   assets.forEach(a => { if (tfCounts[a.higher_tf] != null) tfCounts[a.higher_tf]++; });
   document.querySelectorAll('#tf-controls .chip').forEach(chip => {
     const tf = chip.dataset.tf;

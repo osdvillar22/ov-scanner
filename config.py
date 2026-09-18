@@ -9,8 +9,13 @@ indicators.py never hardcode a threshold or a ticker list inline.
 # Timeframes
 # ---------------------------------------------------------------------------
 
-# The timeframes we scan the FULL universe on, looking for an RSI extreme.
-HIGHER_TIMEFRAMES = ["1H", "4H", "1D", "1W"]
+# The timeframes we scan the FULL universe on, looking for a watch trigger.
+# 1W is deliberately excluded: its own AUTO_HIGHER_TF step would be "1M",
+# and Kraken's OHLC endpoint can't supply enough monthly history for
+# crypto to ever satisfy that condition (~24 bars from its ~720-day cap,
+# short of LSMA(50)'s minimum) — rather than have 1W work for some asset
+# classes and never for others, it's dropped entirely.
+HIGHER_TIMEFRAMES = ["1H", "4H", "1D"]
 
 # Purely for the dashboard's two extra reference charts per watchlisted
 # asset — these are NOT scanned or tracked for any kind of setup/state.
@@ -18,17 +23,17 @@ LOWER_TF_MAP = {
     "1H": ["15m", "5m"],
     "4H": ["1H", "15m"],
     "1D": ["4H", "1H"],
-    "1W": ["1D", "4H"],
 }
 
 # The "one step up" timeframe used only for the watch-trigger's cross-
 # timeframe LSMA confirmation (see scan.find_phase_a_origin) — never
 # scanned or watchlisted on its own, and never shown on the dashboard.
+# "1W" is still fetched here (1D's own auto-tf), just no longer a key —
+# 1W itself isn't scanned, see the HIGHER_TIMEFRAMES note above.
 AUTO_HIGHER_TF = {
     "1H": "4H",
     "4H": "1D",
     "1D": "1W",
-    "1W": "1M",
 }
 
 # yfinance's native intraday intervals. Anything not in this dict (4H) has to
@@ -40,7 +45,6 @@ YFINANCE_NATIVE_INTERVAL = {
     "1H": "60m",
     "1D": "1d",
     "1W": "1wk",
-    "1M": "1mo",
 }
 
 # Kraken's OHLC endpoint takes interval-in-minutes and supports all of these
@@ -94,9 +98,7 @@ MACD_CLOSENESS_PCT = 0.02
 MIN_WARMUP_BARS = 250
 
 # The AUTO_HIGHER_TF lookup only ever needs that timeframe's LSMA — not
-# RSI/MACD — so it doesn't need MIN_WARMUP_BARS' full headroom. That
-# matters most for "1M": 250 *months* of history doesn't exist for most
-# tickers, but LSMA(50) only needs 50 bars regardless of timeframe.
+# RSI/MACD — so it doesn't need MIN_WARMUP_BARS' full headroom.
 LSMA_WARMUP_BARS = LSMA_LENGTH + 10
 
 # ---------------------------------------------------------------------------
