@@ -36,6 +36,21 @@ AUTO_HIGHER_TF = {
     "1D": "1W",
 }
 
+# Bar length in minutes for every timeframe we ever fetch — used to convert
+# "N candles on the higher timeframe" into an equivalent candle count on a
+# lower timeframe (see scan.lower_tf_candle_count).
+TIMEFRAME_MINUTES = {
+    "5m": 5, "15m": 15, "30m": 30, "1H": 60, "4H": 240, "1D": 1440, "1W": 10080,
+}
+
+# The watch-trigger window: an asset is watchlisted if the entry condition
+# fired on ANY of the trailing WATCH_WINDOW_CANDLES candles on that higher
+# timeframe, and comes off the watchlist the moment none of them still do —
+# a plain rolling-window membership test, no anchor/expiry concept. Also
+# doubles as the trigger-timeframe chart's visible candle count, so the
+# dashboard always shows exactly the window the logic is evaluating.
+WATCH_WINDOW_CANDLES = 25
+
 # yfinance's native intraday intervals. Anything not in this dict (4H) has to
 # be resampled from 1H bars ourselves — see fetch.resample_to_4h().
 YFINANCE_NATIVE_INTERVAL = {

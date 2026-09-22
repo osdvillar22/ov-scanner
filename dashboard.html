@@ -84,9 +84,9 @@
   .chart-block { margin-bottom: 10px; }
   .chart-block-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }
   .chart-block-label { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--ink); }
-  .chart-box { width: 100%; height: 320px; position: relative; }
-  .macd-box { width: 100%; height: 110px; margin-top: 4px; }
-  .chart-placeholder { width: 100%; height: 320px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); background: var(--surface-raised); border: 1px dashed var(--border); border-radius: 3px; text-align: center; padding: 0 20px; }
+  .chart-box { width: 100%; height: 460px; position: relative; }
+  .macd-box { width: 100%; height: 120px; margin-top: 4px; }
+  .chart-placeholder { width: 100%; height: 460px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); background: var(--surface-raised); border: 1px dashed var(--border); border-radius: 3px; text-align: center; padding: 0 20px; }
 
   .card-bottom { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 14px; padding: 10px 0; margin: -6px 0 18px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
   .card-bottom .price { font-weight: 600; }
@@ -113,7 +113,7 @@
     .wl-item.active { box-shadow: inset 0 3px 0 var(--gold-bright); }
     h1 { font-size: 22px; }
     .detail-panel { padding: 14px; }
-    .chart-box, .chart-placeholder { height: 260px; }
+    .chart-box, .chart-placeholder { height: 340px; }
   }
 </style>
 </head>
@@ -174,7 +174,6 @@ const chartTheme = {
 };
 
 const LINE_STYLE_DOTTED = (window.LightweightCharts && LightweightCharts.LineStyle) ? LightweightCharts.LineStyle.Dotted : 1;
-const LINE_STYLE_DASHED = (window.LightweightCharts && LightweightCharts.LineStyle) ? LightweightCharts.LineStyle.Dashed : 2;
 
 function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo) {
   const chartEl = document.getElementById(chartElId);
@@ -195,7 +194,6 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo)
     { key: 'ema10', c: '#D9A441', style: 0, width: 1 },
     { key: 'ema20', c: cssVar('--violet'), style: 0, width: 1 },
     { key: 'lsma', c: cssVar('--blue'), style: LINE_STYLE_DOTTED, width: 2 },
-    { key: 'lsma2', c: cssVar('--gold-bright'), style: LINE_STYLE_DASHED, width: 2 },
   ].forEach(o => {
     const s = chart.addLineSeries({ color: o.c, lineWidth: o.width, lineStyle: o.style, priceLineVisible: false, lastValueVisible: false });
     s.setData(candles.map(c => ({ time: c.time, value: c[o.key] })).filter(p => p.value != null));
@@ -204,22 +202,23 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo)
   const from = Math.max(0, candles.length - visibleCount);
   chart.timeScale().setVisibleLogicalRange({ from, to: candles.length - 1 });
 
-  if (rsiTriggerInfo) {
-    // Mark the latest RSI-extreme candle itself. Neutral ink color (white
-    // in dark mode, black in light mode) on purpose, so it never blends
-    // into either a green or a red candle the way a gain/loss-colored
-    // arrow would on one of the two.
-    const t = toUnixTime(rsiTriggerInfo.time);
-    if (t != null) {
-      const isBuy = rsiTriggerInfo.direction === 'BULLISH';
-      candleSeries.setMarkers([{
-        time: t,
-        position: isBuy ? 'belowBar' : 'aboveBar',
-        color: cssVar('--ink'),
-        shape: isBuy ? 'arrowUp' : 'arrowDown',
-        text: 'RSI TRIGGER',
-      }]);
-    }
+  if (rsiTriggerInfo && rsiTriggerInfo.times && rsiTriggerInfo.times.length) {
+    // Mark every candle in the window that met the condition — not just
+    // the first one. Neutral ink color (white in dark mode, black in
+    // light mode) on purpose, so it never blends into either a green or a
+    // red candle the way a gain/loss-colored arrow would on one of the
+    // two. Only the most recent one gets a text label, so several markers
+    // close together don't turn into a wall of repeated text.
+    const isBuy = rsiTriggerInfo.direction === 'BULLISH';
+    const times = rsiTriggerInfo.times.map(toUnixTime).filter(t => t != null).sort((a, b) => a - b);
+    const markers = times.map((t, i) => ({
+      time: t,
+      position: isBuy ? 'belowBar' : 'aboveBar',
+      color: cssVar('--ink'),
+      shape: isBuy ? 'arrowUp' : 'arrowDown',
+      text: i === times.length - 1 ? 'RSI TRIGGER' : '',
+    }));
+    candleSeries.setMarkers(markers);
   }
 
   const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderVisible: false, textColor: 'transparent', minimumWidth: 80 }, timeScale: { visible: false, borderColor: cssVar('--border') } });
@@ -243,7 +242,7 @@ function selectAsset(id, assetsById) {
   const direction = entry.direction;
   const dc = dirClass(direction);
   const lowerTfs = Object.keys(entry.lower_tf_candles || {});
-  const sinceWord = entry.candles_since_trigger === 1 ? 'candle' : 'candles';
+  const agoWord = entry.candles_ago_most_recent === 1 ? 'candle' : 'candles';
 
   detailEl.innerHTML = `
     <div class="detail-top">
@@ -257,15 +256,14 @@ function selectAsset(id, assetsById) {
 
     <div class="watch-window">
       <div class="watch-window-row">
-        <span>Triggered ${entry.candles_since_trigger} ${sinceWord} ago (${entry.higher_tf}) — stays until price closes back through LSMA + EMA20</span>
+        <span>${entry.qualifying_count} of last ${entry.window} candles qualified (${entry.higher_tf}), most recent ${entry.candles_ago_most_recent} ${agoWord} ago</span>
       </div>
     </div>
 
     <div class="legend-row">
       <span><span class="dot" style="background:#D9A441"></span>EMA10</span>
       <span><span class="dot" style="background:var(--violet)"></span>EMA20</span>
-      <span><span class="dot" style="background:var(--blue);border-bottom:2px dotted var(--blue);height:0"></span>LSMA 50,3 (${entry.higher_tf})</span>
-      <span><span class="dot" style="background:var(--gold-bright);border-bottom:2px dashed var(--gold-bright);height:0"></span>LSMA 50,3 (${entry.auto_higher_tf})</span>
+      <span><span class="dot" style="background:var(--blue);border-bottom:2px dotted var(--blue);height:0"></span>LSMA 50,3</span>
     </div>
 
     <div class="chart-block">
@@ -288,8 +286,8 @@ function selectAsset(id, assetsById) {
   `;
 
   const candles = entry.candles || [];
-  const rsiTriggerInfo = entry.htf_trigger_time ? { time: entry.htf_trigger_time, direction } : null;
-  renderBlock(candles, 'detail-chart', 'detail-macd', 25, rsiTriggerInfo);
+  const rsiTriggerInfo = entry.trigger_times ? { times: entry.trigger_times, direction } : null;
+  renderBlock(candles, 'detail-chart', 'detail-macd', entry.window || 25, rsiTriggerInfo);
 
   if (candles.length > 1) {
     const lastClose = candles[candles.length - 1].close, firstClose = candles[0].close;
@@ -301,8 +299,11 @@ function selectAsset(id, assetsById) {
   }
 
   lowerTfs.forEach((ltf, li) => {
-    const visibleCount = 25 * Math.pow(2, li + 1); // first lower tf = 2x trigger tf, next = 4x, etc.
-    renderBlock(entry.lower_tf_candles[ltf], `detail-mini-${li}`, `detail-minimacd-${li}`, visibleCount);
+    // The server already trimmed each lower-tf's candles to the count that
+    // spans the same real time as the higher-tf's watch window — show all
+    // of them rather than re-deriving a separate zoom count client-side.
+    const ltfCandles = entry.lower_tf_candles[ltf];
+    renderBlock(ltfCandles, `detail-mini-${li}`, `detail-minimacd-${li}`, ltfCandles.length);
   });
 }
 
@@ -370,7 +371,7 @@ async function init() {
           <div class="wl-left">
             <div class="wl-sym">${a.display_name}</div>
             <div class="wl-name">${a.ticker}</div>
-            <div class="wl-sub">${a.candles_since_trigger} ${a.candles_since_trigger === 1 ? 'candle' : 'candles'} ago</div>
+            <div class="wl-sub">${a.qualifying_count}/${a.window} qualify, ${a.candles_ago_most_recent} ${a.candles_ago_most_recent === 1 ? 'candle' : 'candles'} ago</div>
           </div>
           <div class="wl-right">
             <span class="wl-tf">${a.higher_tf}</span>

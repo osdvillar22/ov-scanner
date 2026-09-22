@@ -2,22 +2,21 @@
 scan.py — the actual engine. Run this on a schedule (GitHub Actions later;
 your own machine for now) and it will:
 
-  1. Scan the full asset universe on 1H/4H/1D/1W for a currently-active
-     watch trigger (see find_phase_a_origin below) — a stricter condition
-     than a plain RSI extreme, ported from the user's own TradingView
-     indicator's "black triangle" signal:
+  1. Scan the full asset universe on 1H/4H/1D for a watch trigger (see
+     find_phase_a_watch below) — a stricter condition than a plain RSI
+     extreme, ported from the user's own TradingView indicator's "black
+     triangle" signal:
        - EMA10/EMA20 trend alignment
        - this timeframe's LSMA(50,3) on the correct side of the next-
          higher timeframe's LSMA(50,3) (config.AUTO_HIGHER_TF)
        - RSI(14) beyond 70/30
        - price beyond both EMAs
      all four at once, in the same direction.
-  2. Once watchlisted, there is NO fixed expiry — an asset only comes off
-     the watchlist when price closes back through BOTH the current-
-     timeframe LSMA(50,3) and EMA20 (the mirror condition for the
-     opposite direction). A fresh trigger on a later candle re-anchors the
-     watch to itself, same idea as before but driven by this richer
-     condition instead of RSI alone.
+  2. An asset is watchlisted if that condition fired on ANY of the
+     trailing config.WATCH_WINDOW_CANDLES candles, and comes off the
+     watchlist the moment NONE of them still do — a plain rolling-window
+     membership test, recomputed fresh every run. Every qualifying candle
+     in the window gets marked on the dashboard, not just the first one.
   3. For every watchlisted asset, also fetch+serialize its two mapped lower
      timeframes (config.LOWER_TF_MAP) purely as reference charts for the
      dashboard — no state or setup tracking runs on them.
@@ -107,7 +106,7 @@ def now_iso() -> str:
 def fetch_and_compute(asset: dict, tf: str, min_bars: int = config.MIN_WARMUP_BARS) -> pd.DataFrame | None:
     """Fetch one (asset, timeframe) and run every indicator on it, or None
     if the fetch failed or came back too short to trust. `min_bars` is
-    lowered for AUTO_HIGHER_TF lookups (see find_phase_a_origin) since
+    lowered for AUTO_HIGHER_TF lookups (see find_phase_a_watch) since
     those only ever need LSMA(50), not RSI/MACD's longer warm-up."""
     df = fetch.fetch_ohlc(asset["asset_class"], asset["ticker"], tf)
     if df is None or len(df) < min_bars:
@@ -115,22 +114,20 @@ def fetch_and_compute(asset: dict, tf: str, min_bars: int = config.MIN_WARMUP_BA
     return indicators.compute_all(df)
 
 
-def serialize_candles(df: pd.DataFrame, n: int = config.DASHBOARD_CANDLE_WINDOW, lsma2: pd.Series | None = None) -> list:
+def serialize_candles(df: pd.DataFrame, n: int = config.DASHBOARD_CANDLE_WINDOW) -> list:
     """
     Trailing window of OHLC + indicator values for dashboard.html's charts.
     `time` is Unix seconds (UTC) — lightweight-charts' native format.
 
-    `lsma2`, when given, is the next-higher timeframe's LSMA already
-    aligned onto df's index (see _align_auto_lsma) — only meaningful for
-    the trigger-timeframe chart, since it's what the watch condition
-    itself compares against.
+    The next-higher timeframe's LSMA (see _align_auto_lsma) is used inside
+    the watch condition but deliberately NOT included here — plotting it
+    dragged the price scale down to fit a slow-moving line far from
+    current price, flattening the actual candles.
     """
-    tail = df.tail(n)
-    lsma2_tail = lsma2.tail(n) if lsma2 is not None else None
     candles = []
-    for i, (ts, row) in enumerate(tail.iterrows()):
+    for ts, row in df.tail(n).iterrows():
         ts_utc = ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
-        candle = {
+        candles.append({
             "time": int(ts_utc.timestamp()),
             "open": round(float(row["open"]), 6),
             "high": round(float(row["high"]), 6),
@@ -142,11 +139,7 @@ def serialize_candles(df: pd.DataFrame, n: int = config.DASHBOARD_CANDLE_WINDOW,
             "macd": None if pd.isna(row["macd"]) else round(float(row["macd"]), 6),
             "macd_signal": None if pd.isna(row["macd_signal"]) else round(float(row["macd_signal"]), 6),
             "macd_hist": None if pd.isna(row["macd_hist"]) else round(float(row["macd_hist"]), 6),
-        }
-        if lsma2_tail is not None:
-            v = lsma2_tail.iloc[i]
-            candle["lsma2"] = None if pd.isna(v) else round(float(v), 6)
-        candles.append(candle)
+        })
     return candles
 
 
@@ -169,17 +162,6 @@ def _entry_direction(row: pd.Series, higher_lsma: float) -> str | None:
     return None
 
 
-def _is_invalidated(row: pd.Series, direction: str) -> bool:
-    """The removal condition: price closes back through BOTH the current-
-    timeframe LSMA and EMA20 (mirrored for the opposite direction)."""
-    lsma, ema20, close = row["lsma"], row["ema20"], row["close"]
-    if pd.isna(lsma) or pd.isna(ema20):
-        return False
-    if direction == config.DIRECTION_BULLISH:
-        return close < lsma and close < ema20
-    return close > lsma and close > ema20
-
-
 def _align_auto_lsma(df_htf: pd.DataFrame, df_auto: pd.DataFrame) -> pd.Series:
     """Backward-align the next-higher timeframe's LSMA onto df_htf's index
     — each htf bar only ever sees the most recently CLOSED auto-tf bar's
@@ -194,52 +176,46 @@ def _align_auto_lsma(df_htf: pd.DataFrame, df_auto: pd.DataFrame) -> pd.Series:
     return pd.Series(merged["lsma_auto"].values, index=df_htf.index)
 
 
-def find_phase_a_origin(df_htf: pd.DataFrame, aligned_auto_lsma: pd.Series) -> dict | None:
+def find_phase_a_watch(
+    df_htf: pd.DataFrame, aligned_auto_lsma: pd.Series, window: int = config.WATCH_WINDOW_CANDLES,
+) -> dict | None:
     """
-    Walk the full fetched history to determine whether an asset is
-    CURRENTLY watchlisted, and if so, since which candle. Entirely
-    stateless — recomputed fresh from real data every call, so it can't
-    drift out of sync the way an incrementally-tallied counter could.
+    Look only at the trailing `window` candles — no anchor, no expiry, just
+    "did the entry condition fire on any of them." Recomputed fresh from
+    real data every call.
 
-    `aligned_auto_lsma` is the next-higher timeframe's LSMA already backward-
-    aligned onto df_htf's index (see _align_auto_lsma) — the caller builds
-    it once and reuses it for both this walk and the dashboard's "LSMA2"
-    chart series, rather than recomputing it twice.
+    `aligned_auto_lsma` is the next-higher timeframe's LSMA already
+    backward-aligned onto df_htf's index (see _align_auto_lsma).
 
-    A fresh entry condition on a later candle re-anchors the trigger to
-    itself (even immediately after an invalidation on the very same bar —
-    a sharp reversal candle can invalidate one direction and trigger the
-    other simultaneously). Returns None if not currently active: either
-    the condition has never fired within the fetched history, or it fired
-    and has since been invalidated.
+    If the window contains qualifying candles in BOTH directions (rare —
+    e.g. a sharp reversal), direction is taken from the most recent
+    qualifying candle, and only candles matching that same direction are
+    reported/marked; an older, opposite-direction match is treated as
+    superseded context rather than still-relevant.
+
+    Returns None if zero candles in the window qualify — that's the
+    entire removal condition now, nothing else.
     """
-    active = False
-    direction = None
-    origin_idx = None
-
     n = len(df_htf)
-    for i in range(n):
-        row = df_htf.iloc[i]
-
-        if active and _is_invalidated(row, direction):
-            active, direction, origin_idx = False, None, None
-
-        entry_dir = _entry_direction(row, aligned_auto_lsma.iloc[i])
-        if entry_dir is not None and entry_dir != direction:
-            # A genuinely fresh start — either from inactive, or a direction
-            # flip. If the condition is simply STILL true in the same
-            # direction as the previous bar (a sustained run), don't slide
-            # the origin forward every single bar — it should stay pinned
-            # to when the run actually started.
-            active, direction, origin_idx = True, entry_dir, i
-
-    if not active:
+    start = max(0, n - window)
+    qualifying = [
+        (i, d) for i in range(start, n)
+        if (d := _entry_direction(df_htf.iloc[i], aligned_auto_lsma.iloc[i])) is not None
+    ]
+    if not qualifying:
         return None
+
+    direction = qualifying[-1][1]
+    matching_idx = [i for i, d in qualifying if d == direction]
+    most_recent = matching_idx[-1]
     return {
         "direction": direction,
-        "trigger_time": df_htf.index[origin_idx],
-        "rsi_at_trigger": round(float(df_htf.iloc[origin_idx]["rsi"]), 2),
-        "candles_since_trigger": (n - 1) - origin_idx,
+        "trigger_indices": matching_idx,
+        "trigger_times": [df_htf.index[i] for i in matching_idx],
+        "qualifying_count": len(matching_idx),
+        "window": n - start,
+        "candles_ago_most_recent": (n - 1) - most_recent,
+        "rsi_at_trigger": round(float(df_htf.iloc[most_recent]["rsi"]), 2),
     }
 
 
@@ -253,7 +229,7 @@ def scan_higher_timeframe(
 ) -> None:
     """Check one asset on one higher timeframe using its (already-fetched)
     own data and its AUTO_HIGHER_TF data, and mutate `state` accordingly:
-    add, refresh, re-anchor, or remove."""
+    add, refresh, or remove."""
     key = f"{asset['asset_class']}:{asset['ticker']}:{htf}"
     entry = state.get(key)
 
@@ -263,18 +239,16 @@ def scan_higher_timeframe(
         return
 
     aligned_auto_lsma = _align_auto_lsma(df_htf, df_auto)
-    origin = find_phase_a_origin(df_htf, aligned_auto_lsma)
+    watch = find_phase_a_watch(df_htf, aligned_auto_lsma)
 
-    if origin is None:
+    if watch is None:
         if entry is not None:
             logger.info(
-                "REMOVED: %s %s — price closed back through LSMA+EMA20, condition invalidated",
-                asset["display_name"], htf,
+                "REMOVED: %s %s — none of the last %d candles still qualify",
+                asset["display_name"], htf, config.WATCH_WINDOW_CANDLES,
             )
             del state[key]
         return
-
-    new_trigger_iso = origin["trigger_time"].isoformat()
 
     if entry is None:
         entry = {
@@ -283,42 +257,47 @@ def scan_higher_timeframe(
             "display_name": asset["display_name"],
             "higher_tf": htf,
             "auto_higher_tf": config.AUTO_HIGHER_TF[htf],
-            "direction": origin["direction"],
-            "rsi_at_trigger": origin["rsi_at_trigger"],
-            "first_seen": new_trigger_iso,
-            "candles_since_trigger": origin["candles_since_trigger"],
-            "htf_trigger_time": new_trigger_iso,
+            "first_seen": now_iso(),
         }
         state[key] = entry
         watch_events.append(entry)
         logger.info(
-            "NEW WATCH: %s %s (%s) RSI=%.1f [trigger %s, %d candles ago]",
-            asset["display_name"], htf, origin["direction"], origin["rsi_at_trigger"],
-            new_trigger_iso, origin["candles_since_trigger"],
+            "NEW WATCH: %s %s (%s) RSI=%.1f [%d/%d candles qualify, most recent %d candles ago]",
+            asset["display_name"], htf, watch["direction"], watch["rsi_at_trigger"],
+            watch["qualifying_count"], watch["window"], watch["candles_ago_most_recent"],
         )
-    else:
-        re_anchored = new_trigger_iso != entry.get("htf_trigger_time")
-        entry["direction"] = origin["direction"]
-        entry["rsi_at_trigger"] = origin["rsi_at_trigger"]
-        entry["candles_since_trigger"] = origin["candles_since_trigger"]
-        entry["htf_trigger_time"] = new_trigger_iso
-        if re_anchored:
-            logger.info(
-                "RE-ANCHORED: %s %s (%s) — fresh trigger, watch restarted",
-                asset["display_name"], htf, origin["direction"],
-            )
+
+    entry["direction"] = watch["direction"]
+    entry["rsi_at_trigger"] = watch["rsi_at_trigger"]
+    entry["qualifying_count"] = watch["qualifying_count"]
+    entry["window"] = watch["window"]
+    entry["candles_ago_most_recent"] = watch["candles_ago_most_recent"]
+    entry["trigger_times"] = [t.isoformat() for t in watch["trigger_times"]]
 
     entry["last_rsi"] = round(float(df_htf.iloc[-1]["rsi"]), 2)
-    entry["candles"] = serialize_candles(df_htf, lsma2=aligned_auto_lsma)
+    entry["candles"] = serialize_candles(df_htf)
     entry["lower_tf_candles"] = {}
-    for ltf in config.LOWER_TF_MAP[htf]:
+    for tier, ltf in enumerate(config.LOWER_TF_MAP[htf]):
         df_ltf = fetch_and_compute(asset, ltf)
         if df_ltf is not None:
-            entry["lower_tf_candles"][ltf] = serialize_candles(df_ltf)
+            n = lower_tf_candle_count(htf, ltf, tier)
+            entry["lower_tf_candles"][ltf] = serialize_candles(df_ltf, n=n)
+
+
+def lower_tf_candle_count(htf: str, ltf: str, tier: int) -> int:
+    """How many trailing candles a lower-tf reference chart should show, so
+    it spans roughly the same real time as WATCH_WINDOW_CANDLES on the
+    higher timeframe. `tier` is the position in LOWER_TF_MAP[htf] — the
+    first (0) gets the full equivalent count, the second/deepest (1) gets
+    2/3 of its own full equivalent count, since the full count there gets
+    large enough to clutter the chart for no real benefit."""
+    span_minutes = config.WATCH_WINDOW_CANDLES * config.TIMEFRAME_MINUTES[htf]
+    full_equivalent = round(span_minutes / config.TIMEFRAME_MINUTES[ltf])
+    return round(full_equivalent * 2 / 3) if tier == 1 else full_equivalent
 
 
 def scan_asset(asset: dict, state: dict, watch_events: list) -> None:
-    """Run all 4 higher-timeframe checks for one asset. Each needed
+    """Run all 3 higher-timeframe checks for one asset. Each needed
     timeframe — including AUTO_HIGHER_TF lookups, several of which overlap
     with another timeframe's own scan (e.g. "4H" is both 1H's auto-tf and
     4H's own scan) — is fetched at most once per asset per run."""
