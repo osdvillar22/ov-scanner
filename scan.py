@@ -14,9 +14,10 @@ your own machine for now) and it will:
      all four at once, in the same direction.
   2. An asset is watchlisted if that condition fired on ANY of the
      trailing config.WATCH_WINDOW_CANDLES candles, and comes off the
-     watchlist the moment NONE of them still do — a plain rolling-window
-     membership test, recomputed fresh every run. Every qualifying candle
-     in the window gets marked on the dashboard, not just the first one.
+     watchlist the moment NONE of them still do, OR a finished candle after
+     the most recent trigger closed on the wrong side of EMA20 (trend
+     break) — recomputed fresh every run. Every qualifying candle in the
+     window gets marked on the dashboard, not just the first one.
   3. For every watchlisted asset, also fetch+serialize its two mapped lower
      timeframes (config.LOWER_TF_MAP) purely as reference charts for the
      dashboard — no state or setup tracking runs on them.
@@ -176,8 +177,19 @@ def _align_auto_lsma(df_htf: pd.DataFrame, df_auto: pd.DataFrame) -> pd.Series:
     return pd.Series(merged["lsma_auto"].values, index=df_htf.index)
 
 
+def last_closed_index(df: pd.DataFrame, tf: str) -> int:
+    """Index of the most recent FINISHED candle. Both Kraken and yfinance
+    include the still-forming current candle as the last row; a bar is
+    finished once its open time + its length is in the past."""
+    last_open = df.index[-1]
+    last_open = last_open.tz_localize("UTC") if last_open.tzinfo is None else last_open.tz_convert("UTC")
+    closes_at = last_open + pd.Timedelta(minutes=config.TIMEFRAME_MINUTES[tf])
+    return len(df) - 1 if closes_at <= pd.Timestamp.now(tz="UTC") else len(df) - 2
+
+
 def find_phase_a_watch(
-    df_htf: pd.DataFrame, aligned_auto_lsma: pd.Series, window: int = config.WATCH_WINDOW_CANDLES,
+    df_htf: pd.DataFrame, aligned_auto_lsma: pd.Series, last_closed: int,
+    window: int = config.WATCH_WINDOW_CANDLES,
 ) -> dict | None:
     """
     Look only at the trailing `window` candles — no anchor, no expiry, just
@@ -186,6 +198,10 @@ def find_phase_a_watch(
 
     `aligned_auto_lsma` is the next-higher timeframe's LSMA already
     backward-aligned onto df_htf's index (see _align_auto_lsma).
+    `last_closed` is the index of the most recent finished candle (see
+    last_closed_index) — the trend-break check below ignores anything after
+    it, so an intrabar dip through EMA20 can't flap an asset off and back
+    on (with a repeat Discord alert) before the candle has actually closed.
 
     If the window contains qualifying candles in BOTH directions (rare —
     e.g. a sharp reversal), direction is taken from the most recent
@@ -193,8 +209,12 @@ def find_phase_a_watch(
     reported/marked; an older, opposite-direction match is treated as
     superseded context rather than still-relevant.
 
-    Returns None if zero candles in the window qualify — that's the
-    entire removal condition now, nothing else.
+    Returns None if zero candles in the window qualify. If they do but a
+    finished candle AFTER the most recent trigger closed on the wrong side
+    of EMA20 (below it for bullish, above for bearish), returns the watch
+    with `invalidated_at` set — the trend broke, so the caller drops it. A
+    newer trigger after the break starts fresh, since only candles after
+    the most recent trigger are checked.
     """
     n = len(df_htf)
     start = max(0, n - window)
@@ -208,6 +228,15 @@ def find_phase_a_watch(
     direction = qualifying[-1][1]
     matching_idx = [i for i, d in qualifying if d == direction]
     most_recent = matching_idx[-1]
+
+    invalidated_at = None
+    for i in range(most_recent + 1, last_closed + 1):
+        close, ema20 = df_htf.iloc[i]["close"], df_htf.iloc[i]["ema20"]
+        broke = close < ema20 if direction == config.DIRECTION_BULLISH else close > ema20
+        if broke:
+            invalidated_at = df_htf.index[i]
+            break
+
     return {
         "direction": direction,
         "trigger_indices": matching_idx,
@@ -216,6 +245,7 @@ def find_phase_a_watch(
         "window": n - start,
         "candles_ago_most_recent": (n - 1) - most_recent,
         "rsi_at_trigger": round(float(df_htf.iloc[most_recent]["rsi"]), 2),
+        "invalidated_at": invalidated_at,
     }
 
 
@@ -239,14 +269,16 @@ def scan_higher_timeframe(
         return
 
     aligned_auto_lsma = _align_auto_lsma(df_htf, df_auto)
-    watch = find_phase_a_watch(df_htf, aligned_auto_lsma)
+    watch = find_phase_a_watch(df_htf, aligned_auto_lsma, last_closed_index(df_htf, htf))
 
-    if watch is None:
+    if watch is None or watch["invalidated_at"] is not None:
         if entry is not None:
-            logger.info(
-                "REMOVED: %s %s — none of the last %d candles still qualify",
-                asset["display_name"], htf, config.WATCH_WINDOW_CANDLES,
-            )
+            if watch is None:
+                reason = f"none of the last {config.WATCH_WINDOW_CANDLES} candles still qualify"
+            else:
+                side = "below" if watch["direction"] == config.DIRECTION_BULLISH else "above"
+                reason = f"candle at {watch['invalidated_at']} closed {side} EMA20 after the last trigger"
+            logger.info("REMOVED: %s %s — %s", asset["display_name"], htf, reason)
             del state[key]
         return
 

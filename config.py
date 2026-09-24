@@ -45,8 +45,9 @@ TIMEFRAME_MINUTES = {
 
 # The watch-trigger window: an asset is watchlisted if the entry condition
 # fired on ANY of the trailing WATCH_WINDOW_CANDLES candles on that higher
-# timeframe, and comes off the watchlist the moment none of them still do —
-# a plain rolling-window membership test, no anchor/expiry concept. Also
+# timeframe, and comes off the watchlist the moment none of them still do,
+# or once a finished candle after the most recent trigger closes on the
+# wrong side of EMA20 (see scan.find_phase_a_watch). Also
 # doubles as the trigger-timeframe chart's visible candle count, so the
 # dashboard always shows exactly the window the logic is evaluating.
 WATCH_WINDOW_CANDLES = 25
