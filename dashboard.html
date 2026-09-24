@@ -104,7 +104,9 @@
   .bk-state { padding: 1px 6px; border-radius: 999px; background: var(--surface-raised); white-space: nowrap; }
   .bk-state.pulled_back { color: var(--gold-bright); }
   .bk-state.armed { color: var(--gold-bright); box-shadow: inset 0 0 0 1px var(--gold-bright); }
-  .bk-entry { font-family: var(--font-mono); font-size: 9.5px; color: var(--gain); margin-top: 6px; }
+  .bk-state.entry { color: var(--gain); box-shadow: inset 0 0 0 1px var(--gain); }
+  .cycle-legend { display: flex; gap: 12px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); margin: -6px 0 12px; }
+  .cycle-legend b { font-weight: 600; }
   .bk-note { font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim); margin-top: 6px; }
   .bk-gone { font-family: var(--font-mono); font-size: 9.5px; color: var(--loss); margin-top: 6px; }
   .bk-empty { padding: 16px 14px; font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
@@ -311,7 +313,7 @@ function attachCtrlWheelZoom(chart, el, lastIndex) {
 
 const LINE_STYLE_DOTTED = (window.LightweightCharts && LightweightCharts.LineStyle) ? LightweightCharts.LineStyle.Dotted : 1;
 
-function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo) {
+function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo, cycleInfo) {
   const chartEl = document.getElementById(chartElId);
   const macdEl = document.getElementById(macdElId);
 
@@ -370,6 +372,25 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo)
       text: i === times.length - 1 ? 'RSI TRIGGER' : '',
     }));
     candleSeries.setMarkers(markers);
+  }
+
+  if (cycleInfo && cycleInfo.events && cycleInfo.events.length) {
+    // Basket pick on a lower tf: every step of every entry cycle, on the
+    // candle where it happened. Pullback/armed are small unlabelled dots
+    // (15m/5m can hold 10-25 cycles — labels would bury the candles); only
+    // entries stand out, as arrows pointing the trade direction.
+    const bull = cycleInfo.direction === 'BULLISH';
+    const pbSide = bull ? 'belowBar' : 'aboveBar';
+    const style = {
+      pullback: { position: pbSide, color: cssVar('--gold-bright'), shape: 'circle', size: 0.5 },
+      armed: { position: pbSide, color: cssVar('--violet'), shape: 'circle', size: 0.5 },
+      entry: { position: bull ? 'belowBar' : 'aboveBar', color: bull ? cssVar('--gain') : cssVar('--loss'), shape: bull ? 'arrowUp' : 'arrowDown' },
+    };
+    const inChart = new Set(candles.map(c => c.time));
+    candleSeries.setMarkers(cycleInfo.events
+      .map(e => ({ time: toUnixTime(e.time), ...style[e.type] }))
+      .filter(m => m.position && inChart.has(m.time))
+      .sort((a, b) => a.time - b.time));
   }
 
   const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, ...followerInteraction, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderVisible: false, textColor: 'transparent', minimumWidth: 80 }, timeScale: { visible: false, borderColor: cssVar('--border') } });
@@ -474,13 +495,16 @@ function renderBasket(assetsById) {
     } else if (!st) {
       body = '<div class="bk-note">status after the next scan</div>';
     } else {
+      // One tag per lower tf: its most recent activity only. Right after an
+      // entry (state back to waiting) that's the entry itself; the full
+      // cycle history is drawn on the lower-tf charts instead.
       body = Object.entries(st).map(([ltf, s]) => {
-        const [lbl, tip] = BASKET_STATES[s.state] || [s.state, ''];
-        return `<div class="bk-ltf" title="${tip}"><span>${ltf}</span><span class="bk-state ${s.state}">${lbl}</span></div>`;
+        const lastEvent = (s.events || []).at(-1);
+        const [lbl, tip, cls] = s.state === 'waiting' && lastEvent && lastEvent.type === 'entry'
+          ? [`entry ${fmtTime(lastEvent.time)}`, 'Most recent entry trigger — waiting for the next pullback', 'entry']
+          : [...(BASKET_STATES[s.state] || [s.state, '']), s.state];
+        return `<div class="bk-ltf" title="${tip}"><span>${ltf}</span><span class="bk-state ${cls}">${lbl}</span></div>`;
       }).join('');
-      // Only the most recent entry across the pick's lower timeframes.
-      const last = Object.entries(st).filter(([, s]) => s.last_entry).sort((a, b) => b[1].last_entry.localeCompare(a[1].last_entry))[0];
-      if (last) body += `<div class="bk-entry" title="Most recent entry trigger">entry ${fmtTime(last[1].last_entry)} · ${last[0]}</div>`;
     }
     return `
       <div class="wl-item" data-key="${key}" data-id="${watch ? watch._id : ''}" title="${p.asset_class === 'crypto' ? 'Checked every 5 minutes' : 'Checked hourly'}">
@@ -625,6 +649,10 @@ function selectAsset(id, assetsById) {
   document.querySelectorAll('#basketList .wl-item').forEach(el => el.classList.toggle('active', el.dataset.key === pickKey(entry)));
   teardownCharts();
 
+  // If this asset + tf is a basket pick, the last hourly scan's entry-cycle
+  // history per lower tf — drawn as markers on those charts.
+  const cycleStatus = basketStatus[pickKey(entry)] || null;
+
   // One button per timeframe: colored + clickable where this asset is on
   // watch, dimmed where it isn't, outlined for the one being viewed.
   const siblings = watchesBySym[symKey(entry)] || {};
@@ -675,6 +703,11 @@ function selectAsset(id, assetsById) {
     <div class="card-bottom"><span class="price" id="detail-price">—</span><span class="pct" id="detail-pct">—</span></div>
 
     <div class="section-label">Lower timeframes</div>
+    ${cycleStatus ? `<div class="cycle-legend" title="Entry cycles for this basket pick, as of the last hourly scan">
+      <span><b style="color:var(--gold-bright)">●</b> pulled back</span>
+      <span><b style="color:var(--violet)">●</b> MACD followed (armed)</span>
+      <span><b style="color:${direction === 'BULLISH' ? 'var(--gain)' : 'var(--loss)'}">${direction === 'BULLISH' ? '▲' : '▼'}</b> entry — LSMA broken</span>
+    </div>` : ''}
     ${lowerTfs.map((ltf, li) => `
       <div class="chart-block">
         <div class="chart-block-head">
@@ -710,7 +743,8 @@ function selectAsset(id, assetsById) {
     // spans the same real time as the higher-tf's watch window — show all
     // of them rather than re-deriving a separate zoom count client-side.
     const ltfCandles = toCandles(entry.lower_tf_candles[ltf]);
-    renderBlock(ltfCandles, `detail-mini-${li}`, `detail-minimacd-${li}`, ltfCandles.length);
+    const cycles = cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction } : null;
+    renderBlock(ltfCandles, `detail-mini-${li}`, `detail-minimacd-${li}`, ltfCandles.length, null, cycles);
   });
 }
 

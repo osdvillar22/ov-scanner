@@ -149,13 +149,16 @@ def evaluate_ltf(df: pd.DataFrame, ltf: str, direction: str, window: int, alerte
     later closed differently, so one pullback can never alert twice.
 
     Returns {"state": WAITING|PULLED_BACK|ARMED,
-             "entries": [{"time": utc iso, "lsma": .., "extreme": ..}, ...]}."""
+             "entries": [{"time": utc iso, "lsma": .., "extreme": ..}, ...],
+             "events": [{"time": utc iso, "type": "pullback"|"armed"|"entry"}, ...]}
+    — `events` is every step of every cycle, in order, for the dashboard's
+    chart markers."""
     bullish = direction == config.DIRECTION_BULLISH
     last_closed = scan.last_closed_index(df, ltf)
     start = max(0, len(df) - window)
 
     pulled_back = macd_followed = False
-    entries = []
+    entries, events = [], []
     for i in range(start, len(df)):
         row = df.iloc[i]
         lsma, hist = row["lsma"], row["macd_hist"]
@@ -169,17 +172,20 @@ def evaluate_ltf(df: pd.DataFrame, ltf: str, direction: str, window: int, alerte
             # `extreme` is what actually crossed the LSMA (the high/low — a
             # wick counts), which the close alone doesn't show.
             entries.append({"time": t, "lsma": float(lsma), "extreme": float(row["high"] if bullish else row["low"])})
+            events.append({"time": t, "type": "entry"})
             pulled_back = macd_followed = False
             continue
 
         if i <= last_closed:  # arming only ever uses finished candles
-            if (row["close"] < lsma) if bullish else (row["close"] > lsma):
+            if not pulled_back and ((row["close"] < lsma) if bullish else (row["close"] > lsma)):
                 pulled_back = True
-            if pulled_back and ((hist < 0) if bullish else (hist > 0)):
+                events.append({"time": t, "type": "pullback"})
+            if pulled_back and not macd_followed and ((hist < 0) if bullish else (hist > 0)):
                 macd_followed = True
+                events.append({"time": t, "type": "armed"})
 
     state = ARMED if pulled_back and macd_followed else PULLED_BACK if pulled_back else WAITING
-    return {"state": state, "entries": entries}
+    return {"state": state, "entries": entries, "events": events}
 
 
 def check_pick(pick: dict, alerted: dict, now: pd.Timestamp) -> tuple[dict, list]:
@@ -199,7 +205,11 @@ def check_pick(pick: dict, alerted: dict, now: pd.Timestamp) -> tuple[dict, list
             continue
         done = set(alerted.get(f"{pick_key(pick)}|{ltf}", []))
         result = evaluate_ltf(df, ltf, pick["direction"], scan.lower_tf_candle_count(pick["higher_tf"], ltf), done)
-        status[ltf] = {"state": result["state"], "last_entry": result["entries"][-1]["time"] if result["entries"] else None}
+        status[ltf] = {
+            "state": result["state"],
+            "last_entry": result["entries"][-1]["time"] if result["entries"] else None,
+            "events": result["events"],
+        }
 
         bar = pd.Timedelta(minutes=config.TIMEFRAME_MINUTES[ltf])
         recent_cutoff = now - max(2 * bar, pd.Timedelta(minutes=30))
