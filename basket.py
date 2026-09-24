@@ -149,7 +149,7 @@ def evaluate_ltf(df: pd.DataFrame, ltf: str, direction: str, window: int, alerte
     later closed differently, so one pullback can never alert twice.
 
     Returns {"state": WAITING|PULLED_BACK|ARMED,
-             "entries": [{"time": utc iso, "lsma": .., "price": ..}, ...]}."""
+             "entries": [{"time": utc iso, "lsma": .., "extreme": ..}, ...]}."""
     bullish = direction == config.DIRECTION_BULLISH
     last_closed = scan.last_closed_index(df, ltf)
     start = max(0, len(df) - window)
@@ -166,7 +166,9 @@ def evaluate_ltf(df: pd.DataFrame, ltf: str, direction: str, window: int, alerte
         broke = (row["high"] > lsma) if bullish else (row["low"] < lsma)
         macd_ok = (hist > 0) if bullish else (hist < 0)
         if t in alerted_times or (pulled_back and macd_followed and broke and macd_ok):
-            entries.append({"time": t, "lsma": float(lsma), "price": float(row["close"])})
+            # `extreme` is what actually crossed the LSMA (the high/low — a
+            # wick counts), which the close alone doesn't show.
+            entries.append({"time": t, "lsma": float(lsma), "extreme": float(row["high"] if bullish else row["low"])})
             pulled_back = macd_followed = False
             continue
 
@@ -205,7 +207,7 @@ def check_pick(pick: dict, alerted: dict, now: pd.Timestamp) -> tuple[dict, list
             opened = pd.Timestamp(e["time"])
             if e["time"] in done or opened + bar <= added_at or opened < recent_cutoff:
                 continue
-            alerts.append({"pick": pick, "ltf": ltf, **e})
+            alerts.append({"pick": pick, "ltf": ltf, "now": float(df.iloc[-1]["close"]), **e})
     return status, alerts
 
 
@@ -226,18 +228,21 @@ def send_entry_alerts(alerts: list) -> bool:
         logger.info("%s not set — skipping Discord send for %d entries.", config.DISCORD_ENTRY_WEBHOOK_ENV, len(alerts))
         return False
 
+    sent_at = pd.Timestamp.now(tz="UTC").isoformat()
     embeds = []
     for a in alerts:
         p, bull = a["pick"], a["pick"]["direction"] == config.DIRECTION_BULLISH
+        opened = int(pd.Timestamp(a["time"]).timestamp())
         embeds.append({
             "title": f"Entry trigger: {p['display_name']} {'bullish' if bull else 'bearish'}",
             "color": 0x2F7A4F if bull else 0xA8402C,
             "description": (
-                f"**{a['ltf']}** candle broke {'above' if bull else 'below'} LSMA "
-                f"`{scan._sig(a['lsma'])}` with MACD {'green' if bull else 'red'}\n"
-                f"Basket pick: {p['higher_tf']} {'▲' if bull else '▼'} · price `{scan._sig(a['price'])}`"
+                f"**{a['ltf']}** candle broke {'above' if bull else 'below'} LSMA `{scan._sig(a['lsma'])}` · MACD {'green' if bull else 'red'}\n"
+                f"Candle {'high' if bull else 'low'} `{scan._sig(a['extreme'])}` · price now `{scan._sig(a['now'])}`\n"
+                # <t:…:t> renders in each reader's own timezone in Discord.
+                f"{a['ltf']} candle opened <t:{opened}:t> · basket pick {p['higher_tf']} {'▲' if bull else '▼'}"
             ),
-            "timestamp": a["time"],
+            "timestamp": sent_at,  # footer time = when this alert was sent
         })
     ok = True
     for i in range(0, len(embeds), 10):

@@ -1,12 +1,16 @@
 name: Basket entry check (crypto)
 
-# Crypto basket picks only, every 5 minutes — Kraken data is real-time.
-# Non-crypto picks are checked by the hourly scan (Yahoo data is delayed
-# anyway). GitHub may start scheduled runs a few minutes late.
+# Crypto basket picks only — Kraken data is real-time. Non-crypto picks are
+# checked by the hourly scan (Yahoo data is delayed anyway).
+#
+# The 5-minute cadence comes from an external timer (cron-job.org) calling
+# workflow_dispatch: GitHub throttles frequent schedules, and a */5 cron
+# was really running every 11-14 min. The schedule below is only a backup
+# in case that timer stops. Extra runs are harmless — alerts are deduped.
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch: {}
+  schedule:
+    - cron: '7-59/15 * * * *'
 
 permissions:
   contents: write   # auto-removes dropped picks from basket.json
@@ -55,14 +59,20 @@ jobs:
             basket-crypto-
 
       - name: Check basket
+        id: check
         if: steps.picks.outputs.has_crypto == 'true'
         env:
           DISCORD_ENTRY_WEBHOOK_URL: ${{ secrets.DISCORD_ENTRY_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python basket.py --crypto
+        run: |
+          before=$(sha1sum basket_alerts_crypto.json 2>/dev/null || true)
+          python basket.py --crypto
+          after=$(sha1sum basket_alerts_crypto.json 2>/dev/null || true)
+          [ "$before" != "$after" ] && echo "changed=true" >> "$GITHUB_OUTPUT" || true
 
+      # Only when an alert went out or a pick was dropped — not every run.
       - name: Save alert history
-        if: steps.picks.outputs.has_crypto == 'true' && hashFiles('basket_alerts_crypto.json') != ''
+        if: steps.check.outputs.changed == 'true'
         uses: actions/cache/save@v4
         with:
           path: basket_alerts_crypto.json
