@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Most runs have nothing to do — skip the Python setup entirely then.
       - name: Any crypto picks?
@@ -40,7 +40,7 @@ jobs:
 
       - name: Set up Python
         if: steps.picks.outputs.has_crypto == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: pip
@@ -51,7 +51,7 @@ jobs:
 
       - name: Restore alert history
         if: steps.picks.outputs.has_crypto == 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: basket_alerts_crypto.json
           key: basket-crypto-${{ github.run_id }}
@@ -73,7 +73,7 @@ jobs:
       # Only when an alert went out or a pick was dropped — not every run.
       - name: Save alert history
         if: steps.check.outputs.changed == 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: basket_alerts_crypto.json
           key: basket-crypto-${{ github.run_id }}
