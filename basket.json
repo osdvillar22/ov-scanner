@@ -15,6 +15,14 @@
       "higher_tf": "1H",
       "direction": "BULLISH",
       "added_at": "2026-09-24T10:37:57.173Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "AUDUSD",
+      "display_name": "AUDUSD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-09-24T10:42:18.746Z"
     }
   ]
 }
