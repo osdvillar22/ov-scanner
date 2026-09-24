@@ -66,10 +66,31 @@
 
   /* Per-timeframe markers on each watchlist row: which of 1H/4H/1D this
      asset is on watch for, colored by direction; dim = not on watch. */
-  .wl-tfs { display: flex; gap: 7px; }
-  .wl-tfs span { display: flex; flex-direction: column; align-items: center; line-height: 1.25; font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim); opacity: 0.4; }
-  .wl-tfs span.bullish { color: var(--gain); opacity: 1; }
-  .wl-tfs span.bearish { color: var(--loss); opacity: 1; }
+  .wl-tfs { display: flex; gap: 4px; }
+  .wl-tfs span, .wl-tfs button { display: flex; flex-direction: column; align-items: center; line-height: 1.25; font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim); opacity: 0.4; padding: 2px 4px; border: 1px solid transparent; border-radius: 3px; background: transparent; }
+  .wl-tfs button { opacity: 1; cursor: pointer; }
+  .wl-tfs button.bullish { color: var(--gain); }
+  .wl-tfs button.bearish { color: var(--loss); }
+  .wl-tfs button:hover { background: var(--surface-raised); }
+  /* The timeframe this row shows / opens: boxed, bold, larger. */
+  .wl-tfs button.shown { font-size: 11px; font-weight: 700; border-color: currentColor; }
+  .wl-tfs button.bullish.shown { background: rgba(47,122,79,0.16); }
+  .wl-tfs button.bearish.shown { background: rgba(168,64,44,0.16); }
+  /* Timeframe already in the basket: gold underline. */
+  .wl-tfs button.in-basket { box-shadow: inset 0 -2px 0 var(--gold-bright); }
+  .wl-actions { display: flex; align-items: center; gap: 6px; }
+  .row-bk { font-family: var(--font-mono); font-size: 10px; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--gold-bright); color: var(--gold-bright); background: transparent; cursor: pointer; white-space: nowrap; }
+  .row-bk:hover { background: rgba(217,164,65,0.12); }
+  .row-bk.in { background: var(--gold-bright); color: var(--bg); }
+  .row-bk:disabled { opacity: 0.5; cursor: wait; }
+
+  .bk-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .bk-tf { font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 1px 6px; border: 1px solid currentColor; border-radius: 3px; margin-left: 4px; }
+  .bk-tf.bullish { color: var(--gain); } .bk-tf.bearish { color: var(--loss); }
+  .bk-remove { font-size: 16px; line-height: 1; width: 24px; height: 24px; border-radius: 3px; border: 1px solid var(--border); color: var(--ink-dim); background: transparent; cursor: pointer; flex-shrink: 0; }
+  .bk-remove:hover { color: var(--loss); border-color: var(--loss); }
+  .bk-msg { font-family: var(--font-mono); font-size: 9.5px; color: var(--loss); }
+  .bk-msg:empty { display: none; }
 
   .is-hidden { display: none !important; }
 
@@ -382,6 +403,7 @@ const pickKey = (p) => `${p.asset_class}:${p.ticker}:${p.higher_tf}`;
 let basketPicks = [];      // current picks, as last read from GitHub
 let basketStatus = {};     // per-pick lower-tf status from the last hourly scan (data.json)
 let repaintBasketButton = () => {};
+let assetsByIdAll = {};    // every watch by _id, for views outside init()
 
 function ghHeaders() {
   const h = { Accept: 'application/vnd.github+json' };
@@ -451,51 +473,110 @@ function renderBasket(assetsById) {
     return `
       <div class="wl-item" data-key="${key}" data-id="${watch ? watch._id : ''}">
         <div class="wl-left" style="width:100%">
-          <div class="wl-sym">${p.display_name} <span class="wl-rsi ${dirClass(p.direction)}">${p.higher_tf} ${dirArrow(p.direction)}</span></div>
+          <div class="bk-head">
+            <div class="wl-sym">${p.display_name} <span class="bk-tf ${dirClass(p.direction)}">${p.higher_tf} ${dirArrow(p.direction)}</span></div>
+            <button class="bk-remove" type="button" title="Remove ${p.display_name} ${p.higher_tf} from the basket" aria-label="Remove ${p.display_name} ${p.higher_tf} from the basket">×</button>
+          </div>
           <div class="wl-name">${p.asset_class === 'crypto' ? 'checked every 5 min' : 'checked hourly'}</div>
           ${watch ? ltfs : '<div class="bk-gone">no longer on the watchlist — being removed</div>'}
+          <div class="bk-msg"></div>
         </div>
       </div>`;
   }).join('');
-  el.querySelectorAll('.wl-item[data-id]').forEach(item => {
+  el.querySelectorAll('.wl-item').forEach(item => {
     if (item.dataset.id) item.addEventListener('click', () => selectAsset(item.dataset.id, assetsById));
+    const pick = basketPicks.find(p => pickKey(p) === item.dataset.key);
+    item.querySelector('.bk-remove').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!requireToken()) return;
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      item.querySelector('.bk-msg').textContent = 'Removing…';
+      try { await toggleBasket(pick); }
+      catch (err) { item.querySelector('.bk-msg').textContent = `Couldn't remove: ${err.message}`; btn.disabled = false; }
+    });
   });
+  // Keep the open asset's row highlighted across re-renders.
+  const open = document.querySelector('.tf-switch.current');
+  const openId = open && open.dataset.id;
+  el.querySelectorAll('.wl-item').forEach(item => item.classList.toggle('active', !!openId && item.dataset.id === openId));
 }
 
-function wireBasketButton(entry, assetsById) {
+const inBasket = (key) => basketPicks.some(p => pickKey(p) === key);
+
+// Without a token the basket is read-only: open the settings panel instead.
+function requireToken() {
+  if (getToken()) return true;
+  document.getElementById('basketSettings').classList.remove('is-hidden');
+  document.getElementById('tokenMsg').textContent = 'Add your GitHub token here first to change the basket.';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  return false;
+}
+
+// The one add/remove path, shared by the header button, the watchlist rows
+// and the basket list — every view repaints from basketPicks afterwards.
+// `pick` is a watch entry or a basket pick (same identifying fields).
+async function toggleBasket(pick) {
+  const key = pickKey(pick), removing = inBasket(key);
+  await updateBasket(picks => removing
+    ? picks.filter(p => pickKey(p) !== key)
+    : picks.filter(p => pickKey(p) !== key).concat([{
+        asset_class: pick.asset_class, ticker: pick.ticker, display_name: pick.display_name,
+        higher_tf: pick.higher_tf, direction: pick.direction, added_at: new Date().toISOString(),
+      }]),
+    `Basket: ${removing ? 'remove' : 'add'} ${pick.display_name} ${pick.higher_tf}`);
+  refreshBasketViews();
+  return removing ? 'removed' : 'added';
+}
+
+function refreshBasketViews() {
+  renderBasket(assetsByIdAll);
+  repaintBasketButton();
+  document.querySelectorAll('#watchlist .wl-item').forEach(paintRow);
+}
+
+function wireBasketButton(entry) {
   const btn = document.getElementById('basketBtn'), msg = document.getElementById('basketMsg');
   const key = pickKey(entry);
   const paint = () => {
-    const inBasket = basketPicks.some(p => pickKey(p) === key);
-    btn.classList.toggle('in', inBasket);
-    btn.textContent = inBasket ? `In basket (${entry.higher_tf}) · remove` : `Add ${entry.display_name} ${entry.higher_tf} to basket`;
+    btn.classList.toggle('in', inBasket(key));
+    btn.textContent = inBasket(key) ? `In basket (${entry.higher_tf}) · remove` : `Add ${entry.display_name} ${entry.higher_tf} to basket`;
   };
   paint();
-  repaintBasketButton = paint;  // the basket loads async — repaint once it arrives
+  repaintBasketButton = paint;  // any basket change (or the async first load) repaints it
   btn.addEventListener('click', async () => {
-    if (!getToken()) {
-      msg.textContent = 'Add your GitHub token in Basket settings first.';
-      document.getElementById('basketSettings').classList.remove('is-hidden');
-      return;
-    }
-    const removing = basketPicks.some(p => pickKey(p) === key);
+    if (!requireToken()) return;
     btn.disabled = true; msg.textContent = 'Saving…';
     try {
-      await updateBasket(picks => removing
-        ? picks.filter(p => pickKey(p) !== key)
-        : picks.filter(p => pickKey(p) !== key).concat([{
-            asset_class: entry.asset_class, ticker: entry.ticker, display_name: entry.display_name,
-            higher_tf: entry.higher_tf, direction: entry.direction, added_at: new Date().toISOString(),
-          }]),
-        `Basket: ${removing ? 'remove' : 'add'} ${entry.display_name} ${entry.higher_tf}`);
-      msg.textContent = removing ? 'Removed.' : 'Added — watched from the next check.';
-      renderBasket(assetsById);
+      msg.textContent = (await toggleBasket(entry)) === 'removed' ? 'Removed.' : 'Added — watched from the next check.';
     } catch (err) {
       msg.textContent = `Couldn't save: ${err.message}`;
     } finally {
       btn.disabled = false; paint();
     }
   });
+}
+
+// A watchlist row shows one of its asset's watches at a time (data-tf): the
+// one it opens, summarised in the sub line, boxed in the 1H/4H/1D markers,
+// and what its "+ tf" button adds. Gold underline = that tf is in the basket.
+function paintRow(item) {
+  const byTf = watchesBySym[item.dataset.sym], w = byTf && byTf[item.dataset.tf];
+  if (!w) return;
+  item.dataset.id = w._id;
+  item.querySelector('.wl-sub').textContent =
+    `${w.qualifying_count}/${w.window} qualify, ${w.candles_ago_most_recent} ${w.candles_ago_most_recent === 1 ? 'candle' : 'candles'} ago`;
+  const rsiEl = item.querySelector('.wl-rsi');
+  rsiEl.textContent = `RSI ${w.last_rsi ?? w.rsi_at_trigger}`;
+  rsiEl.className = `wl-rsi ${dirClass(w.direction)}`;
+  item.querySelectorAll('.wl-tfs [data-tf]').forEach(m => {
+    m.classList.toggle('shown', m.dataset.tf === w.higher_tf);
+    m.classList.toggle('in-basket', !!byTf[m.dataset.tf] && inBasket(pickKey(byTf[m.dataset.tf])));
+  });
+  const btn = item.querySelector('.row-bk');
+  btn.classList.toggle('in', inBasket(pickKey(w)));
+  btn.textContent = `${inBasket(pickKey(w)) ? '✓' : '+'} ${w.higher_tf}`;
+  btn.title = inBasket(pickKey(w)) ? `Remove ${w.display_name} ${w.higher_tf} from the basket` : `Add ${w.display_name} ${w.higher_tf} to the basket`;
 }
 
 function wireBasketSettings() {
@@ -527,7 +608,11 @@ const dirArrow = (d) => d === 'BULLISH' ? '▲' : '▼';
 
 function selectAsset(id, assetsById) {
   const entry = assetsById[id];
-  document.querySelectorAll('#watchlist .wl-item').forEach(el => el.classList.toggle('active', el.dataset.sym === symKey(entry)));
+  document.querySelectorAll('#watchlist .wl-item').forEach(el => {
+    const isOpen = el.dataset.sym === symKey(entry);
+    el.classList.toggle('active', isOpen);
+    if (isOpen && el.dataset.tf !== entry.higher_tf) { el.dataset.tf = entry.higher_tf; paintRow(el); }
+  });
   document.querySelectorAll('#basketList .wl-item').forEach(el => el.classList.toggle('active', el.dataset.key === pickKey(entry)));
   teardownCharts();
 
@@ -596,7 +681,7 @@ function selectAsset(id, assetsById) {
   detailEl.querySelectorAll('.tf-switch[data-id]').forEach(btn => {
     if (btn.dataset.id !== id) btn.addEventListener('click', () => selectAsset(btn.dataset.id, assetsById));
   });
-  wireBasketButton(entry, assetsById);
+  wireBasketButton(entry);
 
   const candles = toCandles(entry.candles);
   const rsiTriggerInfo = entry.trigger_times ? { times: entry.trigger_times, direction } : null;
@@ -694,9 +779,12 @@ async function init() {
     (grouped[cls] = grouped[cls] || []).push(byTf);
   });
 
+  // On-watch timeframes are buttons (open that tf); the rest are dim labels.
   const tfMarkers = (byTf) => TF_ORDER.map(tf => {
     const w = byTf[tf];
-    return w ? `<span class="${dirClass(w.direction)}">${tf}<b>${dirArrow(w.direction)}</b></span>` : `<span>${tf}<b>·</b></span>`;
+    return w
+      ? `<button type="button" class="${dirClass(w.direction)}" data-tf="${tf}" title="Open ${tf}">${tf}<b>${dirArrow(w.direction)}</b></button>`
+      : `<span>${tf}<b>·</b></span>`;
   }).join('');
 
   const watchlistEl = document.getElementById('watchlist');
@@ -714,7 +802,7 @@ async function init() {
           </div>
           <div class="wl-right">
             <div class="wl-tfs">${tfMarkers(byTf)}</div>
-            <span class="wl-rsi"></span>
+            <div class="wl-actions"><span class="wl-rsi"></span><button type="button" class="row-bk"></button></div>
           </div>
         </div>`;
       }).join('')}
@@ -739,22 +827,34 @@ async function init() {
       const w = primaryWatch(watchesBySym[item.dataset.sym], activeTf, activeDirection);
       item.style.display = w ? '' : 'none';
       if (!w) return;
-      item.dataset.id = w._id;
-      item.querySelector('.wl-sub').textContent =
-        `${w.higher_tf} · ${w.qualifying_count}/${w.window} qualify, ${w.candles_ago_most_recent} ${w.candles_ago_most_recent === 1 ? 'candle' : 'candles'} ago`;
-      const rsiEl = item.querySelector('.wl-rsi');
-      rsiEl.textContent = `RSI ${w.last_rsi ?? w.rsi_at_trigger}`;
-      rsiEl.className = `wl-rsi ${dirClass(w.direction)}`;
+      item.dataset.tf = w.higher_tf;
+      paintRow(item);
     });
   }
 
-  document.querySelectorAll('#watchlist .wl-item').forEach(el => el.addEventListener('click', () => selectAsset(el.dataset.id, assetsById)));
+  document.querySelectorAll('#watchlist .wl-item').forEach(el => {
+    el.addEventListener('click', () => selectAsset(el.dataset.id, assetsById));
+    el.querySelectorAll('.wl-tfs button').forEach(m => m.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectAsset(watchesBySym[el.dataset.sym][m.dataset.tf]._id, assetsById);
+    }));
+    el.querySelector('.row-bk').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!requireToken()) return;
+      const btn = e.currentTarget, w = watchesBySym[el.dataset.sym][el.dataset.tf];
+      btn.disabled = true; btn.textContent = '…';
+      try { await toggleBasket(w); }
+      catch (err) { btn.title = `Couldn't save: ${err.message}`; alert(`Couldn't save the basket: ${err.message}`); }
+      finally { btn.disabled = false; paintRow(el); }
+    });
+  });
+  assetsByIdAll = assetsById;
   applyFilters();
   document.getElementById('wlCount').textContent = syms.length;
 
   renderBasket(assetsById);
   fetchBasket()
-    .then(({ picks }) => { basketPicks = picks; renderBasket(assetsById); repaintBasketButton(); })
+    .then(({ picks }) => { basketPicks = picks; refreshBasketViews(); })
     .catch(err => { document.getElementById('basketList').innerHTML = `<div class="bk-empty">Couldn't load the basket (${err.message}).</div>`; });
 
   document.querySelectorAll('#tf-controls .chip, #direction-controls .chip').forEach(chip => {
