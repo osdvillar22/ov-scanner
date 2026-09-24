@@ -1,0 +1,69 @@
+name: Basket entry check (crypto)
+
+# Crypto basket picks only, every 5 minutes — Kraken data is real-time.
+# Non-crypto picks are checked by the hourly scan (Yahoo data is delayed
+# anyway). GitHub may start scheduled runs a few minutes late.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # auto-removes dropped picks from basket.json
+
+# Never run two checks at once (they'd race on the alert history), and
+# never cancel one mid-run.
+concurrency:
+  group: basket
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Most runs have nothing to do — skip the Python setup entirely then.
+      - name: Any crypto picks?
+        id: picks
+        run: |
+          if python3 -c "import json,sys; sys.exit(0 if any(p['asset_class']=='crypto' for p in json.load(open('basket.json'))['picks']) else 1)"; then
+            echo "has_crypto=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No crypto picks in the basket — nothing to check."
+          fi
+
+      - name: Set up Python
+        if: steps.picks.outputs.has_crypto == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        if: steps.picks.outputs.has_crypto == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Restore alert history
+        if: steps.picks.outputs.has_crypto == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: basket_alerts_crypto.json
+          key: basket-crypto-${{ github.run_id }}
+          restore-keys: |
+            basket-crypto-
+
+      - name: Check basket
+        if: steps.picks.outputs.has_crypto == 'true'
+        env:
+          DISCORD_ENTRY_WEBHOOK_URL: ${{ secrets.DISCORD_ENTRY_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python basket.py --crypto
+
+      - name: Save alert history
+        if: steps.picks.outputs.has_crypto == 'true' && hashFiles('basket_alerts_crypto.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: basket_alerts_crypto.json
+          key: basket-crypto-${{ github.run_id }}

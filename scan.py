@@ -25,7 +25,10 @@ your own machine for now) and it will:
      between-run cache for display convenience — every run fully
      recomputes each asset's watch status from real historical data, so
      state.json is never the source of truth and can't drift or go stale.
-  5. Fire a batched Discord alert for anything new this run.
+  5. Run the hourly basket check (basket.run_hourly): drop hand-picked
+     basket entries whose watch is gone, alert on lower-tf entries for
+     non-crypto picks, and attach every pick's status to data.json.
+     New-watch Discord alerts were retired — only basket entries alert.
 
 This is Phase A only. The pullback/entry-setup state machine (Phase B) that
 used to run on the lower timeframes has been removed from the live scanner;
@@ -33,18 +36,16 @@ it still exists as a standalone research tool in backtest.py (which also
 still has its own, separate, RSI-only watch-window logic — unrelated to
 the condition this file implements).
 
-Local testing: `python scan.py` with no DISCORD_WEBHOOK_URL set will just
-log what it would have sent, instead of failing.
+Local testing: `python scan.py` with no DISCORD_ENTRY_WEBHOOK_URL set will
+just log what it would have sent, instead of failing.
 """
 
 import json
 import logging
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
-import requests
 
 import config
 import fetch
@@ -254,8 +255,7 @@ def find_phase_a_watch(
 # ---------------------------------------------------------------------------
 
 def scan_higher_timeframe(
-    asset: dict, htf: str, df_htf: pd.DataFrame | None, df_auto: pd.DataFrame | None,
-    state: dict, watch_events: list,
+    asset: dict, htf: str, df_htf: pd.DataFrame | None, df_auto: pd.DataFrame | None, state: dict,
 ) -> None:
     """Check one asset on one higher timeframe using its (already-fetched)
     own data and its AUTO_HIGHER_TF data, and mutate `state` accordingly:
@@ -292,7 +292,6 @@ def scan_higher_timeframe(
             "first_seen": now_iso(),
         }
         state[key] = entry
-        watch_events.append(entry)
         logger.info(
             "NEW WATCH: %s %s (%s) RSI=%.1f [%d/%d candles qualify, most recent %d candles ago]",
             asset["display_name"], htf, watch["direction"], watch["rsi_at_trigger"],
@@ -325,7 +324,7 @@ def lower_tf_candle_count(htf: str, ltf: str) -> int:
     return round(span_minutes / config.TIMEFRAME_MINUTES[ltf])
 
 
-def scan_asset(asset: dict, state: dict, watch_events: list) -> None:
+def scan_asset(asset: dict, state: dict) -> None:
     """Run all 3 higher-timeframe checks for one asset. Each needed
     timeframe — including AUTO_HIGHER_TF lookups, several of which overlap
     with another timeframe's own scan (e.g. "4H" is both 1H's auto-tf and
@@ -340,54 +339,18 @@ def scan_asset(asset: dict, state: dict, watch_events: list) -> None:
 
     for htf in config.HIGHER_TIMEFRAMES:
         df_auto = tf_data.get(config.AUTO_HIGHER_TF[htf])
-        scan_higher_timeframe(asset, htf, tf_data[htf], df_auto, state, watch_events)
-
-
-# ---------------------------------------------------------------------------
-# Discord alerts
-# ---------------------------------------------------------------------------
-
-def send_discord_alert(watch_events: list) -> None:
-    webhook_url = os.environ.get(config.DISCORD_WEBHOOK_ENV)
-    if not watch_events:
-        logger.info("Nothing new this run — no Discord alert sent.")
-        return
-    if not webhook_url:
-        logger.info(
-            "%s not set — skipping Discord send. Would have alerted: %d new watches.",
-            config.DISCORD_WEBHOOK_ENV, len(watch_events),
-        )
-        return
-
-    embeds = [{
-        "title": "👀 New on Watchlist",
-        "color": 15105570,  # amber
-        "fields": [
-            {
-                "name": f"{e['display_name']} ({e['higher_tf']})",
-                "value": f"{e['direction']} bias — RSI {e['rsi_at_trigger']}",
-                "inline": True,
-            }
-            for e in watch_events
-        ],
-    }]
-
-    try:
-        resp = requests.post(webhook_url, json={"embeds": embeds}, timeout=10)
-        resp.raise_for_status()
-        logger.info("Discord alert sent: %d new watches.", len(watch_events))
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Discord send failed: %s", exc)
+        scan_higher_timeframe(asset, htf, tf_data[htf], df_auto, state)
 
 
 # ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
 
-def write_output(state: dict) -> None:
+def write_output(state: dict, basket_status: dict) -> None:
     Path(config.OUTPUT_FILE).write_text(json.dumps({
         "generated_at": now_iso(),
         "assets": list(state.values()),
+        "basket_status": basket_status,
     }, separators=(",", ":"), default=str))
     logger.info("Wrote %s with %d active entries.", config.OUTPUT_FILE, len(state))
 
@@ -397,18 +360,18 @@ def write_output(state: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def run() -> None:
+    import basket  # imports scan itself — deferred to avoid a circular import
+
     state = load_state()
     universe = build_universe()
 
-    watch_events: list = []
-
     logger.info("Phase A: higher-timeframe watch-trigger scan (%s)", ", ".join(config.HIGHER_TIMEFRAMES))
     for asset in universe:
-        scan_asset(asset, state, watch_events)
+        scan_asset(asset, state)
 
-    write_output(state)
+    basket_status = basket.run_hourly(state)
+    write_output(state, basket_status)
     save_state(state)
-    send_discord_alert(watch_events)
 
 
 if __name__ == "__main__":

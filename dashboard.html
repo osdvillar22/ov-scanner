@@ -49,7 +49,6 @@
   /* Watchlist sits to the right of the charts (order), and stays in view
      while scrolling through them (sticky). */
   .watchlist-panel { order: 2; position: sticky; top: 12px; width: 300px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-  .watchlist-head { padding: 11px 14px; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.05em; }
   .watchlist-scroll { max-height: 760px; overflow-y: auto; }
   .wl-group-label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); padding: 9px 14px 4px; background: var(--surface-raised); }
   .wl-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
@@ -71,6 +70,36 @@
   .wl-tfs span { display: flex; flex-direction: column; align-items: center; line-height: 1.25; font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim); opacity: 0.4; }
   .wl-tfs span.bullish { color: var(--gain); opacity: 1; }
   .wl-tfs span.bearish { color: var(--loss); opacity: 1; }
+
+  .is-hidden { display: none !important; }
+
+  /* Watchlist | Basket tabs at the top of the right-hand panel. */
+  .panel-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .panel-tab { flex: 1; font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-dim); background: transparent; border: 0; padding: 11px 8px; cursor: pointer; }
+  .panel-tab.active { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); }
+  .panel-tab span { opacity: 0.7; }
+
+  /* Basket rows: per-lower-tf entry state. */
+  .bk-ltf { display: flex; justify-content: space-between; gap: 8px; font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim); margin-top: 4px; }
+  .bk-state { padding: 1px 6px; border-radius: 999px; background: var(--surface-raised); white-space: nowrap; }
+  .bk-state.pulled_back { color: var(--gold-bright); }
+  .bk-state.armed { color: var(--gold-bright); box-shadow: inset 0 0 0 1px var(--gold-bright); }
+  .bk-state.entry { color: var(--gain); box-shadow: inset 0 0 0 1px var(--gain); }
+  .bk-gone { font-family: var(--font-mono); font-size: 9.5px; color: var(--loss); margin-top: 4px; }
+  .bk-empty { padding: 16px 14px; font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
+
+  .basket-btn { font-family: var(--font-mono); font-size: 11px; padding: 4px 10px; border-radius: 3px; border: 1px solid var(--gold-bright); color: var(--gold-bright); background: transparent; cursor: pointer; white-space: nowrap; }
+  .basket-btn.in { background: var(--gold-bright); color: var(--bg); }
+  .basket-btn:disabled { opacity: 0.5; cursor: wait; }
+  .basket-msg { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-dim); }
+
+  .link-btn { font: inherit; color: var(--ink-dim); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+  .settings-panel { margin-top: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
+  .settings-panel strong { color: var(--ink); }
+  .settings-panel code { background: var(--surface-raised); padding: 1px 5px; border-radius: 2px; }
+  .settings-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .settings-row input { flex: 1; min-width: 200px; font-family: var(--font-mono); font-size: 12px; padding: 6px 9px; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 3px; }
+  .settings-msg { font-family: var(--font-mono); font-size: 11px; margin-top: 8px; min-height: 1em; }
 
   /* Timeframe switcher in the asset header — replaces the single tf badge. */
   .tf-switch { font-family: var(--font-mono); font-size: 11px; padding: 3px 9px; border-radius: 3px; border: 1px solid var(--border); background: transparent; color: var(--ink-dim); opacity: 0.45; cursor: default; white-space: nowrap; }
@@ -146,7 +175,16 @@
   <header class="page">
     <div class="title-row">
       <h1>Signal <span class="accent">Scanner</span></h1>
-      <div class="scan-meta" id="scanMeta">Loading…</div>
+      <div class="scan-meta"><span id="scanMeta">Loading…</span> · <button class="link-btn" id="basketSettingsBtn" type="button">Basket settings</button></div>
+    </div>
+    <div class="settings-panel is-hidden" id="basketSettings">
+      <div><strong>Basket access.</strong> Adding and removing basket picks saves <code>basket.json</code> in your GitHub repo, which needs a token with access to this repo only. It's stored in this browser only — each device needs it once.</div>
+      <div class="settings-row">
+        <input type="password" id="tokenInput" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
+        <button class="reset-zoom" id="tokenSave" type="button">Save token</button>
+        <button class="reset-zoom" id="tokenClear" type="button">Remove token</button>
+      </div>
+      <div class="settings-msg" id="tokenMsg"></div>
     </div>
   </header>
 
@@ -166,8 +204,12 @@
 
   <div class="layout">
     <div class="watchlist-panel">
-      <div class="watchlist-head">Watchlist</div>
+      <div class="panel-tabs">
+        <button class="panel-tab active" data-view="watchlist" type="button">Watchlist <span id="wlCount"></span></button>
+        <button class="panel-tab" data-view="basket" type="button">Basket <span id="bkCount"></span></button>
+      </div>
       <div class="watchlist-scroll" id="watchlist"></div>
+      <div class="watchlist-scroll is-hidden" id="basketList"></div>
     </div>
     <div class="detail-panel" id="detail"></div>
   </div>
@@ -321,6 +363,159 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo)
   chart.timeScale().subscribeVisibleLogicalRangeChange(range => { if (range) macdChart.timeScale().setVisibleLogicalRange(range); });
 }
 
+// ---------------------------------------------------------------------------
+// Basket — the user's hand-picked (asset, higher tf) setups, kept in
+// basket.json in the repo. Read via the GitHub API (fresh, no Pages
+// rebuild needed); written with a fine-grained token the user pastes once,
+// kept only in this browser. The workflows read the same file.
+// ---------------------------------------------------------------------------
+const REPO = location.hostname.endsWith('.github.io')
+  ? `${location.hostname.split('.')[0]}/${location.pathname.split('/')[1]}`
+  : 'osdvillar22/ov-scanner';
+const BASKET_API = `https://api.github.com/repos/${REPO}/contents/basket.json`;
+const TOKEN_KEY = 'ovs-github-token';
+
+const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } };
+const setToken = (t) => { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (e) {} };
+const pickKey = (p) => `${p.asset_class}:${p.ticker}:${p.higher_tf}`;
+
+let basketPicks = [];      // current picks, as last read from GitHub
+let basketStatus = {};     // per-pick lower-tf status from the last hourly scan (data.json)
+let repaintBasketButton = () => {};
+
+function ghHeaders() {
+  const h = { Accept: 'application/vnd.github+json' };
+  const t = getToken();
+  if (t) h.Authorization = `Bearer ${t}`;
+  return h;
+}
+const b64decode = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g, '')), c => c.charCodeAt(0)));
+const b64encode = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+
+async function fetchBasket() {
+  const resp = await fetch(BASKET_API, { headers: ghHeaders(), cache: 'no-store' });
+  if (resp.status === 404) return { picks: [], sha: null };
+  if (!resp.ok) throw new Error(`GitHub ${resp.status}`);
+  const file = await resp.json();
+  return { picks: JSON.parse(b64decode(file.content)).picks || [], sha: file.sha };
+}
+
+// Read-modify-write against the file's current sha; if a workflow (e.g. an
+// auto-removal) wrote in between, GitHub answers 409 and we redo it on top.
+async function updateBasket(mutate, message) {
+  if (!getToken()) throw new Error('no token');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { picks, sha } = await fetchBasket();
+    const next = mutate(picks.slice());
+    const body = { message, content: b64encode(JSON.stringify({ picks: next }, null, 2) + '\n') };
+    if (sha) body.sha = sha;
+    const resp = await fetch(BASKET_API, { method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (resp.status === 409 || resp.status === 422) continue;
+    if (resp.status === 401) throw new Error('token rejected or expired — check Basket settings');
+    if (resp.status === 403 || resp.status === 404) throw new Error("token can't write to this repo — it needs Contents: Read and write on ov-scanner");
+    if (!resp.ok) throw new Error(`GitHub ${resp.status}`);
+    basketPicks = next;
+    return;
+  }
+  throw new Error('basket changed repeatedly, try again');
+}
+
+const BASKET_STATE_LABELS = {
+  waiting: 'waiting for pullback',
+  pulled_back: 'pulled back · MACD –',
+  armed: 'armed · pulled back + MACD',
+  no_data: 'no data',
+};
+
+function fmtTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function renderBasket(assetsById) {
+  const el = document.getElementById('basketList');
+  document.getElementById('bkCount').textContent = basketPicks.length;
+  if (!basketPicks.length) {
+    el.innerHTML = `<div class="bk-empty">No picks yet. Open an asset on the watchlist and use <strong>Add to basket</strong> — its lower timeframes are then watched for your entry, with a Discord alert when it fires.</div>`;
+    return;
+  }
+  el.innerHTML = basketPicks.map(p => {
+    const key = pickKey(p);
+    const watch = assetsById[`${p.asset_class}__${p.ticker}__${p.higher_tf}`];
+    const st = basketStatus[key];
+    const ltfs = st ? Object.entries(st).map(([ltf, s]) => {
+      const lbl = BASKET_STATE_LABELS[s.state] || s.state;
+      return `<div class="bk-ltf"><span>${ltf}</span><span class="bk-state ${s.state}">${lbl}</span></div>`
+        + (s.last_entry ? `<div class="bk-ltf"><span></span><span class="bk-state entry">last entry ${fmtTime(s.last_entry)}</span></div>` : '');
+    }).join('') : `<div class="bk-ltf"><span>status</span><span class="bk-state">after the next hourly scan</span></div>`;
+    return `
+      <div class="wl-item" data-key="${key}" data-id="${watch ? watch._id : ''}">
+        <div class="wl-left" style="width:100%">
+          <div class="wl-sym">${p.display_name} <span class="wl-rsi ${dirClass(p.direction)}">${p.higher_tf} ${dirArrow(p.direction)}</span></div>
+          <div class="wl-name">${p.asset_class === 'crypto' ? 'checked every 5 min' : 'checked hourly'}</div>
+          ${watch ? ltfs : '<div class="bk-gone">no longer on the watchlist — being removed</div>'}
+        </div>
+      </div>`;
+  }).join('');
+  el.querySelectorAll('.wl-item[data-id]').forEach(item => {
+    if (item.dataset.id) item.addEventListener('click', () => selectAsset(item.dataset.id, assetsById));
+  });
+}
+
+function wireBasketButton(entry, assetsById) {
+  const btn = document.getElementById('basketBtn'), msg = document.getElementById('basketMsg');
+  const key = pickKey(entry);
+  const paint = () => {
+    const inBasket = basketPicks.some(p => pickKey(p) === key);
+    btn.classList.toggle('in', inBasket);
+    btn.textContent = inBasket ? `In basket (${entry.higher_tf}) · remove` : `Add ${entry.display_name} ${entry.higher_tf} to basket`;
+  };
+  paint();
+  repaintBasketButton = paint;  // the basket loads async — repaint once it arrives
+  btn.addEventListener('click', async () => {
+    if (!getToken()) {
+      msg.textContent = 'Add your GitHub token in Basket settings first.';
+      document.getElementById('basketSettings').classList.remove('is-hidden');
+      return;
+    }
+    const removing = basketPicks.some(p => pickKey(p) === key);
+    btn.disabled = true; msg.textContent = 'Saving…';
+    try {
+      await updateBasket(picks => removing
+        ? picks.filter(p => pickKey(p) !== key)
+        : picks.filter(p => pickKey(p) !== key).concat([{
+            asset_class: entry.asset_class, ticker: entry.ticker, display_name: entry.display_name,
+            higher_tf: entry.higher_tf, direction: entry.direction, added_at: new Date().toISOString(),
+          }]),
+        `Basket: ${removing ? 'remove' : 'add'} ${entry.display_name} ${entry.higher_tf}`);
+      msg.textContent = removing ? 'Removed.' : 'Added — watched from the next check.';
+      renderBasket(assetsById);
+    } catch (err) {
+      msg.textContent = `Couldn't save: ${err.message}`;
+    } finally {
+      btn.disabled = false; paint();
+    }
+  });
+}
+
+function wireBasketSettings() {
+  const panel = document.getElementById('basketSettings'), input = document.getElementById('tokenInput'), msg = document.getElementById('tokenMsg');
+  const showState = () => { msg.textContent = getToken() ? 'A token is saved in this browser.' : 'No token saved — the basket is read-only here.'; };
+  document.getElementById('basketSettingsBtn').addEventListener('click', () => { panel.classList.toggle('is-hidden'); showState(); });
+  document.getElementById('tokenClear').addEventListener('click', () => { setToken(''); input.value = ''; showState(); });
+  document.getElementById('tokenSave').addEventListener('click', async () => {
+    const t = input.value.trim();
+    if (!t) { msg.textContent = 'Paste a token first.'; return; }
+    msg.textContent = 'Checking…';
+    // Confirms the token is valid. Whether it can write to this repo only
+    // shows on the first save (GitHub doesn't report a fine-grained
+    // token's own permissions), which reports a clear error if not.
+    const resp = await fetch('https://api.github.com/user', { headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${t}` }, cache: 'no-store' });
+    if (!resp.ok) { msg.textContent = `GitHub rejected that token (${resp.status}).`; return; }
+    setToken(t); input.value = ''; msg.textContent = 'Saved. Add a pick to confirm it can write to the repo.';
+  });
+}
+
 // data.json has one entry per (asset, timeframe) watch; the watchlist shows
 // one row per asset, so group them: symKey -> { '1H': entry, '4H': entry, ... }.
 const TF_ORDER = ['1H', '4H', '1D'];
@@ -332,7 +527,8 @@ const dirArrow = (d) => d === 'BULLISH' ? '▲' : '▼';
 
 function selectAsset(id, assetsById) {
   const entry = assetsById[id];
-  document.querySelectorAll('.wl-item').forEach(el => el.classList.toggle('active', el.dataset.sym === symKey(entry)));
+  document.querySelectorAll('#watchlist .wl-item').forEach(el => el.classList.toggle('active', el.dataset.sym === symKey(entry)));
+  document.querySelectorAll('#basketList .wl-item').forEach(el => el.classList.toggle('active', el.dataset.key === pickKey(entry)));
   teardownCharts();
 
   // One button per timeframe: colored + clickable where this asset is on
@@ -356,6 +552,7 @@ function selectAsset(id, assetsById) {
         <div class="detail-sym">${entry.display_name}</div>
         <div class="detail-name">${entry.ticker}</div>
         <div class="detail-thesis">${entry.higher_tf} trend + LSMA + RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} aligned (fired at RSI ${entry.rsi_at_trigger}) — <strong>${dc} continuation</strong>.</div>
+        <div class="settings-row" style="align-items:center;margin-top:8px"><button class="basket-btn" id="basketBtn" type="button"></button><span class="basket-msg" id="basketMsg"></span></div>
       </div>
       <div class="badge-group">${tfSwitcher}<span class="rsi-badge ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
     </div>
@@ -399,6 +596,7 @@ function selectAsset(id, assetsById) {
   detailEl.querySelectorAll('.tf-switch[data-id]').forEach(btn => {
     if (btn.dataset.id !== id) btn.addEventListener('click', () => selectAsset(btn.dataset.id, assetsById));
   });
+  wireBasketButton(entry, assetsById);
 
   const candles = toCandles(entry.candles);
   const rsiTriggerInfo = entry.trigger_times ? { times: entry.trigger_times, direction } : null;
@@ -423,6 +621,13 @@ function selectAsset(id, assetsById) {
 }
 
 async function init() {
+  wireBasketSettings();
+  document.querySelectorAll('.panel-tab').forEach(tab => tab.addEventListener('click', () => {
+    document.querySelectorAll('.panel-tab').forEach(t => t.classList.toggle('active', t === tab));
+    document.getElementById('watchlist').classList.toggle('is-hidden', tab.dataset.view !== 'watchlist');
+    document.getElementById('basketList').classList.toggle('is-hidden', tab.dataset.view !== 'basket');
+  }));
+
   let data;
   try {
     const resp = await fetch('data.json', { cache: 'no-store' });
@@ -441,6 +646,7 @@ async function init() {
   }
 
   const assets = data.assets || [];
+  basketStatus = data.basket_status || {};
 
   watchesBySym = {};
   assets.forEach(a => {
@@ -529,7 +735,7 @@ async function init() {
   function applyFilters() {
     const activeTf = document.querySelector('#tf-controls .chip.active')?.dataset.tf || 'ALL';
     const activeDirection = document.querySelector('#direction-controls .chip.active')?.dataset.direction || 'ALL';
-    document.querySelectorAll('.wl-item').forEach(item => {
+    document.querySelectorAll('#watchlist .wl-item').forEach(item => {
       const w = primaryWatch(watchesBySym[item.dataset.sym], activeTf, activeDirection);
       item.style.display = w ? '' : 'none';
       if (!w) return;
@@ -542,8 +748,14 @@ async function init() {
     });
   }
 
-  document.querySelectorAll('.wl-item').forEach(el => el.addEventListener('click', () => selectAsset(el.dataset.id, assetsById)));
+  document.querySelectorAll('#watchlist .wl-item').forEach(el => el.addEventListener('click', () => selectAsset(el.dataset.id, assetsById)));
   applyFilters();
+  document.getElementById('wlCount').textContent = syms.length;
+
+  renderBasket(assetsById);
+  fetchBasket()
+    .then(({ picks }) => { basketPicks = picks; renderBasket(assetsById); repaintBasketButton(); })
+    .catch(err => { document.getElementById('basketList').innerHTML = `<div class="bk-empty">Couldn't load the basket (${err.message}).</div>`; });
 
   document.querySelectorAll('#tf-controls .chip, #direction-controls .chip').forEach(chip => {
     chip.addEventListener('click', () => {
@@ -560,7 +772,7 @@ async function init() {
     });
   });
 
-  selectAsset(document.querySelector('.wl-item').dataset.id, assetsById);
+  selectAsset(document.querySelector('#watchlist .wl-item').dataset.id, assetsById);
 }
 
 init();

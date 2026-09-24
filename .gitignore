@@ -9,3 +9,5 @@ scan_run.log
 # makes them 8MB+ each). Each run just overwrites them in place.
 state.json
 data.json
+# Basket entry-alert dedupe — Actions cache, not git (basket.json IS committed).
+basket_alerts_*.json

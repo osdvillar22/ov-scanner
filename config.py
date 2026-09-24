@@ -219,4 +219,15 @@ STATE_FILE = "state.json"    # persisted between runs — NOT committed to git (
                               # a runner cache/artifact, not a git commit.
 OUTPUT_FILE = "data.json"    # what dashboard.html reads — same story, not committed
 
-DISCORD_WEBHOOK_ENV = "DISCORD_WEBHOOK_URL"  # set as a GitHub Actions secret
+# The user's hand-picked basket (see basket.py). Committed to git — the
+# dashboard writes it via the GitHub API, the workflows read it from the
+# checkout.
+BASKET_FILE = "basket.json"
+# Which lower-tf candles already fired an entry alert, one file per workflow
+# (persisted via the Actions cache, like state.json).
+BASKET_ALERTS_CRYPTO_FILE = "basket_alerts_crypto.json"
+BASKET_ALERTS_HOURLY_FILE = "basket_alerts_hourly.json"
+
+# Discord webhook for basket entry alerts, set as a GitHub Actions secret.
+# (The old new-watch alerts on DISCORD_WEBHOOK_URL were retired.)
+DISCORD_ENTRY_WEBHOOK_ENV = "DISCORD_ENTRY_WEBHOOK_URL"

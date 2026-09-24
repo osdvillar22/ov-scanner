@@ -6,7 +6,7 @@ on:
   workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
 
 permissions:
-  contents: read
+  contents: write   # basket.py auto-removes dropped picks from basket.json
   pages: write
   id-token: write
 
@@ -42,9 +42,29 @@ jobs:
           restore-keys: |
             scanner-state-
 
+      # Which basket entries already alerted (dedupe). The hourly run owns
+      # the non-crypto file; the crypto one belongs to basket.yml and is
+      # only read here, to show crypto picks' status consistently.
+      - name: Restore basket alert history
+        uses: actions/cache/restore@v4
+        with:
+          path: basket_alerts_hourly.json
+          key: basket-hourly-${{ github.run_id }}
+          restore-keys: |
+            basket-hourly-
+
+      - name: Restore crypto basket alert history (read-only)
+        uses: actions/cache/restore@v4
+        with:
+          path: basket_alerts_crypto.json
+          key: basket-crypto-${{ github.run_id }}
+          restore-keys: |
+            basket-crypto-
+
       - name: Run scanner
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_ENTRY_WEBHOOK_URL: ${{ secrets.DISCORD_ENTRY_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scan.py
 
       - name: Save scanner state
@@ -52,6 +72,13 @@ jobs:
         with:
           path: state.json
           key: scanner-state-${{ github.run_id }}
+
+      - name: Save basket alert history
+        if: hashFiles('basket_alerts_hourly.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: basket_alerts_hourly.json
+          key: basket-hourly-${{ github.run_id }}
 
       - name: Prepare Pages site
         run: |
