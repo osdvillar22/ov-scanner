@@ -84,6 +84,9 @@
   .chart-block { margin-bottom: 10px; }
   .chart-block-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }
   .chart-block-label { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--ink); }
+  .reset-zoom { font-family: var(--font-mono); font-size: 10.5px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; color: var(--ink-dim); background: var(--surface); cursor: pointer; }
+  .reset-zoom:hover { color: var(--ink); border-color: var(--ink-dim); }
+  .legend-row .zoom-hint { margin-left: auto; }
   .chart-box { width: 100%; height: 460px; position: relative; }
   .macd-box { width: 100%; height: 120px; margin-top: 4px; }
   .chart-placeholder { width: 100%; height: 460px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); background: var(--surface-raised); border: 1px dashed var(--border); border-radius: 3px; text-align: center; padding: 0 20px; }
@@ -153,6 +156,16 @@ const CATEGORY_ORDER = ['forex', 'metals', 'indices', 'energy', 'crypto'];
 
 const dirClass = (d) => (d || '').toLowerCase();
 
+// scan.py ships candles as {fields, rows} (one array per candle) to keep
+// data.json small; expand back to objects here. Plain arrays are the older
+// layout — still accepted, so a state.json entry left over from before the
+// change keeps rendering until its next refresh.
+function toCandles(c) {
+  if (!c) return [];
+  if (Array.isArray(c)) return c;
+  return c.rows.map(r => Object.fromEntries(c.fields.map((f, i) => [f, r[i]])));
+}
+
 function toUnixTime(iso) {
   return iso ? Math.floor(new Date(iso).getTime() / 1000) : null;
 }
@@ -167,11 +180,49 @@ const chartTheme = {
   layout: { background: { type: 'solid', color: 'transparent' }, textColor: cssVar('--ink-dim'), fontFamily: "'IBM Plex Mono', monospace", fontSize: 10 },
   grid: { vertLines: { visible: false }, horzLines: { visible: false } },
   rightPriceScale: { borderColor: cssVar('--border'), scaleMargins: { top: 0.12, bottom: 0.18 }, minimumWidth: 80 },
-  timeScale: { borderColor: cssVar('--border'), timeVisible: false, secondsVisible: false },
+  timeScale: { borderColor: cssVar('--border'), timeVisible: false, secondsVisible: false, fixLeftEdge: true, fixRightEdge: true },
   crosshair: { mode: 0 },
-  handleScroll: false,
-  handleScale: false
+  // Drag to pan, pinch / drag the price axis to scale. The plain mouse
+  // wheel is left to the page so scrolling past a chart doesn't get
+  // trapped by it — Ctrl+wheel zooms instead (see attachCtrlWheelZoom).
+  handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+  handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true }
 };
+
+// The MACD pane only ever follows its price chart's range — it never takes
+// input of its own.
+const followerInteraction = { handleScroll: false, handleScale: false };
+
+function attachCtrlWheelZoom(chart, el, lastIndex) {
+  const ts = chart.timeScale();
+  // The chart only applies a new range on its next paint, so wheel events
+  // arriving faster than that (a trackpad pinch) would all zoom from the
+  // same stale range. Build on the last range we asked for until the chart
+  // reports it applied (or the user drags, which also reports a change).
+  let pending = null;
+  ts.subscribeVisibleLogicalRangeChange(() => { pending = null; });
+
+  el.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();  // also stops the browser's own page zoom
+    const range = pending || ts.getVisibleLogicalRange();
+    if (!range) return;
+    const x = e.clientX - el.getBoundingClientRect().left;
+    const anchor = ts.coordinateToLogical(x) ?? (range.from + range.to) / 2;
+    // Scale by how far the wheel actually moved, so a trackpad pinch (many
+    // tiny ctrl+wheel events) zooms smoothly while a mouse notch (~100px)
+    // still gives a ~20% step. deltaMode 1 = lines (Firefox), ~33px each.
+    const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+    const factor = Math.exp(Math.max(-100, Math.min(100, dy)) * 0.002);
+    // Clamped to the data so `pending` matches what fixLeftEdge/fixRightEdge
+    // will actually show when zooming out at full extent.
+    const from = Math.max(0, anchor - (anchor - range.from) * factor);
+    const to = Math.min(lastIndex, anchor + (range.to - anchor) * factor);
+    if (to - from < 5) return;  // don't zoom in past ~5 candles
+    pending = { from, to };
+    ts.setVisibleLogicalRange(pending);
+  }, { passive: false });
+}
 
 const LINE_STYLE_DOTTED = (window.LightweightCharts && LightweightCharts.LineStyle) ? LightweightCharts.LineStyle.Dotted : 1;
 
@@ -189,6 +240,14 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo)
   activeCharts.push(chart);
   const candleSeries = chart.addCandlestickSeries({ upColor: cssVar('--gain'), downColor: cssVar('--loss'), borderVisible: false, wickUpColor: cssVar('--gain'), wickDownColor: cssVar('--loss'), priceLineVisible: false, lastValueVisible: false });
   candleSeries.setData(candles);
+  // The library defaults to 2 decimals, which blanks the axis on sub-cent
+  // crypto (1.2e-7 -> "0.00") and hides pips on forex. Size it to the price:
+  // ~5 significant digits, never fewer than 2 decimals. A custom formatter
+  // rather than type 'price', whose own formatter mangles >8 decimals
+  // (1.2e-7 comes out as "0.99999999996").
+  const refPrice = Math.abs(candles[candles.length - 1].close) || 1;
+  const precision = Math.min(12, Math.max(2, Math.ceil(-Math.log10(refPrice)) + 4));
+  candleSeries.applyOptions({ priceFormat: { type: 'custom', minMove: Math.pow(10, -precision), formatter: p => p.toFixed(precision) } });
 
   [
     { key: 'ema10', c: '#D9A441', style: 0, width: 1 },
@@ -201,6 +260,13 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo)
 
   const from = Math.max(0, candles.length - visibleCount);
   chart.timeScale().setVisibleLogicalRange({ from, to: candles.length - 1 });
+  attachCtrlWheelZoom(chart, chartEl, candles.length - 1);
+
+  const resetBtn = document.getElementById(`${chartElId}-reset`);
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    chart.priceScale('right').applyOptions({ autoScale: true });
+    chart.timeScale().setVisibleLogicalRange({ from, to: candles.length - 1 });
+  });
 
   if (rsiTriggerInfo && rsiTriggerInfo.times && rsiTriggerInfo.times.length) {
     // Mark every candle in the window that met the condition — not just
@@ -221,7 +287,7 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo)
     candleSeries.setMarkers(markers);
   }
 
-  const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderVisible: false, textColor: 'transparent', minimumWidth: 80 }, timeScale: { visible: false, borderColor: cssVar('--border') } });
+  const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, ...followerInteraction, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderVisible: false, textColor: 'transparent', minimumWidth: 80 }, timeScale: { visible: false, borderColor: cssVar('--border') } });
   activeCharts.push(macdChart);
   const histSeries = macdChart.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
   histSeries.setData(candles.filter(c => c.macd_hist != null).map(c => ({ time: c.time, value: c.macd_hist, color: c.macd_hist >= 0 ? 'rgba(79,169,114,0.55)' : 'rgba(168,64,44,0.55)' })));
@@ -264,10 +330,14 @@ function selectAsset(id, assetsById) {
       <span><span class="dot" style="background:#D9A441"></span>EMA10</span>
       <span><span class="dot" style="background:var(--violet)"></span>EMA20</span>
       <span><span class="dot" style="background:var(--blue);border-bottom:2px dotted var(--blue);height:0"></span>LSMA 50,3</span>
+      <span class="zoom-hint">Ctrl+scroll or pinch to zoom · drag to pan</span>
     </div>
 
     <div class="chart-block">
-      <div class="chart-block-head"><span class="chart-block-label">${entry.higher_tf} — trigger timeframe</span></div>
+      <div class="chart-block-head">
+        <span class="chart-block-label">${entry.higher_tf} — trigger timeframe</span>
+        <button class="reset-zoom" id="detail-chart-reset" type="button">Reset zoom</button>
+      </div>
       <div class="chart-box" id="detail-chart"></div>
       <div class="macd-box" id="detail-macd"></div>
     </div>
@@ -278,6 +348,7 @@ function selectAsset(id, assetsById) {
       <div class="chart-block">
         <div class="chart-block-head">
           <span class="chart-block-label">${ltf}</span>
+          <button class="reset-zoom" id="detail-mini-${li}-reset" type="button">Reset zoom</button>
         </div>
         <div class="chart-box" id="detail-mini-${li}"></div>
         <div class="macd-box" id="detail-minimacd-${li}"></div>
@@ -285,7 +356,7 @@ function selectAsset(id, assetsById) {
     `).join('')}
   `;
 
-  const candles = entry.candles || [];
+  const candles = toCandles(entry.candles);
   const rsiTriggerInfo = entry.trigger_times ? { times: entry.trigger_times, direction } : null;
   renderBlock(candles, 'detail-chart', 'detail-macd', entry.window || 25, rsiTriggerInfo);
 
@@ -302,7 +373,7 @@ function selectAsset(id, assetsById) {
     // The server already trimmed each lower-tf's candles to the count that
     // spans the same real time as the higher-tf's watch window — show all
     // of them rather than re-deriving a separate zoom count client-side.
-    const ltfCandles = entry.lower_tf_candles[ltf];
+    const ltfCandles = toCandles(entry.lower_tf_candles[ltf]);
     renderBlock(ltfCandles, `detail-mini-${li}`, `detail-minimacd-${li}`, ltfCandles.length);
   });
 }

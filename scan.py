@@ -96,7 +96,7 @@ def load_state() -> dict:
 
 
 def save_state(state: dict) -> None:
-    Path(config.STATE_FILE).write_text(json.dumps(state, indent=2, default=str))
+    Path(config.STATE_FILE).write_text(json.dumps(state, separators=(",", ":"), default=str))
 
 
 def now_iso() -> str:
@@ -114,33 +114,33 @@ def fetch_and_compute(asset: dict, tf: str, min_bars: int = config.MIN_WARMUP_BA
     return indicators.compute_all(df)
 
 
-def serialize_candles(df: pd.DataFrame, n: int = config.DASHBOARD_CANDLE_WINDOW) -> list:
+CANDLE_FIELDS = ["time", "open", "high", "low", "close", "ema10", "ema20", "lsma", "macd", "macd_signal", "macd_hist"]
+
+
+def _sig(value, digits: int = 7):
+    """Round to significant digits, not decimal places — a fixed 6 decimals
+    squashed sub-cent crypto (0.00001234 -> 1.2e-05) into stair-step charts,
+    while wasting digits on large prices."""
+    return None if pd.isna(value) else float(f"{float(value):.{digits}g}")
+
+
+def serialize_candles(df: pd.DataFrame, n: int = config.DASHBOARD_CANDLE_WINDOW) -> dict:
     """
-    Trailing window of OHLC + indicator values for dashboard.html's charts.
-    `time` is Unix seconds (UTC) — lightweight-charts' native format.
+    Trailing window of OHLC + indicator values for dashboard.html's charts,
+    as {"fields": [...], "rows": [[...], ...]} — one plain array per candle
+    instead of a dict repeating every key, which was most of data.json's
+    size. `time` is Unix seconds (UTC) — lightweight-charts' native format.
 
     The next-higher timeframe's LSMA (see _align_auto_lsma) is used inside
     the watch condition but deliberately NOT included here — plotting it
     dragged the price scale down to fit a slow-moving line far from
     current price, flattening the actual candles.
     """
-    candles = []
+    rows = []
     for ts, row in df.tail(n).iterrows():
         ts_utc = ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
-        candles.append({
-            "time": int(ts_utc.timestamp()),
-            "open": round(float(row["open"]), 6),
-            "high": round(float(row["high"]), 6),
-            "low": round(float(row["low"]), 6),
-            "close": round(float(row["close"]), 6),
-            "ema10": None if pd.isna(row["ema10"]) else round(float(row["ema10"]), 6),
-            "ema20": None if pd.isna(row["ema20"]) else round(float(row["ema20"]), 6),
-            "lsma": None if pd.isna(row["lsma"]) else round(float(row["lsma"]), 6),
-            "macd": None if pd.isna(row["macd"]) else round(float(row["macd"]), 6),
-            "macd_signal": None if pd.isna(row["macd_signal"]) else round(float(row["macd_signal"]), 6),
-            "macd_hist": None if pd.isna(row["macd_hist"]) else round(float(row["macd_hist"]), 6),
-        })
-    return candles
+        rows.append([int(ts_utc.timestamp())] + [_sig(row[f]) for f in CANDLE_FIELDS[1:]])
+    return {"fields": CANDLE_FIELDS, "rows": rows}
 
 
 # ---------------------------------------------------------------------------
@@ -277,23 +277,20 @@ def scan_higher_timeframe(
     entry["last_rsi"] = round(float(df_htf.iloc[-1]["rsi"]), 2)
     entry["candles"] = serialize_candles(df_htf)
     entry["lower_tf_candles"] = {}
-    for tier, ltf in enumerate(config.LOWER_TF_MAP[htf]):
+    for ltf in config.LOWER_TF_MAP[htf]:
         df_ltf = fetch_and_compute(asset, ltf)
         if df_ltf is not None:
-            n = lower_tf_candle_count(htf, ltf, tier)
+            n = lower_tf_candle_count(htf, ltf)
             entry["lower_tf_candles"][ltf] = serialize_candles(df_ltf, n=n)
 
 
-def lower_tf_candle_count(htf: str, ltf: str, tier: int) -> int:
+def lower_tf_candle_count(htf: str, ltf: str) -> int:
     """How many trailing candles a lower-tf reference chart should show, so
-    it spans roughly the same real time as WATCH_WINDOW_CANDLES on the
-    higher timeframe. `tier` is the position in LOWER_TF_MAP[htf] — the
-    first (0) gets the full equivalent count, the second/deepest (1) gets
-    2/3 of its own full equivalent count, since the full count there gets
-    large enough to clutter the chart for no real benefit."""
+    it spans the same real time as WATCH_WINDOW_CANDLES on the higher
+    timeframe. Both lower tfs get the full equivalent — the dashboard's
+    charts are zoomable, so the deepest tf's large count no longer clutters."""
     span_minutes = config.WATCH_WINDOW_CANDLES * config.TIMEFRAME_MINUTES[htf]
-    full_equivalent = round(span_minutes / config.TIMEFRAME_MINUTES[ltf])
-    return round(full_equivalent * 2 / 3) if tier == 1 else full_equivalent
+    return round(span_minutes / config.TIMEFRAME_MINUTES[ltf])
 
 
 def scan_asset(asset: dict, state: dict, watch_events: list) -> None:
@@ -359,7 +356,7 @@ def write_output(state: dict) -> None:
     Path(config.OUTPUT_FILE).write_text(json.dumps({
         "generated_at": now_iso(),
         "assets": list(state.values()),
-    }, indent=2, default=str))
+    }, separators=(",", ":"), default=str))
     logger.info("Wrote %s with %d active entries.", config.OUTPUT_FILE, len(state))
 
 
