@@ -104,8 +104,9 @@
   .bk-state { padding: 1px 6px; border-radius: 999px; background: var(--surface-raised); white-space: nowrap; }
   .bk-state.pulled_back { color: var(--gold-bright); }
   .bk-state.armed { color: var(--gold-bright); box-shadow: inset 0 0 0 1px var(--gold-bright); }
-  .bk-state.entry { color: var(--gain); box-shadow: inset 0 0 0 1px var(--gain); }
-  .bk-gone { font-family: var(--font-mono); font-size: 9.5px; color: var(--loss); margin-top: 4px; }
+  .bk-entry { font-family: var(--font-mono); font-size: 9.5px; color: var(--gain); margin-top: 6px; }
+  .bk-note { font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim); margin-top: 6px; }
+  .bk-gone { font-family: var(--font-mono); font-size: 9.5px; color: var(--loss); margin-top: 6px; }
   .bk-empty { padding: 16px 14px; font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
 
   .basket-btn { font-family: var(--font-mono); font-size: 11px; padding: 4px 10px; border-radius: 3px; border: 1px solid var(--gold-bright); color: var(--gold-bright); background: transparent; cursor: pointer; white-space: nowrap; }
@@ -441,16 +442,19 @@ async function updateBasket(mutate, message) {
   throw new Error('basket changed repeatedly, try again');
 }
 
-const BASKET_STATE_LABELS = {
-  waiting: 'waiting for pullback',
-  pulled_back: 'pulled back · MACD –',
-  armed: 'armed · pulled back + MACD',
-  no_data: 'no data',
+// Short chip label + the full meaning as a tooltip.
+const BASKET_STATES = {
+  waiting: ['waiting', 'Waiting for a pullback past the LSMA'],
+  pulled_back: ['pulled back', "Pulled back past the LSMA — MACD hasn't followed yet"],
+  armed: ['armed', 'Pulled back + MACD followed — the next LSMA break alerts'],
+  no_data: ['no data', "Couldn't fetch this timeframe on the last check"],
 };
 
+// "4:38 PM" today, "Sep 23 4:38 PM" otherwise.
 function fmtTime(iso) {
-  const d = new Date(iso);
-  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const d = new Date(iso), today = new Date().toDateString() === d.toDateString();
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return today ? time : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
 }
 
 function renderBasket(assetsById) {
@@ -464,20 +468,28 @@ function renderBasket(assetsById) {
     const key = pickKey(p);
     const watch = assetsById[`${p.asset_class}__${p.ticker}__${p.higher_tf}`];
     const st = basketStatus[key];
-    const ltfs = st ? Object.entries(st).map(([ltf, s]) => {
-      const lbl = BASKET_STATE_LABELS[s.state] || s.state;
-      return `<div class="bk-ltf"><span>${ltf}</span><span class="bk-state ${s.state}">${lbl}</span></div>`
-        + (s.last_entry ? `<div class="bk-ltf"><span></span><span class="bk-state entry">last entry ${fmtTime(s.last_entry)}</span></div>` : '');
-    }).join('') : `<div class="bk-ltf"><span>status</span><span class="bk-state">after the next hourly scan</span></div>`;
+    let body;
+    if (!watch) {
+      body = '<div class="bk-gone">off the watchlist — being removed</div>';
+    } else if (!st) {
+      body = '<div class="bk-note">status after the next scan</div>';
+    } else {
+      body = Object.entries(st).map(([ltf, s]) => {
+        const [lbl, tip] = BASKET_STATES[s.state] || [s.state, ''];
+        return `<div class="bk-ltf" title="${tip}"><span>${ltf}</span><span class="bk-state ${s.state}">${lbl}</span></div>`;
+      }).join('');
+      // Only the most recent entry across the pick's lower timeframes.
+      const last = Object.entries(st).filter(([, s]) => s.last_entry).sort((a, b) => b[1].last_entry.localeCompare(a[1].last_entry))[0];
+      if (last) body += `<div class="bk-entry" title="Most recent entry trigger">entry ${fmtTime(last[1].last_entry)} · ${last[0]}</div>`;
+    }
     return `
-      <div class="wl-item" data-key="${key}" data-id="${watch ? watch._id : ''}">
+      <div class="wl-item" data-key="${key}" data-id="${watch ? watch._id : ''}" title="${p.asset_class === 'crypto' ? 'Checked every 5 minutes' : 'Checked hourly'}">
         <div class="wl-left" style="width:100%">
           <div class="bk-head">
             <div class="wl-sym">${p.display_name} <span class="bk-tf ${dirClass(p.direction)}">${p.higher_tf} ${dirArrow(p.direction)}</span></div>
             <button class="bk-remove" type="button" title="Remove ${p.display_name} ${p.higher_tf} from the basket" aria-label="Remove ${p.display_name} ${p.higher_tf} from the basket">×</button>
           </div>
-          <div class="wl-name">${p.asset_class === 'crypto' ? 'checked every 5 min' : 'checked hourly'}</div>
-          ${watch ? ltfs : '<div class="bk-gone">no longer on the watchlist — being removed</div>'}
+          ${body}
           <div class="bk-msg"></div>
         </div>
       </div>`;
