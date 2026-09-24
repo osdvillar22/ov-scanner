@@ -155,6 +155,7 @@
     <span class="chip" data-tf="1H">1H</span>
     <span class="chip" data-tf="4H">4H</span>
     <span class="chip" data-tf="1D">1D</span>
+    <span class="chip" data-tf="ALIGNED" title="On watch on 1H, 4H and 1D, all in the same direction">All 3 aligned</span>
   </div>
 
   <div class="controls" id="direction-controls">
@@ -325,6 +326,8 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo)
 const TF_ORDER = ['1H', '4H', '1D'];
 let watchesBySym = {};
 const symKey = (a) => `${a.asset_class}__${a.ticker}`;
+// On watch on every timeframe, all pointing the same way.
+const isAligned = (byTf) => TF_ORDER.every(tf => byTf[tf]) && new Set(TF_ORDER.map(tf => byTf[tf].direction)).size === 1;
 const dirArrow = (d) => d === 'BULLISH' ? '▲' : '▼';
 
 function selectAsset(id, assetsById) {
@@ -455,8 +458,10 @@ async function init() {
   const countSyms = (pred) => syms.filter(byTf => Object.values(byTf).some(pred)).length;
   document.querySelectorAll('#tf-controls .chip').forEach(chip => {
     const tf = chip.dataset.tf;
-    const label = tf === 'ALL' ? 'All timeframes' : tf;
-    const count = tf === 'ALL' ? syms.length : countSyms(w => w.higher_tf === tf);
+    const label = tf === 'ALL' ? 'All timeframes' : tf === 'ALIGNED' ? 'All 3 aligned' : tf;
+    const count = tf === 'ALL' ? syms.length
+      : tf === 'ALIGNED' ? syms.filter(isAligned).length
+      : countSyms(w => w.higher_tf === tf);
     chip.innerHTML = `${label} <span class="chip-count">${count}</span>`;
   });
 
@@ -513,8 +518,9 @@ async function init() {
   // Which of an asset's watches a row opens and summarises: among those
   // matching the active filters, the one that triggered most recently.
   function primaryWatch(byTf, activeTf, activeDirection) {
+    if (activeTf === 'ALIGNED' && !isAligned(byTf)) return null;
     const candidates = TF_ORDER.map(tf => byTf[tf]).filter(w => w
-      && (activeTf === 'ALL' || w.higher_tf === activeTf)
+      && (activeTf === 'ALL' || activeTf === 'ALIGNED' || w.higher_tf === activeTf)
       && (activeDirection === 'ALL' || w.direction === activeDirection));
     candidates.sort((x, y) => x.candles_ago_most_recent - y.candles_ago_most_recent);
     return candidates[0] || null;
