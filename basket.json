@@ -2,14 +2,6 @@
   "picks": [
     {
       "asset_class": "crypto",
-      "ticker": "NILUSD",
-      "display_name": "NILUSD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-24T10:36:15.087Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "XLTCZUSD",
       "display_name": "XLTCZUSD",
       "higher_tf": "1H",
