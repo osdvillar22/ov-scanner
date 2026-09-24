@@ -46,7 +46,9 @@
 
   .layout { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; display: flex; gap: 16px; align-items: flex-start; }
 
-  .watchlist-panel { width: 300px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  /* Watchlist sits to the right of the charts (order), and stays in view
+     while scrolling through them (sticky). */
+  .watchlist-panel { order: 2; position: sticky; top: 12px; width: 300px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
   .watchlist-head { padding: 11px 14px; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.05em; }
   .watchlist-scroll { max-height: 760px; overflow-y: auto; }
   .wl-group-label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); padding: 9px 14px 4px; background: var(--surface-raised); }
@@ -62,6 +64,23 @@
   .wl-rsi { font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
   .wl-rsi.bullish { color: var(--gain); }
   .wl-rsi.bearish { color: var(--loss); }
+
+  /* Per-timeframe markers on each watchlist row: which of 1H/4H/1D this
+     asset is on watch for, colored by direction; dim = not on watch. */
+  .wl-tfs { display: flex; gap: 7px; }
+  .wl-tfs span { display: flex; flex-direction: column; align-items: center; line-height: 1.25; font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim); opacity: 0.4; }
+  .wl-tfs span.bullish { color: var(--gain); opacity: 1; }
+  .wl-tfs span.bearish { color: var(--loss); opacity: 1; }
+
+  /* Timeframe switcher in the asset header — replaces the single tf badge. */
+  .tf-switch { font-family: var(--font-mono); font-size: 11px; padding: 3px 9px; border-radius: 3px; border: 1px solid var(--border); background: transparent; color: var(--ink-dim); opacity: 0.45; cursor: default; white-space: nowrap; }
+  .tf-switch.bullish, .tf-switch.bearish { opacity: 1; cursor: pointer; }
+  .tf-switch.bullish { color: var(--gain); border-color: rgba(47,122,79,0.45); }
+  .tf-switch.bearish { color: var(--loss); border-color: rgba(168,64,44,0.45); }
+  .tf-switch.current { font-weight: 600; border-width: 2px; padding: 2px 8px; }
+  .tf-switch.bullish.current { background: rgba(47,122,79,0.14); }
+  .tf-switch.bearish.current { background: rgba(168,64,44,0.14); }
+  .tf-switch.bullish:not(.current):hover, .tf-switch.bearish:not(.current):hover { background: var(--surface-raised); }
 
   .detail-panel { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 18px; }
   .detail-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
@@ -107,7 +126,7 @@
     .layout { flex-direction: column; padding: 18px 14px 40px; }
     header.page { padding: 24px 14px 14px; }
     .controls { padding: 6px 14px 0; }
-    .watchlist-panel { width: 100%; }
+    .watchlist-panel { width: 100%; order: 0; position: static; }
     .watchlist-scroll { max-height: none; display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .wl-group { display: flex; flex-shrink: 0; }
     .wl-group-label { display: flex; align-items: center; padding: 0 10px; flex-shrink: 0; }
@@ -116,6 +135,8 @@
     .wl-item.active { box-shadow: inset 0 3px 0 var(--gold-bright); }
     h1 { font-size: 22px; }
     .detail-panel { padding: 14px; }
+    .detail-top { flex-direction: column; gap: 10px; }
+    .badge-group { flex-wrap: wrap; }
     .chart-box, .chart-placeholder { height: 340px; }
   }
 </style>
@@ -299,10 +320,26 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo)
   chart.timeScale().subscribeVisibleLogicalRangeChange(range => { if (range) macdChart.timeScale().setVisibleLogicalRange(range); });
 }
 
+// data.json has one entry per (asset, timeframe) watch; the watchlist shows
+// one row per asset, so group them: symKey -> { '1H': entry, '4H': entry, ... }.
+const TF_ORDER = ['1H', '4H', '1D'];
+let watchesBySym = {};
+const symKey = (a) => `${a.asset_class}__${a.ticker}`;
+const dirArrow = (d) => d === 'BULLISH' ? '▲' : '▼';
+
 function selectAsset(id, assetsById) {
   const entry = assetsById[id];
-  document.querySelectorAll('.wl-item').forEach(el => el.classList.toggle('active', el.dataset.id === id));
+  document.querySelectorAll('.wl-item').forEach(el => el.classList.toggle('active', el.dataset.sym === symKey(entry)));
   teardownCharts();
+
+  // One button per timeframe: colored + clickable where this asset is on
+  // watch, dimmed where it isn't, outlined for the one being viewed.
+  const siblings = watchesBySym[symKey(entry)] || {};
+  const tfSwitcher = TF_ORDER.map(tf => {
+    const w = siblings[tf];
+    if (!w) return `<button class="tf-switch" type="button" disabled title="Not on watch on ${tf}">${tf} –</button>`;
+    return `<button class="tf-switch ${dirClass(w.direction)}${tf === entry.higher_tf ? ' current' : ''}" type="button" data-id="${w._id}" title="${tf} ${dirClass(w.direction)} watch">${tf} ${dirArrow(w.direction)}</button>`;
+  }).join('');
 
   const detailEl = document.getElementById('detail');
   const direction = entry.direction;
@@ -317,7 +354,7 @@ function selectAsset(id, assetsById) {
         <div class="detail-name">${entry.ticker}</div>
         <div class="detail-thesis">${entry.higher_tf} trend + LSMA + RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} aligned (fired at RSI ${entry.rsi_at_trigger}) — <strong>${dc} continuation</strong>.</div>
       </div>
-      <div class="badge-group"><span class="tf-badge">${entry.higher_tf}</span><span class="rsi-badge ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
+      <div class="badge-group">${tfSwitcher}<span class="rsi-badge ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
     </div>
 
     <div class="watch-window">
@@ -355,6 +392,10 @@ function selectAsset(id, assetsById) {
       </div>
     `).join('')}
   `;
+
+  detailEl.querySelectorAll('.tf-switch[data-id]').forEach(btn => {
+    if (btn.dataset.id !== id) btn.addEventListener('click', () => selectAsset(btn.dataset.id, assetsById));
+  });
 
   const candles = toCandles(entry.candles);
   const rsiTriggerInfo = entry.trigger_times ? { times: entry.trigger_times, direction } : null;
@@ -398,25 +439,31 @@ async function init() {
 
   const assets = data.assets || [];
 
+  watchesBySym = {};
+  assets.forEach(a => {
+    a._id = `${symKey(a)}__${a.higher_tf}`;
+    (watchesBySym[symKey(a)] = watchesBySym[symKey(a)] || {})[a.higher_tf] = a;
+  });
+  const syms = Object.values(watchesBySym);
+
   const metaEl = document.getElementById('scanMeta');
   const scanTime = data.generated_at ? new Date(data.generated_at).toLocaleString() : '—';
-  metaEl.innerHTML = `Last scan <strong>${scanTime}</strong> · <strong>${assets.length}</strong> on watch`;
+  metaEl.innerHTML = `Last scan <strong>${scanTime}</strong> · <strong>${syms.length}</strong> assets on watch`;
 
-  const tfCounts = { '1H': 0, '4H': 0, '1D': 0 };
-  assets.forEach(a => { if (tfCounts[a.higher_tf] != null) tfCounts[a.higher_tf]++; });
+  // Counts are assets, not watches: "All" = distinct assets; a timeframe =
+  // assets on watch there; a direction = assets with a watch that way.
+  const countSyms = (pred) => syms.filter(byTf => Object.values(byTf).some(pred)).length;
   document.querySelectorAll('#tf-controls .chip').forEach(chip => {
     const tf = chip.dataset.tf;
     const label = tf === 'ALL' ? 'All timeframes' : tf;
-    const count = tf === 'ALL' ? assets.length : tfCounts[tf];
+    const count = tf === 'ALL' ? syms.length : countSyms(w => w.higher_tf === tf);
     chip.innerHTML = `${label} <span class="chip-count">${count}</span>`;
   });
 
-  const directionCounts = { BULLISH: 0, BEARISH: 0 };
-  assets.forEach(a => { if (directionCounts[a.direction] != null) directionCounts[a.direction]++; });
   const directionLabels = { ALL: 'All directions', BULLISH: 'Bullish', BEARISH: 'Bearish' };
   document.querySelectorAll('#direction-controls .chip').forEach(chip => {
     const d = chip.dataset.direction;
-    const count = d === 'ALL' ? assets.length : directionCounts[d];
+    const count = d === 'ALL' ? syms.length : countSyms(w => w.direction === d);
     chip.innerHTML = `${directionLabels[d]} <span class="chip-count">${count}</span>`;
   });
 
@@ -428,41 +475,69 @@ async function init() {
   }
 
   const assetsById = {};
-  assets.forEach(a => { a._id = `${a.asset_class}__${a.ticker}__${a.higher_tf}`; assetsById[a._id] = a; });
+  assets.forEach(a => { assetsById[a._id] = a; });
 
   const grouped = {};
-  assets.forEach(a => { (grouped[a.asset_class] = grouped[a.asset_class] || []).push(a); });
+  syms.forEach(byTf => {
+    const cls = Object.values(byTf)[0].asset_class;
+    (grouped[cls] = grouped[cls] || []).push(byTf);
+  });
+
+  const tfMarkers = (byTf) => TF_ORDER.map(tf => {
+    const w = byTf[tf];
+    return w ? `<span class="${dirClass(w.direction)}">${tf}<b>${dirArrow(w.direction)}</b></span>` : `<span>${tf}<b>·</b></span>`;
+  }).join('');
 
   const watchlistEl = document.getElementById('watchlist');
   watchlistEl.innerHTML = CATEGORY_ORDER.filter(cls => grouped[cls] && grouped[cls].length).map(cls => `
     <div class="wl-group">
       <div class="wl-group-label">${CATEGORY_LABELS[cls] || cls}</div>
-      ${grouped[cls].map(a => `
-        <div class="wl-item" data-id="${a._id}" data-tf="${a.higher_tf}" data-direction="${a.direction}">
+      ${grouped[cls].map(byTf => {
+        const a = Object.values(byTf)[0];
+        return `
+        <div class="wl-item" data-sym="${symKey(a)}">
           <div class="wl-left">
             <div class="wl-sym">${a.display_name}</div>
             <div class="wl-name">${a.ticker}</div>
-            <div class="wl-sub">${a.qualifying_count}/${a.window} qualify, ${a.candles_ago_most_recent} ${a.candles_ago_most_recent === 1 ? 'candle' : 'candles'} ago</div>
+            <div class="wl-sub"></div>
           </div>
           <div class="wl-right">
-            <span class="wl-tf">${a.higher_tf}</span>
-            <span class="wl-rsi ${dirClass(a.direction)}">RSI ${a.last_rsi ?? a.rsi_at_trigger}</span>
+            <div class="wl-tfs">${tfMarkers(byTf)}</div>
+            <span class="wl-rsi"></span>
           </div>
-        </div>
-      `).join('')}
+        </div>`;
+      }).join('')}
     </div>
   `).join('');
-  document.querySelectorAll('.wl-item').forEach(el => el.addEventListener('click', () => selectAsset(el.dataset.id, assetsById)));
+
+  // Which of an asset's watches a row opens and summarises: among those
+  // matching the active filters, the one that triggered most recently.
+  function primaryWatch(byTf, activeTf, activeDirection) {
+    const candidates = TF_ORDER.map(tf => byTf[tf]).filter(w => w
+      && (activeTf === 'ALL' || w.higher_tf === activeTf)
+      && (activeDirection === 'ALL' || w.direction === activeDirection));
+    candidates.sort((x, y) => x.candles_ago_most_recent - y.candles_ago_most_recent);
+    return candidates[0] || null;
+  }
 
   function applyFilters() {
     const activeTf = document.querySelector('#tf-controls .chip.active')?.dataset.tf || 'ALL';
     const activeDirection = document.querySelector('#direction-controls .chip.active')?.dataset.direction || 'ALL';
     document.querySelectorAll('.wl-item').forEach(item => {
-      const tfMatch = activeTf === 'ALL' || item.dataset.tf === activeTf;
-      const directionMatch = activeDirection === 'ALL' || item.dataset.direction === activeDirection;
-      item.style.display = (tfMatch && directionMatch) ? '' : 'none';
+      const w = primaryWatch(watchesBySym[item.dataset.sym], activeTf, activeDirection);
+      item.style.display = w ? '' : 'none';
+      if (!w) return;
+      item.dataset.id = w._id;
+      item.querySelector('.wl-sub').textContent =
+        `${w.higher_tf} · ${w.qualifying_count}/${w.window} qualify, ${w.candles_ago_most_recent} ${w.candles_ago_most_recent === 1 ? 'candle' : 'candles'} ago`;
+      const rsiEl = item.querySelector('.wl-rsi');
+      rsiEl.textContent = `RSI ${w.last_rsi ?? w.rsi_at_trigger}`;
+      rsiEl.className = `wl-rsi ${dirClass(w.direction)}`;
     });
   }
+
+  document.querySelectorAll('.wl-item').forEach(el => el.addEventListener('click', () => selectAsset(el.dataset.id, assetsById)));
+  applyFilters();
 
   document.querySelectorAll('#tf-controls .chip, #direction-controls .chip').forEach(chip => {
     chip.addEventListener('click', () => {
@@ -479,7 +554,7 @@ async function init() {
     });
   });
 
-  selectAsset(assets[0]._id, assetsById);
+  selectAsset(document.querySelector('.wl-item').dataset.id, assetsById);
 }
 
 init();
