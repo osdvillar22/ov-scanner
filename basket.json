@@ -119,6 +119,14 @@
       "higher_tf": "4H",
       "direction": "BULLISH",
       "added_at": "2026-09-25T05:32:11.338Z"
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "PAL",
+      "display_name": "PAL",
+      "higher_tf": "1D",
+      "direction": "BULLISH",
+      "added_at": "2026-09-25T05:33:23.024Z"
     }
   ]
 }
