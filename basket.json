@@ -263,7 +263,10 @@
       "display_name": "ONDO/USD",
       "higher_tf": "4H",
       "direction": "BULLISH",
-      "added_at": "2026-09-25T21:29:07.585Z"
+      "added_at": "2026-09-25T21:29:07.585Z",
+      "muted": [
+        "15m"
+      ]
     }
   ]
 }
