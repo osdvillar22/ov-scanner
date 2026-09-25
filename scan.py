@@ -131,7 +131,7 @@ def fetch_and_compute(asset: dict, tf: str, min_bars: int = config.MIN_WARMUP_BA
     return indicators.compute_all(df)
 
 
-CANDLE_FIELDS = ["time", "open", "high", "low", "close", "ema10", "ema20", "lsma", "macd", "macd_signal", "macd_hist"]
+CANDLE_FIELDS = ["time", "open", "high", "low", "close", "ema10", "ema20", "lsma", "sma50", "macd", "macd_signal", "macd_hist"]
 
 
 def _sig(value, digits: int = 7):

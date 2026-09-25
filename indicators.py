@@ -103,4 +103,7 @@ def compute_all(df: pd.DataFrame, close_col: str = "close") -> pd.DataFrame:
 
     out["lsma"] = compute_lsma(close, config.LSMA_LENGTH, config.LSMA_OFFSET)
 
+    # Plain simple moving average — drawn on the dashboard charts only.
+    out[f"sma{config.SMA_PERIOD}"] = close.rolling(config.SMA_PERIOD).mean()
+
     return out

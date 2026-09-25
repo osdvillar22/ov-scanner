@@ -137,7 +137,13 @@
   .msg { color: var(--ink-dim); }
 
   .legend { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 10px; color: var(--ink-dim); margin: 10px 0 4px; }
-  .legend .ln { display: inline-block; width: 9px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 4px; }
+  .legend { gap: 4px 6px; }
+  .ind-label { color: var(--ink-faint); margin-right: 2px; }
+  .ind { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; padding: 1px 7px; border-radius: 4px; border: 1px solid var(--border); color: var(--ink); }
+  .ind:hover { border-color: var(--ink-dim); }
+  .ind.off { color: var(--ink-faint); border-style: dashed; }
+  .ind-sw { display: inline-block; width: 10px; height: 0; border-top: 2px solid; }
+  .ind.off .ind-sw { opacity: 0.3; }
   .legend .push { margin-left: auto; color: var(--ink-faint); }
   .chart-head { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 4px; }
   .chart-label { font-size: 11px; font-weight: 600; }
@@ -261,7 +267,49 @@ const toUnixTime = (iso) => iso ? Math.floor(new Date(iso).getTime() / 1000) : n
 // Charts
 // ---------------------------------------------------------------------------
 let activeCharts = [];     // { chart, el } so resizes match the right element
-function teardownCharts() { activeCharts.forEach(c => { try { c.chart.remove(); } catch (e) {} }); activeCharts = []; }
+let indicatorSeries = [];  // { key, series } — every indicator line on screen
+function teardownCharts() {
+  activeCharts.forEach(c => { try { c.chart.remove(); } catch (e) {} });
+  activeCharts = []; indicatorSeries = [];
+}
+
+// Chart indicators the user can switch on/off (legend toggles). The choice
+// applies to every chart and is remembered per browser.
+const LINE_STYLE = (window.LightweightCharts && LightweightCharts.LineStyle) || { Solid: 0, Dotted: 1, Dashed: 2 };
+const INDICATORS = [
+  { key: 'ema10', label: 'EMA10', color: () => '#D9A441', style: LINE_STYLE.Solid, width: 1 },
+  { key: 'ema20', label: 'EMA20', color: () => cssVar('--violet'), style: LINE_STYLE.Solid, width: 1 },
+  { key: 'lsma', label: 'LSMA 50,3', color: () => cssVar('--blue'), style: LINE_STYLE.Dotted, width: 2 },
+  { key: 'sma50', label: 'SMA 50', color: () => cssVar('--ink'), style: LINE_STYLE.Dashed, width: 1 },
+  { key: 'macd', label: 'MACD' },
+];
+const IND_KEY = 'ovs-indicators';
+const shown = (() => {
+  const all = Object.fromEntries(INDICATORS.map(i => [i.key, true]));
+  try { return { ...all, ...JSON.parse(localStorage.getItem(IND_KEY) || '{}') }; } catch (e) { return all; }
+})();
+
+function setIndicator(key, on) {
+  shown[key] = on;
+  try { localStorage.setItem(IND_KEY, JSON.stringify(shown)); } catch (e) {}
+  indicatorSeries.filter(s => s.key === key).forEach(s => s.series.applyOptions({ visible: on }));
+  if (key === 'macd') {
+    document.querySelectorAll('.macd-box').forEach(el => el.classList.toggle('is-hidden', !on));
+    // A pane created while hidden has zero width and height — size it now
+    // that it's visible.
+    if (on) activeCharts.forEach(({ chart, el }) => chart.resize(el.clientWidth, el.clientHeight));
+  }
+  document.querySelectorAll(`.ind[data-key="${key}"]`).forEach(b => { b.classList.toggle('off', !on); b.setAttribute('aria-pressed', on); });
+}
+
+function indicatorToggles() {
+  return INDICATORS.map(i => {
+    const sw = i.key === 'macd'
+      ? `<span class="ind-sw" style="border-color:var(--gain)"></span>`
+      : `<span class="ind-sw" style="border-color:${i.color()};border-top-style:${i.style === LINE_STYLE.Dotted ? 'dotted' : i.style === LINE_STYLE.Dashed ? 'dashed' : 'solid'}"></span>`;
+    return `<button class="ind${shown[i.key] ? '' : ' off'}" type="button" data-key="${i.key}" aria-pressed="${shown[i.key]}" title="Show or hide ${i.label}">${sw}${i.label}</button>`;
+  }).join('');
+}
 
 const css = getComputedStyle(document.documentElement);
 const cssVar = (name) => css.getPropertyValue(name).trim();
@@ -304,8 +352,6 @@ function attachCtrlWheelZoom(chart, el, lastIndex) {
   }, { passive: false });
 }
 
-const LINE_STYLE_DOTTED = (window.LightweightCharts && LightweightCharts.LineStyle) ? LightweightCharts.LineStyle.Dotted : 1;
-
 function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
   const chartEl = document.getElementById(chartElId);
   const macdEl = document.getElementById(macdElId);
@@ -327,13 +373,10 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
   const precision = Math.min(12, Math.max(2, Math.ceil(-Math.log10(refPrice)) + sig));
   candleSeries.applyOptions({ priceFormat: { type: 'custom', minMove: Math.pow(10, -precision), formatter: p => p.toFixed(precision) } });
 
-  [
-    { key: 'ema10', c: '#D9A441', style: 0, width: 1 },
-    { key: 'ema20', c: cssVar('--violet'), style: 0, width: 1 },
-    { key: 'lsma', c: cssVar('--blue'), style: LINE_STYLE_DOTTED, width: 2 },
-  ].forEach(o => {
-    const s = chart.addLineSeries({ color: o.c, lineWidth: o.width, lineStyle: o.style, priceLineVisible: false, lastValueVisible: false });
-    s.setData(candles.map(c => ({ time: c.time, value: c[o.key] })).filter(p => p.value != null));
+  INDICATORS.filter(i => i.key !== 'macd').forEach(i => {
+    const s = chart.addLineSeries({ color: i.color(), lineWidth: i.width, lineStyle: i.style, priceLineVisible: false, lastValueVisible: false, visible: shown[i.key] });
+    s.setData(candles.map(c => ({ time: c.time, value: c[i.key] })).filter(p => p.value != null));
+    indicatorSeries.push({ key: i.key, series: s });
   });
 
   const from = Math.max(0, candles.length - visibleCount);
@@ -751,9 +794,7 @@ function selectAsset(id) {
     <div class="d-actions"><button class="bk-btn" id="basketBtn" type="button"></button><span class="msg" id="basketMsg"></span></div>
 
     <div class="legend">
-      <span><span class="ln" style="border-color:#D9A441"></span>EMA10</span>
-      <span><span class="ln" style="border-color:var(--violet)"></span>EMA20</span>
-      <span><span class="ln" style="border-color:var(--blue);border-top-style:dotted"></span>LSMA 50,3</span>
+      <span class="ind-label">show</span>${indicatorToggles()}
       <span class="push">ctrl+scroll or pinch to zoom · drag to pan</span>
     </div>
     <div class="chart-head"><span class="chart-label">${entry.higher_tf} <span class="dim">trigger timeframe</span></span><button class="reset" id="detail-chart-reset" type="button">reset zoom</button></div>
@@ -769,6 +810,8 @@ function selectAsset(id) {
     `).join('')}`;
 
   detail.querySelectorAll('.tf-sw[data-id]').forEach(b => { if (b.dataset.id !== id) b.addEventListener('click', () => selectAsset(b.dataset.id)); });
+  detail.querySelectorAll('.ind').forEach(b => b.addEventListener('click', () => setIndicator(b.dataset.key, !shown[b.dataset.key])));
+  if (!shown.macd) detail.querySelectorAll('.macd-box').forEach(el => el.classList.add('is-hidden'));
   wireBasketButton(entry);
 
   const forex = marketsOf(entry).has('forex');

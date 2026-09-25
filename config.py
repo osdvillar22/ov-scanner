@@ -109,6 +109,9 @@ MACD_SIGNAL = 9
 
 EMA_PERIODS = [10, 20]
 
+# Chart-only reference line (not part of any trigger rule).
+SMA_PERIOD = 50
+
 LSMA_LENGTH = 50
 LSMA_OFFSET = 3
 
