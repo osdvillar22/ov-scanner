@@ -213,16 +213,19 @@ KRAKEN_QUOTE_ASSET = "ZUSD"  # crypto universe = all Kraken USD pairs
 # like "XXBTZUSD" are unreadable. These are Kraken's own non-standard codes.
 KRAKEN_BASE_ALIASES = {"XBT": "BTC", "XDG": "DOGE"}
 
-# Kraken's USD list isn't all crypto. These stay in the scan (Kraken data
-# is near-real-time), just labelled on the dashboard so they're not
-# mistaken for coins. Keyed by wsname base.
+# Stablecoins are left out of the scan entirely — pegged, so they barely
+# move and only add noise. Keyed by wsname base.
+KRAKEN_EXCLUDED_BASES = {
+    "USDT", "USDC", "DAI", "PYUSD", "RLUSD", "USDE", "USDG", "USDD", "USD1", "USDS",
+    "USDQ", "USDGO", "USDPT", "USDSM", "USDUC", "AUSD", "EURC", "EURQ", "EUROP",
+    "TGBP", "QCAD", "AUDX", "BRL1", "MXNB",
+}
+
+# The rest of Kraken's USD list that isn't crypto stays in the scan (its
+# data is near-real-time), just labelled on the dashboard so it's not
+# mistaken for a coin. Keyed by wsname base.
 KRAKEN_ASSET_TAGS = {
     **{c: "currency" for c in ("AUD", "EUR", "GBP")},
-    **{c: "stablecoin" for c in (
-        "USDT", "USDC", "DAI", "PYUSD", "RLUSD", "USDE", "USDG", "USDD", "USD1", "USDS",
-        "USDQ", "USDGO", "USDPT", "USDSM", "USDUC", "AUSD", "EURC", "EURQ", "EUROP",
-        "TGBP", "QCAD", "AUDX", "BRL1", "MXNB",
-    )},
     "PAXG": "gold", "XAUT": "gold",
     "XU3O8": "uranium",
 }

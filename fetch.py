@@ -102,6 +102,7 @@ def get_kraken_usd_pairs() -> list[dict]:
     Returns [{"pair": "XXBTZUSD", "display_name": "BTC/USD", "tag": None}, ...]
     — display name from Kraken's readable "wsname", tag from
     config.KRAKEN_ASSET_TAGS for the non-crypto ones (currency, gold, ...).
+    Stablecoins (config.KRAKEN_EXCLUDED_BASES) are left out.
     """
     url = f"{config.KRAKEN_BASE_URL}/0/public/AssetPairs"
     try:
@@ -113,6 +114,8 @@ def get_kraken_usd_pairs() -> list[dict]:
             if info.get("quote") != config.KRAKEN_QUOTE_ASSET or info.get("status") != "online":
                 continue
             base = (info.get("wsname") or name).split("/")[0]
+            if base in config.KRAKEN_EXCLUDED_BASES:
+                continue
             display = f"{config.KRAKEN_BASE_ALIASES.get(base, base)}/USD" if info.get("wsname") else name
             out.append({"pair": name, "display_name": display, "tag": config.KRAKEN_ASSET_TAGS.get(base)})
         return out

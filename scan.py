@@ -363,6 +363,20 @@ def write_output(state: dict, basket_status: dict) -> None:
 # Main
 # ---------------------------------------------------------------------------
 
+def prune_unscanned(state: dict, universe: list) -> None:
+    """Drop watches for assets no longer in the universe (delisted, or
+    excluded like the stablecoins) — scan_asset never visits them again, so
+    they'd otherwise sit on the dashboard forever. An asset class that came
+    back empty this run (e.g. Kraken's pair list failed to load) is left
+    untouched rather than wiped."""
+    scanned = {(a["asset_class"], a["ticker"]) for a in universe}
+    classes_present = {a["asset_class"] for a in universe}
+    for key, entry in list(state.items()):
+        if entry["asset_class"] in classes_present and (entry["asset_class"], entry["ticker"]) not in scanned:
+            logger.info("REMOVED: %s %s — no longer in the scanned universe", entry["display_name"], entry["higher_tf"])
+            del state[key]
+
+
 def run() -> None:
     import basket  # imports scan itself — deferred to avoid a circular import
 
@@ -373,6 +387,7 @@ def run() -> None:
     for asset in universe:
         scan_asset(asset, state)
 
+    prune_unscanned(state, universe)
     basket_status = basket.run_hourly(state)
     write_output(state, basket_status)
     save_state(state)
