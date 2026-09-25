@@ -193,6 +193,14 @@
       "muted": [
         "4H"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "QNTUSD",
+      "display_name": "QNT/USD",
+      "higher_tf": "4H",
+      "direction": "BULLISH",
+      "added_at": "2026-09-25T09:08:26.425Z"
     }
   ]
 }
