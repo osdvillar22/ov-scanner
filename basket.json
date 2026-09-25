@@ -20,14 +20,6 @@
       ]
     },
     {
-      "asset_class": "forex",
-      "ticker": "NZDUSD=X",
-      "display_name": "NZDUSD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-09-24T11:24:12.556Z"
-    },
-    {
       "asset_class": "crypto",
       "ticker": "ADIUSD",
       "display_name": "ADIUSD",
