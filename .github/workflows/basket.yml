@@ -1,6 +1,7 @@
-name: Basket entry check (crypto)
+name: Basket entry check (crypto + PSE)
 
-# Crypto basket picks only — Kraken data is real-time. Non-crypto picks are
+# Crypto basket picks (Kraken, real-time) and PSE picks during the PSE
+# session (TradingView intraday). Forex/metals/indices/energy picks are
 # checked by the hourly scan (Yahoo data is delayed anyway).
 #
 # The 5-minute cadence comes from an external timer (cron-job.org) calling
@@ -28,14 +29,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Most runs have nothing to do — skip the Python setup entirely then.
-      - name: Any crypto picks?
+      # Many runs have nothing to do (e.g. only PSE picks, market closed) —
+      # skip the Python setup entirely then. Mirrors basket.pse_session_open.
+      - name: Anything to check?
         id: picks
         run: |
-          if python3 -c "import json,sys; sys.exit(0 if any(p['asset_class']=='crypto' for p in json.load(open('basket.json'))['picks']) else 1)"; then
+          if python3 -c '
+          import json, sys
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          m = datetime.now(ZoneInfo("Asia/Manila"))
+          pse_open = m.weekday() < 5 and "09:30" <= m.strftime("%H:%M") <= "15:30"
+          picks = json.load(open("basket.json"))["picks"]
+          sys.exit(0 if any(p["asset_class"] == "crypto" or (p["asset_class"] == "pse" and pse_open) for p in picks) else 1)
+          '; then
             echo "has_crypto=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No crypto picks in the basket — nothing to check."
+            echo "No crypto picks, and no PSE picks during the PSE session — nothing to check."
           fi
 
       - name: Set up Python
@@ -66,7 +76,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           before=$(sha1sum basket_alerts_crypto.json 2>/dev/null || true)
-          python basket.py --crypto
+          python basket.py --live
           after=$(sha1sum basket_alerts_crypto.json 2>/dev/null || true)
           [ "$before" != "$after" ] && echo "changed=true" >> "$GITHUB_OUTPUT" || true
 

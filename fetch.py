@@ -10,6 +10,7 @@ the whole run. That resilience is the actual hard part of this system
 (see learnings.md); don't relax it while "cleaning up" this file later.
 """
 
+import re
 import time
 import logging
 
@@ -166,6 +167,91 @@ def fetch_kraken_ohlc(pair: str, timeframe: str) -> pd.DataFrame | None:
 
 
 # ---------------------------------------------------------------------------
+# PSE — stock list from PSE EDGE, candles from TradingView
+# ---------------------------------------------------------------------------
+
+_EDGE_HEADERS = {
+    # EDGE sits behind Cloudflare and wants a real browser User-Agent.
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
+}
+
+
+def get_pse_symbols() -> list[str]:
+    """Every listing in PSE EDGE's public company directory (~283, one
+    primary security per company, ETFs included). Paged 50 at a time; the
+    page's own "[Total N]" marker is checked so a partial scrape is caught
+    and treated as a failure (empty list) rather than silently shrinking the
+    universe — scan.prune_unscanned then leaves PSE watches alone."""
+    symbols, total, page = [], None, 1
+    try:
+        while True:
+            resp = requests.get(config.PSE_EDGE_DIRECTORY_URL, params={"pageNo": page},
+                                headers=_EDGE_HEADERS, timeout=30)
+            resp.raise_for_status()
+            html = resp.text
+            if total is None:
+                m = re.search(r"\[Total\s*(\d+)\]", html)
+                total = int(m.group(1)) if m else None
+            # Symbol column: the 2nd cmDetail(...) anchor in each row.
+            rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)
+            found = 0
+            for row in rows:
+                anchors = re.findall(r"cmDetail\([^)]*\)[^>]*>\s*([^<]+?)\s*<", row)
+                if len(anchors) >= 2:
+                    symbols.append(anchors[1].strip())
+                    found += 1
+            if found == 0:
+                break
+            page += 1
+            time.sleep(config.PSE_EDGE_RATE_LIMIT_SECONDS)
+        if total is not None and len(symbols) != total:
+            logger.error("PSE EDGE directory incomplete: got %d of %d — skipping PSE this run", len(symbols), total)
+            return []
+        return sorted(set(symbols))
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to load the PSE EDGE directory: %s", exc)
+        return []
+
+
+_tv = None
+
+
+def fetch_tradingview_ohlc(symbol: str, timeframe: str, exchange: str = config.PSE_TV_EXCHANGE) -> pd.DataFrame | None:
+    """OHLC candles from TradingView via the unofficial tvdatafeed library
+    (anonymous session — no login). Timestamps are converted to naive UTC,
+    matching the Kraken frames: tvdatafeed builds them with
+    datetime.fromtimestamp, i.e. in the *machine's* local timezone (UTC on
+    GitHub's runners, Manila on a PH laptop)."""
+    global _tv
+    from datetime import datetime
+    from tvDatafeed import Interval, TvDatafeed
+
+    interval_name = config.TV_INTERVAL.get(timeframe)
+    if interval_name is None:
+        logger.error("No TradingView interval mapping for timeframe %s", timeframe)
+        return None
+    for attempt in range(3):
+        try:
+            if _tv is None:
+                _tv = TvDatafeed()
+            # tvdatafeed swallows its own websocket errors ("Connection to
+            # remote host was lost") and just returns None — so an empty
+            # result is retried too, on a fresh session.
+            df = _tv.get_hist(symbol=symbol, exchange=exchange, interval=getattr(Interval, interval_name),
+                               n_bars=config.TV_BARS_LONG_TF.get(timeframe, config.TV_BARS))
+            if df is not None and not df.empty:
+                local_tz = datetime.now().astimezone().tzinfo
+                df.index = df.index.tz_localize(local_tz).tz_convert("UTC").tz_localize(None)
+                return df[["open", "high", "low", "close", "volume"]].astype(float)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("TradingView fetch failed for %s@%s (attempt %d): %s", symbol, timeframe, attempt + 1, exc)
+        _tv = None
+        time.sleep(1.0 * (attempt + 1))
+    logger.warning("TradingView: no data for %s@%s after retries", symbol, timeframe)
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Unified dispatcher
 # ---------------------------------------------------------------------------
 
@@ -173,12 +259,15 @@ def fetch_ohlc(asset_class: str, symbol_or_ticker: str, timeframe: str) -> pd.Da
     """
     Single entry point scan.py should call, regardless of asset class.
 
-    asset_class: one of "forex", "metals", "indices", "energy", "crypto"
-    symbol_or_ticker: the yfinance ticker (forex/metals/indices/energy) or
-                       Kraken pair (crypto) — NOT the display name.
+    asset_class: one of "pse", "forex", "metals", "indices", "energy", "crypto"
+    symbol_or_ticker: the yfinance ticker (forex/metals/indices/energy),
+                       Kraken pair (crypto) or PSE symbol (pse) — NOT the
+                       display name.
     """
     if asset_class == "crypto":
         return fetch_kraken_ohlc(symbol_or_ticker, timeframe)
+    if asset_class == "pse":
+        return fetch_tradingview_ohlc(symbol_or_ticker, timeframe)
     if asset_class in ("forex", "metals", "indices", "energy"):
         return fetch_yfinance_ohlc(symbol_or_ticker, timeframe)
 

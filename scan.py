@@ -63,6 +63,9 @@ def build_universe() -> list[dict]:
     """Every (asset_class, ticker, display_name) triple we scan."""
     universe = []
 
+    for symbol in fetch.get_pse_symbols():
+        universe.append({"asset_class": "pse", "ticker": symbol, "display_name": symbol, "tag": "PSE"})
+
     for display_name, ticker in config.FOREX_PAIRS.items():
         universe.append({"asset_class": "forex", "ticker": ticker, "display_name": display_name})
 

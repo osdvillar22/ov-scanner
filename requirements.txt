@@ -2,3 +2,7 @@ pandas==3.0.5
 numpy==2.5.3
 yfinance==1.7.0
 requests==2.34.2
+websocket-client==1.9.2
+# PSE intraday via TradingView (unofficial). Pinned to the commit verified
+# working from GitHub's runners — the project is unmaintained since 2022.
+tvdatafeed @ git+https://github.com/rongardF/tvdatafeed.git@e6f6aaa7de439ac6e454d9b26d2760ded8dc4923

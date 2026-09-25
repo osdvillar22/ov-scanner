@@ -146,16 +146,34 @@ DASHBOARD_CANDLE_WINDOW = 120
 # Asset universe
 # ---------------------------------------------------------------------------
 #
-# PSE (Philippine Stock Exchange) is intentionally excluded for now: yfinance
-# has no working ".PS"-suffix mapping for PSE tickers (confirmed via
-# yfinance.Search — PH names only resolve to unrelated US OTC ADRs like
-# SVTMF), and the free community alternatives are dead (pselookup.vrymel.com
-# no longer resolves) or static one-off dumps (kiosklabs' CSV export, not
-# live). The one live/current option found (EODHD) gates non-US exchanges
-# behind a paid plan, and none of the free options offer intraday data
-# regardless — only EOD — so even a fix would only cover the 1D/1W scan, not
-# the 1H/4H lower-timeframe pullback logic. Revisit if a paid data feed or
-# broker API becomes available.
+# PSE (Philippine Stock Exchange): yfinance has no working PSE mapping, and
+# every free official/community source is end-of-day only (PSE EDGE's chart
+# data also lags a trading day). Intraday comes from TradingView instead —
+# free, ~15 min delayed, all timeframes — via the unofficial tvdatafeed
+# library (see fetch.fetch_tradingview_ohlc). It's not a sanctioned API and
+# can break or be blocked without notice. The stock list itself comes from
+# PSE EDGE's public company directory (~283 listings incl. ETFs).
+PSE_TV_EXCHANGE = "PSE"
+PSE_EDGE_DIRECTORY_URL = "https://edge.pse.com.ph/companyDirectory/search.ax"
+PSE_EDGE_RATE_LIMIT_SECONDS = 0.6  # be polite to a small exchange's site
+
+# TradingView interval per timeframe (tvdatafeed Interval member names).
+TV_INTERVAL = {
+    "5m": "in_5_minute", "15m": "in_15_minute", "30m": "in_30_minute",
+    "1H": "in_1_hour", "4H": "in_4_hour", "1D": "in_daily", "1W": "in_weekly",
+}
+# Bars per TradingView request — enough warm-up plus the longest lower-tf
+# chart window (1D watch -> 600 x 1H), well under TradingView's 5000 cap.
+# 1D/1W need far fewer, and big daily requests were the ones dropping.
+TV_BARS = 1000
+TV_BARS_LONG_TF = {"1D": 400, "1W": 300}
+
+# PSE trading session (Asia/Manila), for the 5-minute basket check — outside
+# it there are no new candles, so PSE picks are skipped. Ends a little after
+# the 15:00 close so the last (delayed) candles still get checked. Doesn't
+# know PSE holidays; a check on one is just a harmless no-op.
+PSE_TIMEZONE = "Asia/Manila"
+PSE_SESSION = ("09:30", "15:30")
 
 FOREX_PAIRS = {
     # display_name: yfinance_ticker
@@ -246,7 +264,9 @@ OUTPUT_FILE = "data.json"    # what dashboard.html reads — same story, not com
 BASKET_FILE = "basket.json"
 # Which lower-tf candles already fired an entry alert, one file per workflow
 # (persisted via the Actions cache, like state.json).
-BASKET_ALERTS_CRYPTO_FILE = "basket_alerts_crypto.json"
+# "Live" = the 5-minute workflow's picks: crypto, and PSE during its session.
+# (Filename kept from when it was crypto-only, so its Actions cache carries over.)
+BASKET_ALERTS_LIVE_FILE = "basket_alerts_crypto.json"
 BASKET_ALERTS_HOURLY_FILE = "basket_alerts_hourly.json"
 
 # Discord webhook for basket entry alerts, set as a GitHub Actions secret.

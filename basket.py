@@ -27,12 +27,13 @@ direction) — deleted rather than hidden, so a later re-trigger doesn't
 quietly bring it back.
 
 Two entry points:
-  - `python basket.py --crypto` — the 5-minute workflow (basket.yml):
-    crypto picks only, since Kraken is real-time; Yahoo data is delayed
-    anyway, so non-crypto picks ride along with the hourly scan instead.
+  - `python basket.py --live` — the 5-minute workflow (basket.yml): crypto
+    picks (Kraken, real-time) and PSE picks during the PSE session
+    (TradingView intraday). Yahoo's forex/metals/indices/energy data is
+    delayed anyway, so those picks ride along with the hourly scan instead.
   - run_hourly(state) — called from scan.run(): removes picks whose watch
-    dropped, checks non-crypto picks for entries, and returns a status for
-    every pick for the dashboard's basket view.
+    dropped, checks the non-live picks for entries, and returns a status
+    for every pick for the dashboard's basket view.
 """
 
 import argparse
@@ -277,21 +278,39 @@ def _alert_and_record(alerts: list, alerted: dict) -> None:
 # Entry points
 # ---------------------------------------------------------------------------
 
-def run_crypto() -> None:
-    """5-minute workflow: crypto picks only. Re-checks each pick's
-    higher-tf watch fresh (same function the hourly scan uses) so a watch
-    that broke is dropped within minutes, then checks the lower tfs."""
-    picks = [p for p in load_basket() if p["asset_class"] == "crypto"]
-    alerted = load_alerted(config.BASKET_ALERTS_CRYPTO_FILE)
+# Picks the 5-minute workflow owns (intraday data worth checking that often):
+# crypto (Kraken, real-time) and PSE (TradingView, ~15 min delayed) — the
+# latter only while the PSE session is open. The rest ride the hourly scan.
+LIVE_CLASSES = {"crypto", "pse"}
+
+
+def pse_session_open(now: pd.Timestamp) -> bool:
+    """Mon-Fri within config.PSE_SESSION, Manila time. Holidays aren't
+    known — a check on one just finds no new candles."""
+    local = now.tz_convert(config.PSE_TIMEZONE)
+    start, end = config.PSE_SESSION
+    return local.weekday() < 5 and start <= local.strftime("%H:%M") <= end
+
+
+def run_live() -> None:
+    """5-minute workflow: crypto picks, plus PSE picks during the PSE
+    session. Re-checks each pick's higher-tf watch fresh (same function the
+    hourly scan uses) so a watch that broke is dropped within minutes, then
+    checks the lower tfs."""
     now = pd.Timestamp.now(tz="UTC")
+    picks = [p for p in load_basket()
+             if p["asset_class"] == "crypto" or (p["asset_class"] == "pse" and pse_session_open(now))]
+    alerted = load_alerted(config.BASKET_ALERTS_LIVE_FILE)
     remove, reasons, alerts = set(), {}, []
-    # Current readable names/labels (picks saved before the rename carry
-    # Kraken codes like "XLTCZUSD") — one cheap call, only if there's work.
-    names = {p["pair"]: p for p in fetch.get_kraken_usd_pairs()} if picks else {}
+    # Current readable names/labels (crypto picks saved before the rename
+    # carry Kraken codes like "XLTCZUSD") — one cheap call, only if needed.
+    names = {p["pair"]: p for p in fetch.get_kraken_usd_pairs()} if any(p["asset_class"] == "crypto" for p in picks) else {}
 
     for pick in picks:
         if pick["ticker"] in names:
             pick = {**pick, "display_name": names[pick["ticker"]]["display_name"], "tag": names[pick["ticker"]]["tag"]}
+        elif pick["asset_class"] == "pse":
+            pick = {**pick, "tag": "PSE"}
         asset = {k: pick[k] for k in ("asset_class", "ticker", "display_name")}
         htf = pick["higher_tf"]
         df_htf = scan.fetch_and_compute(asset, htf)
@@ -309,7 +328,10 @@ def run_crypto() -> None:
 
     _alert_and_record(alerts, alerted)
     remove_picks(remove, reasons)
-    save_alerted(config.BASKET_ALERTS_CRYPTO_FILE, alerted, {pick_key(p) for p in picks} - remove)
+    # Keep history for every live-class pick still in the basket (not just
+    # the ones checked this run — PSE picks are skipped out of session).
+    live_keys = {pick_key(p) for p in load_basket() if p["asset_class"] in LIVE_CLASSES}
+    save_alerted(config.BASKET_ALERTS_LIVE_FILE, alerted, live_keys - remove)
 
 
 def _watch_gone_reason(watch: dict | None, pick: dict) -> str | None:
@@ -324,14 +346,15 @@ def _watch_gone_reason(watch: dict | None, pick: dict) -> str | None:
 
 def run_hourly(state: dict) -> dict:
     """Called from scan.run() with the freshly updated watch state. Removes
-    picks whose watch is gone, checks NON-crypto picks for entries (crypto
-    is the 5-minute workflow's job), and returns a status for every pick
-    for data.json's basket view."""
+    picks whose watch is gone, checks the non-live picks (forex, metals,
+    indices, energy) for entries — crypto and PSE are the 5-minute
+    workflow's job — and returns a status for every pick for data.json's
+    basket view."""
     picks = load_basket()
     alerted = load_alerted(config.BASKET_ALERTS_HOURLY_FILE)
-    # Crypto picks alert from the 5-minute workflow; its (read-only here)
+    # Live picks alert from the 5-minute workflow; its (read-only here)
     # history keeps their displayed status in step with what alerted.
-    crypto_alerted = load_alerted(config.BASKET_ALERTS_CRYPTO_FILE)
+    live_alerted = load_alerted(config.BASKET_ALERTS_LIVE_FILE)
     now = pd.Timestamp.now(tz="UTC")
     remove, reasons, alerts, statuses = set(), {}, [], {}
 
@@ -343,23 +366,23 @@ def run_hourly(state: dict) -> dict:
             reasons[key] = "higher-tf watch dropped off" if watch is None else f"higher-tf watch flipped to {watch['direction']}"
             continue
         pick = {**pick, "display_name": watch.get("display_name", pick["display_name"]), "tag": watch.get("tag")}
-        is_crypto = pick["asset_class"] == "crypto"
-        status, new = check_pick(pick, crypto_alerted if is_crypto else alerted, now)
+        is_live = pick["asset_class"] in LIVE_CLASSES
+        status, new = check_pick(pick, live_alerted if is_live else alerted, now)
         statuses[key] = status
-        if not is_crypto:
+        if not is_live:
             alerts += new
 
     _alert_and_record(alerts, alerted)
     remove_picks(remove, reasons)
-    save_alerted(config.BASKET_ALERTS_HOURLY_FILE, alerted, {pick_key(p) for p in picks if p["asset_class"] != "crypto"} - remove)
+    save_alerted(config.BASKET_ALERTS_HOURLY_FILE, alerted, {pick_key(p) for p in picks if p["asset_class"] not in LIVE_CLASSES} - remove)
     return statuses
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--crypto", action="store_true", help="5-minute run: crypto picks only")
+    parser.add_argument("--live", action="store_true", help="5-minute run: crypto picks, plus PSE picks in session")
     args = parser.parse_args()
-    if not args.crypto:
-        parser.error("run with --crypto (the hourly basket check runs inside scan.py)")
-    run_crypto()
+    if not args.live:
+        parser.error("run with --live (the hourly basket check runs inside scan.py)")
+    run_live()

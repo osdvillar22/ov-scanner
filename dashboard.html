@@ -92,6 +92,8 @@
   .bk-msg:empty { display: none; }
 
   .is-hidden { display: none !important; }
+  .session-pill { font-size: 9px; padding: 0 6px; border-radius: 999px; margin-left: 6px; color: var(--ink-dim); border: 1px solid var(--border); }
+  .session-pill.open { color: var(--gain); border-color: rgba(47,122,79,0.5); }
   .asset-tag { font-family: var(--font-mono); font-size: 9px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gold-bright); border: 1px solid rgba(217,164,65,0.5); border-radius: 3px; padding: 0 4px; vertical-align: 2px; margin-left: 4px; }
   .detail-sym .asset-tag { font-size: 10px; vertical-align: 3px; }
 
@@ -240,8 +242,17 @@
   </div>
 
 <script>
-const CATEGORY_LABELS = { forex: 'Forex', metals: 'Metals', indices: 'Indices', energy: 'Energy', crypto: 'Crypto' };
-const CATEGORY_ORDER = ['forex', 'metals', 'indices', 'energy', 'crypto'];
+const CATEGORY_LABELS = { pse: 'PSE', forex: 'Forex', metals: 'Metals', indices: 'Indices', energy: 'Energy', crypto: 'Crypto' };
+const CATEGORY_ORDER = ['pse', 'forex', 'metals', 'indices', 'energy', 'crypto'];
+
+// PSE session (Mon-Fri 9:30-15:00 Manila) for the group header's open/closed
+// pill. Doesn't know PSE holidays.
+function pseSessionPill() {
+  const m = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+  const hm = m.getHours() * 60 + m.getMinutes();
+  const open = m.getDay() >= 1 && m.getDay() <= 5 && hm >= 9 * 60 + 30 && hm < 15 * 60;
+  return ` <span class="session-pill ${open ? 'open' : ''}">${open ? 'open' : 'closed'}</span>`;
+}
 
 const dirClass = (d) => (d || '').toLowerCase();
 
@@ -509,7 +520,7 @@ function renderBasket(assetsById) {
       }).join('');
     }
     return `
-      <div class="wl-item" data-key="${key}" data-id="${watch ? watch._id : ''}" title="${p.asset_class === 'crypto' ? 'Checked every 5 minutes' : 'Checked hourly'}">
+      <div class="wl-item" data-key="${key}" data-id="${watch ? watch._id : ''}" title="${p.asset_class === 'crypto' ? 'Checked every 5 minutes' : p.asset_class === 'pse' ? 'Checked every 5 minutes during PSE hours' : 'Checked hourly'}">
         <div class="wl-left" style="width:100%">
           <div class="bk-head">
             <div class="wl-sym">${nameHtml(watch ? watch : p)} <span class="bk-tf ${dirClass(p.direction)}">${p.higher_tf} ${dirArrow(p.direction)}</span></div>
@@ -677,7 +688,7 @@ function selectAsset(id, assetsById) {
     <div class="detail-top">
       <div>
         <div class="detail-sym">${nameHtml(entry)}</div>
-        <div class="detail-name">${entry.ticker}</div>
+        ${entry.ticker !== entry.display_name ? `<div class="detail-name">${entry.ticker}</div>` : ""}
         <div class="detail-thesis">${entry.higher_tf} trend + LSMA + RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} aligned (fired at RSI ${entry.rsi_at_trigger}) — <strong>${dc} continuation</strong>.</div>
         <div class="settings-row" style="align-items:center;margin-top:8px"><button class="basket-btn" id="basketBtn" type="button"></button><span class="basket-msg" id="basketMsg"></span></div>
       </div>
@@ -838,14 +849,16 @@ async function init() {
   const watchlistEl = document.getElementById('watchlist');
   watchlistEl.innerHTML = CATEGORY_ORDER.filter(cls => grouped[cls] && grouped[cls].length).map(cls => `
     <div class="wl-group">
-      <div class="wl-group-label">${CATEGORY_LABELS[cls] || cls}</div>
+      <div class="wl-group-label">${CATEGORY_LABELS[cls] || cls}${cls === 'pse' ? pseSessionPill() : ''}</div>
       ${grouped[cls].map(byTf => {
         const a = Object.values(byTf)[0];
+        // PSE rows: the group already says PSE, and the ticker IS the name.
+        const isPse = a.asset_class === 'pse';
         return `
         <div class="wl-item" data-sym="${symKey(a)}">
           <div class="wl-left">
-            <div class="wl-sym">${nameHtml(a)}</div>
-            <div class="wl-name">${a.ticker}</div>
+            <div class="wl-sym">${isPse ? a.display_name : nameHtml(a)}</div>
+            ${a.ticker !== a.display_name ? `<div class="wl-name">${a.ticker}</div>` : ''}
             <div class="wl-rsi"></div>
           </div>
           <div class="wl-right">
