@@ -195,7 +195,10 @@
       "display_name": "LTC/USD",
       "higher_tf": "1D",
       "direction": "BULLISH",
-      "added_at": "2026-09-25T09:09:05.690Z"
+      "added_at": "2026-09-25T09:09:05.690Z",
+      "muted": [
+        "4H"
+      ]
     }
   ]
 }
