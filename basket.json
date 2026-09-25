@@ -111,6 +111,14 @@
       "higher_tf": "1D",
       "direction": "BULLISH",
       "added_at": "2026-09-25T02:01:32.755Z"
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "RCI",
+      "display_name": "RCI",
+      "higher_tf": "1D",
+      "direction": "BULLISH",
+      "added_at": "2026-09-25T05:28:52.311Z"
     }
   ]
 }
