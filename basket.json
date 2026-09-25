@@ -139,14 +139,6 @@
     },
     {
       "asset_class": "pse",
-      "ticker": "PNB",
-      "display_name": "PNB",
-      "higher_tf": "1D",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T05:34:28.619Z"
-    },
-    {
-      "asset_class": "pse",
       "ticker": "V",
       "display_name": "V",
       "higher_tf": "1D",
