@@ -158,6 +158,14 @@
       "muted": [
         "1D"
       ]
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "DHI",
+      "display_name": "DHI",
+      "higher_tf": "1D",
+      "direction": "BULLISH",
+      "added_at": "2026-09-25T08:59:26.354Z"
     }
   ]
 }
