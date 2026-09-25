@@ -3,322 +3,302 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Signal Scanner</title>
+<title>OV Scanner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   :root {
-    --bg: #F5F3EC; --surface: #FFFFFF; --surface-raised: #FBFAF6; --border: #DEDACD;
-    --ink: #1B1B16; --ink-dim: #6B6858; --gain: #2F7A4F; --loss: #A8402C;
-    --gold: #9C7A17; --gold-bright: #C9A227; --blue: #3E6FA8; --violet: #7A5CB8;
+    --bg: #F5F3EC; --surface: #FFFFFF; --surface-raised: #F3F1E9; --border: #DEDACD; --hair: #E9E6DC;
+    --ink: #1B1B16; --ink-dim: #6B6858; --ink-faint: #B8B4A2; --gain: #2F7A4F; --loss: #A8402C;
+    --gold: #9C7A17; --gold-bright: #B8921C; --blue: #3E6FA8; --violet: #7A5CB8;
     --font-ui: 'IBM Plex Sans', -apple-system, sans-serif;
     --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #14140F; --surface: #1C1C15; --surface-raised: #24241B; --border: #34331F;
-      --ink: #EFEBDD; --ink-dim: #9B9782; --gain: #5FB980; --loss: #E27055;
+      --bg: #14140F; --surface: #1C1C15; --surface-raised: #24241B; --border: #34331F; --hair: #28271D;
+      --ink: #EFEBDD; --ink-dim: #9B9782; --ink-faint: #55533F; --gain: #5FB980; --loss: #E27055;
       --gold: #D9B84A; --gold-bright: #E8CC66; --blue: #6FA8DC; --violet: #B39BE0;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #14140F; --surface: #1C1C15; --surface-raised: #24241B; --border: #34331F;
-    --ink: #EFEBDD; --ink-dim: #9B9782; --gain: #5FB980; --loss: #E27055;
+    --bg: #14140F; --surface: #1C1C15; --surface-raised: #24241B; --border: #34331F; --hair: #28271D;
+    --ink: #EFEBDD; --ink-dim: #9B9782; --ink-faint: #55533F; --gain: #5FB980; --loss: #E27055;
     --gold: #D9B84A; --gold-bright: #E8CC66; --blue: #6FA8DC; --violet: #B39BE0;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--font-ui); -webkit-font-smoothing: antialiased; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--font-mono); font-size: 12px; -webkit-font-smoothing: antialiased; }
   body { min-height: 100vh; }
-
-  header.page { max-width: 1180px; margin: 0 auto; padding: 34px 20px 18px; }
-  .title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  h1 { font-size: 27px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
-  h1 .accent { color: var(--gold-bright); }
-  .scan-meta { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-dim); }
-  .scan-meta strong { color: var(--ink); font-weight: 500; }
-
-  .controls { max-width: 1180px; margin: 0 auto; padding: 6px 20px 0; display: flex; gap: 8px; flex-wrap: wrap; }
-  .chip { font-family: var(--font-mono); font-size: 12px; padding: 6px 13px; border: 1px solid var(--border); border-radius: 999px; color: var(--ink-dim); background: var(--surface); cursor: pointer; user-select: none; }
-  .chip.active { color: var(--bg); background: var(--ink); border-color: var(--ink); }
-  .chip .chip-count { opacity: 0.7; }
-
-  .layout { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; display: flex; gap: 16px; align-items: flex-start; }
-
-  /* Watchlist sits to the right of the charts (order), and stays in view
-     while scrolling through them (sticky). */
-  .watchlist-panel { order: 2; position: sticky; top: 12px; width: 300px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-  .watchlist-scroll { max-height: 760px; overflow-y: auto; }
-  .wl-group-label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); padding: 9px 14px 4px; background: var(--surface-raised); }
-  .wl-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
-  .wl-item:hover { background: var(--surface-raised); }
-  .wl-item.active { background: var(--surface-raised); box-shadow: inset 3px 0 0 var(--gold-bright); }
-  .wl-left { min-width: 0; }
-  .wl-sym { font-family: var(--font-mono); font-weight: 600; font-size: 13px; }
-  .wl-name { font-size: 10.5px; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .wl-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
-  .wl-tf { font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); }
-  .wl-rsi { font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
-  .wl-rsi.bullish { color: var(--gain); }
-  .wl-rsi.bearish { color: var(--loss); }
-
-  /* Per-timeframe markers on each watchlist row: which of 1H/4H/1D this
-     asset is on watch for, colored by direction; dim = not on watch. */
-  .wl-tfs { display: flex; gap: 4px; }
-  .wl-tfs span, .wl-tfs button { display: flex; flex-direction: column; align-items: center; line-height: 1.25; font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim); opacity: 0.4; padding: 2px 4px; border: 1px solid transparent; border-radius: 3px; background: transparent; }
-  .wl-tfs button { opacity: 1; cursor: pointer; }
-  .wl-tfs button.bullish { color: var(--gain); }
-  .wl-tfs button.bearish { color: var(--loss); }
-  .wl-tfs button:hover { background: var(--surface-raised); }
-  /* The timeframe this row shows / opens: boxed, bold, larger. */
-  .wl-tfs button.shown { font-size: 11px; font-weight: 700; border-color: currentColor; }
-  .wl-tfs button.bullish.shown { background: rgba(47,122,79,0.16); }
-  .wl-tfs button.bearish.shown { background: rgba(168,64,44,0.16); }
-  /* Timeframe already in the basket: gold underline. */
-  .wl-tfs button.in-basket { box-shadow: inset 0 -2px 0 var(--gold-bright); }
-  .wl-left .wl-rsi { margin-top: 3px; }
-  .row-bk { font-family: var(--font-mono); font-size: 10px; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--gold-bright); color: var(--gold-bright); background: transparent; cursor: pointer; white-space: nowrap; }
-  .row-bk:hover { background: rgba(217,164,65,0.12); }
-  .row-bk.in { background: var(--gold-bright); color: var(--bg); }
-  .row-bk:disabled { opacity: 0.5; cursor: wait; }
-
-  .bk-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .bk-tf { font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 1px 6px; border: 1px solid currentColor; border-radius: 3px; margin-left: 4px; }
-  .bk-tf.bullish { color: var(--gain); } .bk-tf.bearish { color: var(--loss); }
-  .bk-remove { font-size: 16px; line-height: 1; width: 24px; height: 24px; border-radius: 3px; border: 1px solid var(--border); color: var(--ink-dim); background: transparent; cursor: pointer; flex-shrink: 0; }
-  .bk-remove:hover { color: var(--loss); border-color: var(--loss); }
-  .bk-msg { font-family: var(--font-mono); font-size: 9.5px; color: var(--loss); }
-  .bk-msg:empty { display: none; }
-
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  button:focus-visible, .opt:focus-visible { outline: 1px solid var(--gold-bright); outline-offset: 1px; }
   .is-hidden { display: none !important; }
-  .session-pill { font-size: 9px; padding: 0 6px; border-radius: 999px; margin-left: 6px; color: var(--ink-dim); border: 1px solid var(--border); }
-  .session-pill.open { color: var(--gain); border-color: rgba(47,122,79,0.5); }
-  .asset-tag { font-family: var(--font-mono); font-size: 9px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gold-bright); border: 1px solid rgba(217,164,65,0.5); border-radius: 3px; padding: 0 4px; vertical-align: 2px; margin-left: 4px; }
-  .detail-sym .asset-tag { font-size: 10px; vertical-align: 3px; }
+  .bullish { color: var(--gain); } .bearish { color: var(--loss); }
 
-  /* Watchlist | Basket tabs at the top of the right-hand panel. */
-  .panel-tabs { display: flex; border-bottom: 1px solid var(--border); }
-  .panel-tab { flex: 1; font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-dim); background: transparent; border: 0; padding: 11px 8px; cursor: pointer; }
-  .panel-tab.active { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); }
-  .panel-tab span { opacity: 0.7; }
+  /* ---- Header: one line of title + scan info, one line of filters ---- */
+  header.page { max-width: 1240px; margin: 0 auto; padding: 14px 16px 6px; }
+  .topbar { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .brand { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; }
+  .brand span { color: var(--gold-bright); }
+  .meta { font-size: 11px; color: var(--ink-dim); }
+  .meta strong { color: var(--ink); font-weight: 500; }
+  .link-btn { color: var(--ink-dim); text-decoration: underline; text-underline-offset: 2px; }
 
-  /* Basket rows: per-lower-tf entry state. */
-  .bk-ltf { display: flex; justify-content: space-between; gap: 8px; font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim); margin-top: 4px; }
-  .bk-state { padding: 1px 6px; border-radius: 999px; background: var(--surface-raised); white-space: nowrap; }
-  .bk-state.pulled_back { color: var(--gold-bright); }
-  .bk-state.armed { color: var(--gold-bright); box-shadow: inset 0 0 0 1px var(--gold-bright); }
-  .bk-state.entry { color: var(--gain); box-shadow: inset 0 0 0 1px var(--gain); }
-  .cycle-legend { display: flex; gap: 12px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); margin: -6px 0 12px; }
-  .cycle-legend b { font-weight: 600; }
-  .bk-note { font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim); margin-top: 6px; }
-  .bk-gone { font-family: var(--font-mono); font-size: 9.5px; color: var(--loss); margin-top: 6px; }
-  .bk-empty { padding: 16px 14px; font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin-top: 10px; }
+  .seg { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+  .seg-label { font-size: 10.5px; color: var(--ink-faint); margin-right: 4px; }
+  .opt { font-size: 11px; padding: 2px 7px; border-radius: 4px; color: var(--ink-dim); border: 1px solid transparent; }
+  .opt:hover { color: var(--ink); }
+  .opt.on { color: var(--ink); background: var(--surface-raised); border-color: var(--border); }
+  .opt .n { color: var(--ink-faint); margin-left: 3px; }
+  .opt.on .n { color: var(--ink-dim); }
+  .sub-opt { font-size: 11px; padding: 2px 7px; border-radius: 4px; border: 1px dashed var(--border); color: var(--ink-dim); margin-left: 6px; }
+  .sub-opt.on { border-style: solid; border-color: var(--gold-bright); color: var(--gold-bright); }
 
-  .basket-btn { font-family: var(--font-mono); font-size: 11px; padding: 4px 10px; border-radius: 3px; border: 1px solid var(--gold-bright); color: var(--gold-bright); background: transparent; cursor: pointer; white-space: nowrap; }
-  .basket-btn.in { background: var(--gold-bright); color: var(--bg); }
-  .basket-btn:disabled { opacity: 0.5; cursor: wait; }
-  .basket-msg { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-dim); }
-
-  .link-btn { font: inherit; color: var(--ink-dim); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
-  .settings-panel { margin-top: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
+  .settings-panel { margin-top: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-ui); font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
   .settings-panel strong { color: var(--ink); }
-  .settings-panel code { background: var(--surface-raised); padding: 1px 5px; border-radius: 2px; }
-  .settings-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-  .settings-row input { flex: 1; min-width: 200px; font-family: var(--font-mono); font-size: 12px; padding: 6px 9px; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 3px; }
-  .settings-msg { font-family: var(--font-mono); font-size: 11px; margin-top: 8px; min-height: 1em; }
+  .settings-panel code { font-family: var(--font-mono); background: var(--surface-raised); padding: 1px 5px; border-radius: 2px; }
+  .settings-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+  .settings-row input { flex: 1; min-width: 200px; font-family: var(--font-mono); font-size: 12px; padding: 5px 8px; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 4px; }
+  .settings-msg { font-family: var(--font-mono); font-size: 11px; margin-top: 6px; min-height: 1em; }
+  .text-btn { font-size: 11px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 4px; color: var(--ink-dim); }
+  .text-btn:hover { color: var(--ink); border-color: var(--ink-dim); }
 
-  /* Timeframe switcher in the asset header — replaces the single tf badge. */
-  .tf-switch { font-family: var(--font-mono); font-size: 11px; padding: 3px 9px; border-radius: 3px; border: 1px solid var(--border); background: transparent; color: var(--ink-dim); opacity: 0.45; cursor: default; white-space: nowrap; }
-  .tf-switch.bullish, .tf-switch.bearish { opacity: 1; cursor: pointer; }
-  .tf-switch.bullish { color: var(--gain); border-color: rgba(47,122,79,0.45); }
-  .tf-switch.bearish { color: var(--loss); border-color: rgba(168,64,44,0.45); }
-  .tf-switch.current { font-weight: 600; border-width: 2px; padding: 2px 8px; }
-  .tf-switch.bullish.current { background: rgba(47,122,79,0.14); }
-  .tf-switch.bearish.current { background: rgba(168,64,44,0.14); }
-  .tf-switch.bullish:not(.current):hover, .tf-switch.bearish:not(.current):hover { background: var(--surface-raised); }
+  /* ---- Layout: charts left, watchlist/basket right (sticky) ---- */
+  .layout { max-width: 1240px; margin: 0 auto; padding: 8px 16px 48px; display: flex; gap: 12px; align-items: flex-start; }
+  .detail-panel { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+  .side-panel { order: 2; position: sticky; top: 10px; width: 272px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .panel-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .panel-tab { flex: 1; font-size: 11px; color: var(--ink-dim); padding: 8px 6px; }
+  .panel-tab.active { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); }
+  .panel-tab .n { color: var(--ink-faint); margin-left: 3px; }
+  .scroll { max-height: calc(100vh - 70px); overflow-y: auto; }
 
-  .detail-panel { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 18px; }
-  .detail-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
-  .detail-sym { font-family: var(--font-mono); font-size: 19px; font-weight: 600; }
-  .detail-name { font-size: 12px; color: var(--ink-dim); margin-top: 2px; }
-  .detail-thesis { font-size: 12px; color: var(--ink-dim); margin-top: 6px; line-height: 1.5; }
-  .detail-thesis strong { color: var(--ink); }
-  .badge-group { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
-  .tf-badge { font-family: var(--font-mono); font-size: 10.5px; padding: 2px 7px; border-radius: 3px; background: var(--surface-raised); border: 1px solid var(--border); color: var(--ink-dim); white-space: nowrap; }
-  .rsi-badge { font-family: var(--font-mono); font-size: 11px; padding: 2px 8px; border-radius: 3px; white-space: nowrap; border: 1px solid transparent; font-weight: 600; }
-  .rsi-badge.bullish { background: rgba(47,122,79,0.12); color: var(--gain); border-color: rgba(47,122,79,0.3); }
-  .rsi-badge.bearish { background: rgba(168,64,44,0.12); color: var(--loss); border-color: rgba(168,64,44,0.3); }
+  /* ---- Watchlist rows: one line — name + RSI · timeframes · +/✓ ---- */
+  .grp { font-size: 10px; letter-spacing: 0.08em; color: var(--ink-dim); padding: 6px 10px 3px; background: var(--surface-raised); display: flex; justify-content: space-between; }
+  .grp .session { letter-spacing: 0; text-transform: none; }
+  .grp .session.open { color: var(--gain); }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--hair); cursor: pointer; }
+  .row:hover { background: var(--surface-raised); }
+  .row.active { background: var(--surface-raised); box-shadow: inset 2px 0 0 var(--gold-bright); }
+  .row-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sym { font-weight: 600; font-size: 12px; }
+  .tag { font-size: 10px; color: var(--ink-dim); margin-left: 4px; }
+  .rsi { font-size: 11px; margin-left: 6px; }
+  .tfs { display: flex; gap: 7px; font-size: 11px; }
+  .tfs .off { color: var(--ink-faint); }
+  .tfs button { padding: 1px 0; opacity: 0.85; }
+  .tfs button:hover { opacity: 1; }
+  .tfs .shown { font-weight: 700; opacity: 1; }
+  /* In the basket: gold underline under that timeframe. */
+  .tfs .in-basket { text-decoration: underline; text-decoration-color: var(--gold-bright); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  .plus { font-size: 14px; line-height: 1; color: var(--ink-faint); text-align: center; }
+  .plus:hover { color: var(--gold-bright); }
+  .plus.in { color: var(--gold-bright); }
+  .plus:disabled { opacity: 0.4; cursor: wait; }
 
-  .watch-window { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-dim); margin-top: 10px; padding: 8px 10px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 3px; }
-  .watch-window-row { display: flex; align-items: center; }
+  /* ---- Basket cards: two lines, plain coloured text, tap a tf to mute ---- */
+  .bk { padding: 7px 10px; border-bottom: 1px solid var(--hair); cursor: pointer; }
+  .bk:hover { background: var(--surface-raised); }
+  .bk.active { background: var(--surface-raised); box-shadow: inset 2px 0 0 var(--gold-bright); }
+  .bk-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .bk-htf { font-size: 11px; margin-left: 6px; }
+  .bk-x { color: var(--ink-faint); font-size: 14px; line-height: 1; padding: 0 2px; }
+  .bk-x:hover { color: var(--loss); }
+  .bk-ltfs { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 3px; font-size: 11px; }
+  .sw { display: inline-flex; gap: 5px; }
+  .sw .k { color: var(--ink-dim); }
+  .sw.muted { opacity: 0.35; }
+  .sw.muted .k { text-decoration: line-through; }
+  .st-waiting, .st-pulled_back, .st-no_data, .st-pending { color: var(--ink-dim); }
+  .st-armed { color: var(--gold-bright); }
+  .st-entry { color: var(--gain); }
+  .bk-note { font-size: 10.5px; color: var(--ink-dim); margin-top: 3px; }
+  .bk-gone { font-size: 10.5px; color: var(--loss); margin-top: 3px; }
+  .bk-msg { font-size: 10.5px; color: var(--loss); }
+  .bk-msg:empty { display: none; }
+  .empty { padding: 14px 12px; font-family: var(--font-ui); font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
+  .hint { padding: 7px 10px; font-size: 10.5px; color: var(--ink-faint); }
 
-  .legend-row { display: flex; gap: 12px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); margin: 14px 0 14px; }
-  .legend-row .dot { display: inline-block; width: 8px; height: 2px; margin-right: 4px; vertical-align: middle; }
+  /* ---- Asset header: one line + one summary line ---- */
+  .d-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .d-name { font-size: 15px; font-weight: 600; }
+  .d-sub { font-size: 11px; color: var(--ink-dim); margin-left: 6px; font-weight: 400; }
+  .d-right { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .tf-sw { font-size: 12px; padding: 1px 6px; border-radius: 4px; border: 1px solid transparent; }
+  .tf-sw.off { color: var(--ink-faint); cursor: default; }
+  .tf-sw.current { font-weight: 700; background: var(--surface-raised); border-color: var(--border); }
+  .d-summary { font-size: 11px; color: var(--ink-dim); margin-top: 3px; }
+  .d-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 11px; }
+  .bk-btn { color: var(--gold-bright); }
+  .bk-btn.in { color: var(--ink-dim); }
+  .bk-btn:disabled { opacity: 0.5; cursor: wait; }
+  .msg { color: var(--ink-dim); }
 
-  .chart-block { margin-bottom: 10px; }
-  .chart-block-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; flex-wrap: wrap; }
-  .chart-block-label { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--ink); }
-  .reset-zoom { font-family: var(--font-mono); font-size: 10.5px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; color: var(--ink-dim); background: var(--surface); cursor: pointer; }
-  .reset-zoom:hover { color: var(--ink); border-color: var(--ink-dim); }
-  .legend-row .zoom-hint { margin-left: auto; }
-  .chart-box { width: 100%; height: 460px; position: relative; }
-  .macd-box { width: 100%; height: 120px; margin-top: 4px; }
-  .chart-placeholder { width: 100%; height: 460px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); background: var(--surface-raised); border: 1px dashed var(--border); border-radius: 3px; text-align: center; padding: 0 20px; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 10px; color: var(--ink-dim); margin: 10px 0 4px; }
+  .legend .ln { display: inline-block; width: 9px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 4px; }
+  .legend .push { margin-left: auto; color: var(--ink-faint); }
+  .chart-head { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 4px; }
+  .chart-label { font-size: 11px; font-weight: 600; }
+  .chart-label .dim { color: var(--ink-dim); font-weight: 400; }
+  .reset { font-size: 10px; color: var(--ink-faint); }
+  .reset:hover { color: var(--ink); }
+  .chart-box { width: 100%; height: 420px; position: relative; }
+  .macd-box { width: 100%; height: 96px; margin-top: 2px; }
+  .chart-placeholder { width: 100%; height: 160px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--ink-dim); background: var(--surface-raised); border: 1px dashed var(--border); border-radius: 4px; }
+  .price-line { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0; margin-top: 4px; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+  .price-line .up { color: var(--gain); } .price-line .down { color: var(--loss); }
+  .section { font-size: 10px; letter-spacing: 0.08em; color: var(--ink-dim); margin: 14px 0 2px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .section .cy { letter-spacing: 0; }
 
-  .card-bottom { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 14px; padding: 10px 0; margin: -6px 0 18px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-  .card-bottom .price { font-weight: 600; }
-  .card-bottom .pct.up { color: var(--gain); }
-  .card-bottom .pct.down { color: var(--loss); }
-
-  .section-label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 0 12px; }
-
-  .empty-state { max-width: 1180px; margin: 60px auto; padding: 0 20px; text-align: center; color: var(--ink-dim); font-family: var(--font-mono); font-size: 13px; }
-  .load-error { max-width: 1180px; margin: 60px auto; padding: 20px; text-align: left; color: var(--ink-dim); font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
-  .load-error strong { color: var(--ink); }
-  .load-error code { background: var(--surface-raised); padding: 1px 5px; border-radius: 2px; }
+  .load-error { max-width: 1240px; margin: 40px auto; padding: 16px; font-family: var(--font-ui); color: var(--ink-dim); font-size: 12.5px; line-height: 1.6; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
+  .load-error code { font-family: var(--font-mono); background: var(--surface-raised); padding: 1px 5px; border-radius: 2px; }
 
   @media (max-width: 860px) {
-    .layout { flex-direction: column; padding: 18px 14px 40px; }
-    header.page { padding: 24px 14px 14px; }
-    .controls { padding: 6px 14px 0; }
-    .watchlist-panel { width: 100%; order: 0; position: static; }
-    .watchlist-scroll { max-height: none; display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .wl-group { display: flex; flex-shrink: 0; }
-    .wl-group-label { display: flex; align-items: center; padding: 0 10px; flex-shrink: 0; }
-    .wl-item { flex-direction: column; align-items: flex-start; min-width: 165px; border-bottom: none; border-right: 1px solid var(--border); }
-    .wl-right { flex-direction: row; align-items: center; gap: 8px; margin-top: 5px; }
-    .wl-item.active { box-shadow: inset 0 3px 0 var(--gold-bright); }
-    h1 { font-size: 22px; }
-    .detail-panel { padding: 14px; }
-    .detail-top { flex-direction: column; gap: 10px; }
-    .badge-group { flex-wrap: wrap; }
-    .chart-box, .chart-placeholder { height: 340px; }
+    header.page { padding: 12px 12px 4px; }
+    .layout { flex-direction: column; padding: 8px 12px 32px; }
+    .side-panel { width: 100%; order: 0; position: static; }
+    .scroll { max-height: 300px; }
+    .detail-panel { padding: 10px; }
+    .chart-box { height: 320px; }
+    .macd-box { height: 80px; }
+    .legend .push { display: none; }  /* ctrl+scroll hint — pinch is obvious on a phone */
   }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 </style>
 </head>
 <body>
 
   <header class="page">
-    <div class="title-row">
-      <h1>Signal <span class="accent">Scanner</span></h1>
-      <div class="scan-meta"><span id="scanMeta">Loading…</span> · <button class="link-btn" id="basketSettingsBtn" type="button">Basket settings</button></div>
+    <div class="topbar">
+      <span class="brand">OV <span>Scanner</span></span>
+      <span class="meta"><span id="scanMeta">Loading…</span> · <button class="link-btn" id="basketSettingsBtn" type="button">basket settings</button></span>
     </div>
     <div class="settings-panel is-hidden" id="basketSettings">
       <div><strong>Basket access.</strong> Adding and removing basket picks saves <code>basket.json</code> in your GitHub repo, which needs a token with access to this repo only. It's stored in this browser only — each device needs it once.</div>
       <div class="settings-row">
         <input type="password" id="tokenInput" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
-        <button class="reset-zoom" id="tokenSave" type="button">Save token</button>
-        <button class="reset-zoom" id="tokenClear" type="button">Remove token</button>
+        <button class="text-btn" id="tokenSave" type="button">Save token</button>
+        <button class="text-btn" id="tokenClear" type="button">Remove token</button>
       </div>
       <div class="settings-msg" id="tokenMsg"></div>
     </div>
+    <div class="filters" id="filters">
+      <div class="seg" data-group="market"><span class="seg-label">market</span></div>
+      <div class="seg" data-group="tf"><span class="seg-label">tf</span></div>
+      <div class="seg" data-group="dir"><span class="seg-label">dir</span></div>
+    </div>
   </header>
 
-  <div class="controls" id="tf-controls">
-    <span class="chip active" data-tf="ALL">All timeframes</span>
-    <span class="chip" data-tf="1H">1H</span>
-    <span class="chip" data-tf="4H">4H</span>
-    <span class="chip" data-tf="1D">1D</span>
-    <span class="chip" data-tf="ALIGNED" title="On watch on 1H, 4H and 1D, all in the same direction">All 3 aligned</span>
-  </div>
-
-  <div class="controls" id="direction-controls">
-    <span class="chip active" data-direction="ALL">All directions</span>
-    <span class="chip" data-direction="BULLISH">Bullish</span>
-    <span class="chip" data-direction="BEARISH">Bearish</span>
-  </div>
-
   <div class="layout">
-    <div class="watchlist-panel">
+    <div class="side-panel">
       <div class="panel-tabs">
-        <button class="panel-tab active" data-view="watchlist" type="button">Watchlist <span id="wlCount"></span></button>
-        <button class="panel-tab" data-view="basket" type="button">Basket <span id="bkCount"></span></button>
+        <button class="panel-tab active" data-view="watchlist" type="button">watchlist<span class="n" id="wlCount"></span></button>
+        <button class="panel-tab" data-view="basket" type="button">basket<span class="n" id="bkCount"></span></button>
       </div>
-      <div class="watchlist-scroll" id="watchlist"></div>
-      <div class="watchlist-scroll is-hidden" id="basketList"></div>
+      <div class="scroll" id="watchlist"></div>
+      <div class="scroll is-hidden" id="basketList"></div>
     </div>
     <div class="detail-panel" id="detail"></div>
   </div>
 
 <script>
-const CATEGORY_LABELS = { pse: 'PSE', forex: 'Forex', metals: 'Metals', indices: 'Indices', energy: 'Energy', crypto: 'Crypto' };
-const CATEGORY_ORDER = ['pse', 'forex', 'metals', 'indices', 'energy', 'crypto'];
+// ---------------------------------------------------------------------------
+// Markets, timeframes, filters
+// ---------------------------------------------------------------------------
+const MARKETS = [
+  ['all', 'all'], ['pse', 'PSE'], ['crypto', 'crypto'], ['forex', 'forex'],
+  ['metals', 'metals'], ['indices', 'indices'], ['energy', 'energy'],
+];
+const GROUP_ORDER = ['pse', 'forex', 'metals', 'indices', 'energy', 'crypto'];
+const GROUP_LABELS = { pse: 'PSE', forex: 'FOREX', metals: 'METALS', indices: 'INDICES', energy: 'ENERGY', crypto: 'CRYPTO' };
+// Kraken's non-crypto pairs also count under their real market.
+const TAG_MARKET = { currency: 'forex', gold: 'metals', uranium: 'energy' };
+const marketsOf = (a) => new Set([a.asset_class, TAG_MARKET[a.tag]].filter(Boolean));
 
-// PSE session (Mon-Fri 9:30-15:00 Manila) for the group header's open/closed
-// pill. Doesn't know PSE holidays.
-function pseSessionPill() {
+const TF_ORDER = ['1H', '4H', '1D'];          // the "aligned" set, every market
+const tfsFor = (a) => a.asset_class === 'pse' ? ['1H', '4H', '1D', '1W'] : TF_ORDER;
+const LOWER_TF_MAP = { '1H': ['15m', '5m'], '4H': ['1H', '15m'], '1D': ['4H', '1H'], '1W': ['1D', '4H'] };
+
+const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL' };
+
+// PSE session (Mon-Fri 9:30-15:00 Manila). Doesn't know PSE holidays.
+function pseOpen() {
   const m = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
   const hm = m.getHours() * 60 + m.getMinutes();
-  const open = m.getDay() >= 1 && m.getDay() <= 5 && hm >= 9 * 60 + 30 && hm < 15 * 60;
-  return ` <span class="session-pill ${open ? 'open' : ''}">${open ? 'open' : 'closed'}</span>`;
+  return m.getDay() >= 1 && m.getDay() <= 5 && hm >= 570 && hm < 900;
 }
 
 const dirClass = (d) => (d || '').toLowerCase();
+const dirArrow = (d) => d === 'BULLISH' ? '▲' : '▼';
+const symKey = (a) => `${a.asset_class}__${a.ticker}`;
+const pickKey = (p) => `${p.asset_class}:${p.ticker}:${p.higher_tf}`;
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-// scan.py ships candles as {fields, rows} (one array per candle) to keep
-// data.json small; expand back to objects here. Plain arrays are the older
-// layout — still accepted, so a state.json entry left over from before the
-// change keeps rendering until its next refresh.
+let watchesBySym = {};     // symKey -> { '1H': watch, '4H': watch, ... }
+let assetsById = {};       // watch _id -> watch
+const isAligned = (byTf) => TF_ORDER.every(tf => byTf[tf]) && new Set(TF_ORDER.map(tf => byTf[tf].direction)).size === 1;
+
+// Market filter for any asset-like object (a watch, or a basket pick with
+// its watch's tag/large_cap when available).
+function marketMatch(a) {
+  if (F.market === 'all') return true;
+  if (!marketsOf(a).has(F.market)) return false;
+  return !(F.market === 'crypto' && F.large) || !!a.large_cap;
+}
+
+// scan.py ships candles as {fields, rows}; expand back to objects. Plain
+// arrays are the older layout, still accepted.
 function toCandles(c) {
   if (!c) return [];
   if (Array.isArray(c)) return c;
   return c.rows.map(r => Object.fromEntries(c.fields.map((f, i) => [f, r[i]])));
 }
+const toUnixTime = (iso) => iso ? Math.floor(new Date(iso).getTime() / 1000) : null;
 
-function toUnixTime(iso) {
-  return iso ? Math.floor(new Date(iso).getTime() / 1000) : null;
-}
-
-let activeCharts = [];
-function teardownCharts() { activeCharts.forEach(c => { try { c.remove(); } catch (e) {} }); activeCharts = []; }
+// ---------------------------------------------------------------------------
+// Charts
+// ---------------------------------------------------------------------------
+let activeCharts = [];     // { chart, el } so resizes match the right element
+function teardownCharts() { activeCharts.forEach(c => { try { c.chart.remove(); } catch (e) {} }); activeCharts = []; }
 
 const css = getComputedStyle(document.documentElement);
 const cssVar = (name) => css.getPropertyValue(name).trim();
+const RIGHT_GAP = 4;       // empty bars after the latest candle, off the price axis
+const AXIS_WIDTH = 54;
 
 const chartTheme = {
-  layout: { background: { type: 'solid', color: 'transparent' }, textColor: cssVar('--ink-dim'), fontFamily: "'IBM Plex Mono', monospace", fontSize: 10 },
+  layout: { background: { type: 'solid', color: 'transparent' }, textColor: cssVar('--ink-dim'), fontFamily: "'IBM Plex Mono', monospace", fontSize: 9 },
   grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-  rightPriceScale: { borderColor: cssVar('--border'), scaleMargins: { top: 0.12, bottom: 0.18 }, minimumWidth: 80 },
-  timeScale: { borderColor: cssVar('--border'), timeVisible: false, secondsVisible: false, fixLeftEdge: true, fixRightEdge: true },
+  rightPriceScale: { borderColor: cssVar('--border'), scaleMargins: { top: 0.1, bottom: 0.14 }, minimumWidth: AXIS_WIDTH },
+  timeScale: { borderColor: cssVar('--border'), timeVisible: false, secondsVisible: false, fixLeftEdge: true, rightOffset: RIGHT_GAP },
   crosshair: { mode: 0 },
   // Drag to pan, pinch / drag the price axis to scale. The plain mouse
-  // wheel is left to the page so scrolling past a chart doesn't get
-  // trapped by it — Ctrl+wheel zooms instead (see attachCtrlWheelZoom).
+  // wheel is left to the page — Ctrl+wheel zooms (attachCtrlWheelZoom).
   handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-  handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true }
+  handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true },
 };
-
-// The MACD pane only ever follows its price chart's range — it never takes
-// input of its own.
 const followerInteraction = { handleScroll: false, handleScale: false };
 
 function attachCtrlWheelZoom(chart, el, lastIndex) {
   const ts = chart.timeScale();
-  // The chart only applies a new range on its next paint, so wheel events
-  // arriving faster than that (a trackpad pinch) would all zoom from the
-  // same stale range. Build on the last range we asked for until the chart
-  // reports it applied (or the user drags, which also reports a change).
+  // A new range only applies on the next paint, so fast wheel events
+  // (trackpad pinch) build on the last range asked for, not a stale one.
   let pending = null;
   ts.subscribeVisibleLogicalRangeChange(() => { pending = null; });
-
   el.addEventListener('wheel', (e) => {
     if (!e.ctrlKey) return;
-    e.preventDefault();  // also stops the browser's own page zoom
+    e.preventDefault();
     const range = pending || ts.getVisibleLogicalRange();
     if (!range) return;
     const x = e.clientX - el.getBoundingClientRect().left;
     const anchor = ts.coordinateToLogical(x) ?? (range.from + range.to) / 2;
-    // Scale by how far the wheel actually moved, so a trackpad pinch (many
-    // tiny ctrl+wheel events) zooms smoothly while a mouse notch (~100px)
-    // still gives a ~20% step. deltaMode 1 = lines (Firefox), ~33px each.
     const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
     const factor = Math.exp(Math.max(-100, Math.min(100, dy)) * 0.002);
-    // Clamped to the data so `pending` matches what fixLeftEdge/fixRightEdge
-    // will actually show when zooming out at full extent.
     const from = Math.max(0, anchor - (anchor - range.from) * factor);
-    const to = Math.min(lastIndex, anchor + (range.to - anchor) * factor);
-    if (to - from < 5) return;  // don't zoom in past ~5 candles
+    const to = Math.min(lastIndex + RIGHT_GAP, anchor + (range.to - anchor) * factor);
+    if (to - from < 5) return;
     pending = { from, to };
     ts.setVisibleLogicalRange(pending);
   }, { passive: false });
@@ -326,27 +306,25 @@ function attachCtrlWheelZoom(chart, el, lastIndex) {
 
 const LINE_STYLE_DOTTED = (window.LightweightCharts && LightweightCharts.LineStyle) ? LightweightCharts.LineStyle.Dotted : 1;
 
-function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo, cycleInfo) {
+function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
   const chartEl = document.getElementById(chartElId);
   const macdEl = document.getElementById(macdElId);
-
   if (!candles || candles.length === 0) {
-    chartEl.outerHTML = `<div class="chart-placeholder" id="${chartElId}">No chart data yet — waiting for next scan run</div>`;
+    chartEl.outerHTML = `<div class="chart-placeholder" id="${chartElId}">No chart data yet — waiting for the next scan</div>`;
     macdEl.style.display = 'none';
     return;
   }
 
   const chart = LightweightCharts.createChart(chartEl, { ...chartTheme, width: chartEl.clientWidth, height: chartEl.clientHeight });
-  activeCharts.push(chart);
+  activeCharts.push({ chart, el: chartEl });
   const candleSeries = chart.addCandlestickSeries({ upColor: cssVar('--gain'), downColor: cssVar('--loss'), borderVisible: false, wickUpColor: cssVar('--gain'), wickDownColor: cssVar('--loss'), priceLineVisible: false, lastValueVisible: false });
   candleSeries.setData(candles);
-  // The library defaults to 2 decimals, which blanks the axis on sub-cent
-  // crypto (1.2e-7 -> "0.00") and hides pips on forex. Size it to the price:
-  // ~5 significant digits, never fewer than 2 decimals. A custom formatter
-  // rather than type 'price', whose own formatter mangles >8 decimals
-  // (1.2e-7 comes out as "0.99999999996").
+  // Axis decimals sized to the price: ~3 significant digits (5 for forex,
+  // to keep pips), at least 2 decimals — 3.60, 0.0977, 1.3235. Custom
+  // formatter: the library's own mangles >8 decimals (sub-cent crypto).
   const refPrice = Math.abs(candles[candles.length - 1].close) || 1;
-  const precision = Math.min(12, Math.max(2, Math.ceil(-Math.log10(refPrice)) + 4));
+  const sig = opts.forex ? 4 : 2;
+  const precision = Math.min(12, Math.max(2, Math.ceil(-Math.log10(refPrice)) + sig));
   candleSeries.applyOptions({ priceFormat: { type: 'custom', minMove: Math.pow(10, -precision), formatter: p => p.toFixed(precision) } });
 
   [
@@ -359,85 +337,71 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, rsiTriggerInfo,
   });
 
   const from = Math.max(0, candles.length - visibleCount);
-  chart.timeScale().setVisibleLogicalRange({ from, to: candles.length - 1 });
+  const home = { from, to: candles.length - 1 + RIGHT_GAP };
+  chart.timeScale().setVisibleLogicalRange(home);
   attachCtrlWheelZoom(chart, chartEl, candles.length - 1);
-
   const resetBtn = document.getElementById(`${chartElId}-reset`);
   if (resetBtn) resetBtn.addEventListener('click', () => {
     chart.priceScale('right').applyOptions({ autoScale: true });
-    chart.timeScale().setVisibleLogicalRange({ from, to: candles.length - 1 });
+    chart.timeScale().setVisibleLogicalRange(home);
   });
 
-  if (rsiTriggerInfo && rsiTriggerInfo.times && rsiTriggerInfo.times.length) {
-    // Mark every candle in the window that met the condition — not just
-    // the first one. Neutral ink color (white in dark mode, black in
-    // light mode) on purpose, so it never blends into either a green or a
-    // red candle the way a gain/loss-colored arrow would on one of the
-    // two. Only the most recent one gets a text label, so several markers
-    // close together don't turn into a wall of repeated text.
-    const isBuy = rsiTriggerInfo.direction === 'BULLISH';
-    const times = rsiTriggerInfo.times.map(toUnixTime).filter(t => t != null).sort((a, b) => a - b);
-    const markers = times.map((t, i) => ({
-      time: t,
-      position: isBuy ? 'belowBar' : 'aboveBar',
-      color: cssVar('--ink'),
-      shape: isBuy ? 'arrowUp' : 'arrowDown',
-      text: i === times.length - 1 ? 'RSI TRIGGER' : '',
-    }));
-    candleSeries.setMarkers(markers);
+  const ink = cssVar('--ink');
+  if (opts.triggers && opts.triggers.times && opts.triggers.times.length) {
+    // Every qualifying candle in the window, in neutral ink so it never
+    // blends into a green or red candle; only the latest gets a label.
+    const isBuy = opts.triggers.direction === 'BULLISH';
+    const times = opts.triggers.times.map(toUnixTime).filter(t => t != null).sort((a, b) => a - b);
+    candleSeries.setMarkers(times.map((t, i) => ({
+      time: t, position: isBuy ? 'belowBar' : 'aboveBar', color: ink,
+      shape: isBuy ? 'arrowUp' : 'arrowDown', text: i === times.length - 1 ? 'RSI TRIGGER' : '',
+    })));
   }
-
-  if (cycleInfo && cycleInfo.events && cycleInfo.events.length) {
-    // Basket pick on a lower tf: every step of every entry cycle, on the
-    // candle where it happened. Pullback/armed are small unlabelled dots
-    // (15m/5m can hold 10-25 cycles — labels would bury the candles); only
-    // entries stand out, as arrows pointing the trade direction.
-    const bull = cycleInfo.direction === 'BULLISH';
+  if (opts.cycles && opts.cycles.events && opts.cycles.events.length) {
+    // Basket pick on a lower tf: every step of every entry cycle. Pullback
+    // and armed are small dots; entries are white (ink) arrows.
+    const bull = opts.cycles.direction === 'BULLISH';
     const pbSide = bull ? 'belowBar' : 'aboveBar';
     const style = {
       pullback: { position: pbSide, color: cssVar('--gold-bright'), shape: 'circle', size: 0.5 },
       armed: { position: pbSide, color: cssVar('--violet'), shape: 'circle', size: 0.5 },
-      entry: { position: bull ? 'belowBar' : 'aboveBar', color: bull ? cssVar('--gain') : cssVar('--loss'), shape: bull ? 'arrowUp' : 'arrowDown' },
+      entry: { position: bull ? 'belowBar' : 'aboveBar', color: ink, shape: bull ? 'arrowUp' : 'arrowDown' },
     };
     const inChart = new Set(candles.map(c => c.time));
-    candleSeries.setMarkers(cycleInfo.events
+    candleSeries.setMarkers(opts.cycles.events
       .map(e => ({ time: toUnixTime(e.time), ...style[e.type] }))
       .filter(m => m.position && inChart.has(m.time))
       .sort((a, b) => a.time - b.time));
   }
 
-  const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, ...followerInteraction, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderVisible: false, textColor: 'transparent', minimumWidth: 80 }, timeScale: { visible: false, borderColor: cssVar('--border') } });
-  activeCharts.push(macdChart);
-  const histSeries = macdChart.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
-  histSeries.setData(candles.filter(c => c.macd_hist != null).map(c => ({ time: c.time, value: c.macd_hist, color: c.macd_hist >= 0 ? 'rgba(79,169,114,0.55)' : 'rgba(168,64,44,0.55)' })));
-  const macdSeries = macdChart.addLineSeries({ color: '#D9A441', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-  macdSeries.setData(candles.map(c => ({ time: c.time, value: c.macd })).filter(p => p.value != null));
-  const signalSeries = macdChart.addLineSeries({ color: '#6FA8DC', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-  signalSeries.setData(candles.map(c => ({ time: c.time, value: c.macd_signal })).filter(p => p.value != null));
-  macdChart.timeScale().setVisibleLogicalRange({ from, to: candles.length - 1 });
+  const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, ...followerInteraction, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderVisible: false, textColor: 'transparent', minimumWidth: AXIS_WIDTH }, timeScale: { visible: false, rightOffset: RIGHT_GAP } });
+  activeCharts.push({ chart: macdChart, el: macdEl });
+  macdChart.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false })
+    .setData(candles.filter(c => c.macd_hist != null).map(c => ({ time: c.time, value: c.macd_hist, color: c.macd_hist >= 0 ? 'rgba(79,169,114,0.55)' : 'rgba(168,64,44,0.55)' })));
+  macdChart.addLineSeries({ color: '#D9A441', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
+    .setData(candles.map(c => ({ time: c.time, value: c.macd })).filter(p => p.value != null));
+  macdChart.addLineSeries({ color: '#6FA8DC', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
+    .setData(candles.map(c => ({ time: c.time, value: c.macd_signal })).filter(p => p.value != null));
+  macdChart.timeScale().setVisibleLogicalRange(home);
   chart.timeScale().subscribeVisibleLogicalRangeChange(range => { if (range) macdChart.timeScale().setVisibleLogicalRange(range); });
 }
 
 // ---------------------------------------------------------------------------
-// Basket — the user's hand-picked (asset, higher tf) setups, kept in
-// basket.json in the repo. Read via the GitHub API (fresh, no Pages
-// rebuild needed); written with a fine-grained token the user pastes once,
-// kept only in this browser. The workflows read the same file.
+// Basket — hand-picked (asset, higher tf) setups in the repo's basket.json.
+// Read via the GitHub API; written with a fine-grained token kept only in
+// this browser. The workflows read the same file.
 // ---------------------------------------------------------------------------
 const REPO = location.hostname.endsWith('.github.io')
   ? `${location.hostname.split('.')[0]}/${location.pathname.split('/')[1]}`
   : 'osdvillar22/ov-scanner';
 const BASKET_API = `https://api.github.com/repos/${REPO}/contents/basket.json`;
 const TOKEN_KEY = 'ovs-github-token';
-
 const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } };
 const setToken = (t) => { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (e) {} };
-const pickKey = (p) => `${p.asset_class}:${p.ticker}:${p.higher_tf}`;
 
-let basketPicks = [];      // current picks, as last read from GitHub
-let basketStatus = {};     // per-pick lower-tf status from the last hourly scan (data.json)
+let basketPicks = [];      // as last read from GitHub
+let basketStatus = {};     // per-pick lower-tf status from the last hourly scan
 let repaintBasketButton = () => {};
-let assetsByIdAll = {};    // every watch by _id, for views outside init()
 
 function ghHeaders() {
   const h = { Accept: 'application/vnd.github+json' };
@@ -456,8 +420,8 @@ async function fetchBasket() {
   return { picks: JSON.parse(b64decode(file.content)).picks || [], sha: file.sha };
 }
 
-// Read-modify-write against the file's current sha; if a workflow (e.g. an
-// auto-removal) wrote in between, GitHub answers 409 and we redo it on top.
+// Read-modify-write against the file's current sha; a 409 means a workflow
+// (e.g. an auto-removal) wrote in between — redo it on top.
 async function updateBasket(mutate, message) {
   if (!getToken()) throw new Error('no token');
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -467,7 +431,7 @@ async function updateBasket(mutate, message) {
     if (sha) body.sha = sha;
     const resp = await fetch(BASKET_API, { method: 'PUT', headers: { ...ghHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (resp.status === 409 || resp.status === 422) continue;
-    if (resp.status === 401) throw new Error('token rejected or expired — check Basket settings');
+    if (resp.status === 401) throw new Error('token rejected or expired — check basket settings');
     if (resp.status === 403 || resp.status === 404) throw new Error("token can't write to this repo — it needs Contents: Read and write on ov-scanner");
     if (!resp.ok) throw new Error(`GitHub ${resp.status}`);
     basketPicks = next;
@@ -476,83 +440,8 @@ async function updateBasket(mutate, message) {
   throw new Error('basket changed repeatedly, try again');
 }
 
-// Short chip label + the full meaning as a tooltip.
-const BASKET_STATES = {
-  waiting: ['waiting', 'Waiting for a pullback past the LSMA'],
-  pulled_back: ['pulled back', "Pulled back past the LSMA — MACD hasn't followed yet"],
-  armed: ['armed', 'Pulled back + MACD followed — the next LSMA break alerts'],
-  no_data: ['no data', "Couldn't fetch this timeframe on the last check"],
-};
-
-// "4:38 PM" today, "Sep 23 4:38 PM" otherwise.
-function fmtTime(iso) {
-  const d = new Date(iso), today = new Date().toDateString() === d.toDateString();
-  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  return today ? time : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
-}
-
-function renderBasket(assetsById) {
-  const el = document.getElementById('basketList');
-  document.getElementById('bkCount').textContent = basketPicks.length;
-  if (!basketPicks.length) {
-    el.innerHTML = `<div class="bk-empty">No picks yet. Open an asset on the watchlist and use <strong>Add to basket</strong> — its lower timeframes are then watched for your entry, with a Discord alert when it fires.</div>`;
-    return;
-  }
-  el.innerHTML = basketPicks.map(p => {
-    const key = pickKey(p);
-    const watch = assetsById[`${p.asset_class}__${p.ticker}__${p.higher_tf}`];
-    const st = basketStatus[key];
-    let body;
-    if (!watch) {
-      body = '<div class="bk-gone">off the watchlist — being removed</div>';
-    } else if (!st) {
-      body = '<div class="bk-note">status after the next scan</div>';
-    } else {
-      // One tag per lower tf: its most recent activity only. Right after an
-      // entry (state back to waiting) that's the entry itself; the full
-      // cycle history is drawn on the lower-tf charts instead.
-      body = Object.entries(st).map(([ltf, s]) => {
-        const lastEvent = (s.events || []).at(-1);
-        const [lbl, tip, cls] = s.state === 'waiting' && lastEvent && lastEvent.type === 'entry'
-          ? [`entry ${fmtTime(lastEvent.time)}`, 'Most recent entry trigger — waiting for the next pullback', 'entry']
-          : [...(BASKET_STATES[s.state] || [s.state, '']), s.state];
-        return `<div class="bk-ltf" title="${tip}"><span>${ltf}</span><span class="bk-state ${cls}">${lbl}</span></div>`;
-      }).join('');
-    }
-    return `
-      <div class="wl-item" data-key="${key}" data-id="${watch ? watch._id : ''}" title="${p.asset_class === 'crypto' ? 'Checked every 5 minutes' : p.asset_class === 'pse' ? 'Checked every 5 minutes during PSE hours' : 'Checked hourly'}">
-        <div class="wl-left" style="width:100%">
-          <div class="bk-head">
-            <div class="wl-sym">${nameHtml(watch ? watch : p)} <span class="bk-tf ${dirClass(p.direction)}">${p.higher_tf} ${dirArrow(p.direction)}</span></div>
-            <button class="bk-remove" type="button" title="Remove ${p.display_name} ${p.higher_tf} from the basket" aria-label="Remove ${p.display_name} ${p.higher_tf} from the basket">×</button>
-          </div>
-          ${body}
-          <div class="bk-msg"></div>
-        </div>
-      </div>`;
-  }).join('');
-  el.querySelectorAll('.wl-item').forEach(item => {
-    if (item.dataset.id) item.addEventListener('click', () => selectAsset(item.dataset.id, assetsById));
-    const pick = basketPicks.find(p => pickKey(p) === item.dataset.key);
-    item.querySelector('.bk-remove').addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (!requireToken()) return;
-      const btn = e.currentTarget;
-      btn.disabled = true;
-      item.querySelector('.bk-msg').textContent = 'Removing…';
-      try { await toggleBasket(pick); }
-      catch (err) { item.querySelector('.bk-msg').textContent = `Couldn't remove: ${err.message}`; btn.disabled = false; }
-    });
-  });
-  // Keep the open asset's row highlighted across re-renders.
-  const open = document.querySelector('.tf-switch.current');
-  const openId = open && open.dataset.id;
-  el.querySelectorAll('.wl-item').forEach(item => item.classList.toggle('active', !!openId && item.dataset.id === openId));
-}
-
 const inBasket = (key) => basketPicks.some(p => pickKey(p) === key);
 
-// Without a token the basket is read-only: open the settings panel instead.
 function requireToken() {
   if (getToken()) return true;
   document.getElementById('basketSettings').classList.remove('is-hidden');
@@ -561,9 +450,7 @@ function requireToken() {
   return false;
 }
 
-// The one add/remove path, shared by the header button, the watchlist rows
-// and the basket list — every view repaints from basketPicks afterwards.
-// `pick` is a watch entry or a basket pick (same identifying fields).
+// The one add/remove path for the header button, rows and basket list.
 async function toggleBasket(pick) {
   const key = pickKey(pick), removing = inBasket(key);
   await updateBasket(picks => removing
@@ -577,52 +464,108 @@ async function toggleBasket(pick) {
   return removing ? 'removed' : 'added';
 }
 
+// Mute / unmute one lower tf of a pick: still evaluated and shown, never alerted.
+async function toggleMute(pick, ltf) {
+  const key = pickKey(pick);
+  const muted = new Set(pick.muted || []);
+  muted.has(ltf) ? muted.delete(ltf) : muted.add(ltf);
+  await updateBasket(picks => picks.map(p => pickKey(p) === key ? { ...p, muted: [...muted] } : p),
+    `Basket: ${muted.has(ltf) ? 'mute' : 'unmute'} ${pick.display_name} ${pick.higher_tf} ${ltf}`);
+  refreshBasketViews();
+}
+
 function refreshBasketViews() {
-  renderBasket(assetsByIdAll);
+  renderBasket();
   repaintBasketButton();
-  document.querySelectorAll('#watchlist .wl-item').forEach(paintRow);
+  document.querySelectorAll('#watchlist .row').forEach(paintRow);
 }
 
-function wireBasketButton(entry) {
-  const btn = document.getElementById('basketBtn'), msg = document.getElementById('basketMsg');
-  const key = pickKey(entry);
-  const paint = () => {
-    btn.classList.toggle('in', inBasket(key));
-    btn.textContent = inBasket(key) ? `In basket (${entry.higher_tf}) · remove` : `Add ${entry.display_name} ${entry.higher_tf} to basket`;
-  };
-  paint();
-  repaintBasketButton = paint;  // any basket change (or the async first load) repaints it
-  btn.addEventListener('click', async () => {
-    if (!requireToken()) return;
-    btn.disabled = true; msg.textContent = 'Saving…';
-    try {
-      msg.textContent = (await toggleBasket(entry)) === 'removed' ? 'Removed.' : 'Added — watched from the next check.';
-    } catch (err) {
-      msg.textContent = `Couldn't save: ${err.message}`;
-    } finally {
-      btn.disabled = false; paint();
+// "4:38 PM" today, "Sep 23 4:38 PM" otherwise.
+function fmtTime(iso) {
+  const d = new Date(iso), today = new Date().toDateString() === d.toDateString();
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return today ? time : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
+}
+
+const STATE_TEXT = {
+  waiting: ['waiting', 'Waiting for a pullback past the LSMA'],
+  pulled_back: ['pulled back', "Pulled back past the LSMA — MACD hasn't followed yet"],
+  armed: ['armed', 'Pulled back + MACD followed — the next LSMA break alerts'],
+  no_data: ['no data', "Couldn't fetch this timeframe on the last check"],
+};
+
+// A pick's watch (for its market tag / large-cap flag / charts), if still on.
+const watchOf = (p) => assetsById[`${p.asset_class}__${p.ticker}__${p.higher_tf}`];
+
+function basketPickVisible(p) {
+  const w = watchOf(p);
+  if (!marketMatch(w || p)) return false;
+  if (F.tf === 'ALIGNED') { const byTf = watchesBySym[symKey(p)]; if (!byTf || !isAligned(byTf)) return false; }
+  else if (F.tf !== 'ALL' && p.higher_tf !== F.tf) return false;
+  return F.dir === 'ALL' || p.direction === F.dir;
+}
+
+function renderBasket() {
+  const el = document.getElementById('basketList');
+  document.getElementById('bkCount').textContent = basketPicks.length;
+  if (!basketPicks.length) {
+    el.innerHTML = `<div class="empty">No picks yet. Tap <strong>+</strong> on a watchlist row to add its timeframe — its lower timeframes are then watched for your entry, with a Discord alert when it fires.</div>`;
+    return;
+  }
+  const shown = basketPicks.filter(basketPickVisible);
+  if (!shown.length) { el.innerHTML = `<div class="empty">No basket picks match these filters.</div>`; return; }
+  el.innerHTML = shown.map(p => {
+    const key = pickKey(p), w = watchOf(p), st = basketStatus[key], muted = new Set(p.muted || []);
+    const name = w ? w.display_name : p.display_name, tag = w && w.tag && p.asset_class !== 'pse' ? w.tag : '';
+    let body;
+    if (!w) {
+      body = '<div class="bk-gone">off the watchlist — being removed</div>';
+    } else {
+      // One entry per lower tf: its latest activity only (full history is on
+      // the lower-tf charts). Tap to mute / unmute its alerts.
+      body = `<div class="bk-ltfs">${LOWER_TF_MAP[p.higher_tf].map(ltf => {
+        const s = st && st[ltf];
+        let text = 'pending', cls = 'pending', tip = 'Status appears after the next hourly scan';
+        if (s) {
+          const last = (s.events || []).at(-1);
+          if (s.state === 'waiting' && last && last.type === 'entry') { text = `entry ${fmtTime(last.time)}`; cls = 'entry'; tip = 'Latest entry — waiting for the next pullback'; }
+          else { [text, tip] = STATE_TEXT[s.state] || [s.state, '']; cls = s.state; }
+        }
+        const m = muted.has(ltf);
+        return `<button class="sw${m ? ' muted' : ''}" type="button" data-ltf="${ltf}" title="${esc(tip)} · ${m ? 'alerts muted — tap to unmute' : 'tap to mute alerts'}"><span class="k">${ltf}</span><span class="st-${cls}">${text}</span></button>`;
+      }).join('')}</div>`;
     }
-  });
-}
+    return `
+      <div class="bk" data-key="${esc(key)}" data-id="${w ? w._id : ''}" title="${p.asset_class === 'crypto' ? 'Checked every 5 minutes' : p.asset_class === 'pse' ? 'Checked every 5 minutes during PSE hours' : 'Checked hourly'}">
+        <div class="bk-head">
+          <span><span class="sym">${esc(name)}</span>${tag ? `<span class="tag">${tag}</span>` : ''}<span class="bk-htf ${dirClass(p.direction)}">${p.higher_tf}${dirArrow(p.direction)}</span></span>
+          <button class="bk-x" type="button" aria-label="Remove ${esc(name)} ${p.higher_tf} from the basket" title="Remove from the basket">×</button>
+        </div>
+        ${body}
+        <div class="bk-msg"></div>
+      </div>`;
+  }).join('') + `<div class="hint">tap a timeframe to mute or unmute its alerts</div>`;
 
-// A watchlist row shows one of its asset's watches at a time (data-tf): the
-// one it opens, its RSI under the name, boxed in the 1H/4H/1D markers, and
-// what its "+ tf" button adds. Gold underline = that tf is in the basket.
-function paintRow(item) {
-  const byTf = watchesBySym[item.dataset.sym], w = byTf && byTf[item.dataset.tf];
-  if (!w) return;
-  item.dataset.id = w._id;
-  const rsiEl = item.querySelector('.wl-rsi');
-  rsiEl.textContent = `RSI ${w.last_rsi ?? w.rsi_at_trigger}`;
-  rsiEl.className = `wl-rsi ${dirClass(w.direction)}`;
-  item.querySelectorAll('.wl-tfs [data-tf]').forEach(m => {
-    m.classList.toggle('shown', m.dataset.tf === w.higher_tf);
-    m.classList.toggle('in-basket', !!byTf[m.dataset.tf] && inBasket(pickKey(byTf[m.dataset.tf])));
+  el.querySelectorAll('.bk').forEach(card => {
+    const pick = basketPicks.find(p => pickKey(p) === card.dataset.key);
+    if (card.dataset.id) card.addEventListener('click', () => selectAsset(card.dataset.id));
+    const say = (t) => { card.querySelector('.bk-msg').textContent = t; };
+    card.querySelector('.bk-x').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!requireToken()) return;
+      e.currentTarget.disabled = true; say('removing…');
+      try { await toggleBasket(pick); } catch (err) { say(`Couldn't remove: ${err.message}`); }
+    });
+    card.querySelectorAll('.sw').forEach(sw => sw.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!requireToken()) return;
+      sw.disabled = true;
+      try { await toggleMute(pick, sw.dataset.ltf); } catch (err) { say(`Couldn't save: ${err.message}`); sw.disabled = false; }
+    }));
   });
-  const btn = item.querySelector('.row-bk');
-  btn.classList.toggle('in', inBasket(pickKey(w)));
-  btn.textContent = `${inBasket(pickKey(w)) ? '✓' : '+'} ${w.higher_tf}`;
-  btn.title = inBasket(pickKey(w)) ? `Remove ${w.display_name} ${w.higher_tf} from the basket` : `Add ${w.display_name} ${w.higher_tf} to the basket`;
+  const open = document.querySelector('#detail [data-current-id]');
+  const openId = open && open.dataset.currentId;
+  el.querySelectorAll('.bk').forEach(c => c.classList.toggle('active', !!openId && c.dataset.id === openId));
 }
 
 function wireBasketSettings() {
@@ -634,136 +577,240 @@ function wireBasketSettings() {
     const t = input.value.trim();
     if (!t) { msg.textContent = 'Paste a token first.'; return; }
     msg.textContent = 'Checking…';
-    // Confirms the token is valid. Whether it can write to this repo only
-    // shows on the first save (GitHub doesn't report a fine-grained
-    // token's own permissions), which reports a clear error if not.
+    // Confirms the token is valid; write access shows on the first save.
     const resp = await fetch('https://api.github.com/user', { headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${t}` }, cache: 'no-store' });
     if (!resp.ok) { msg.textContent = `GitHub rejected that token (${resp.status}).`; return; }
     setToken(t); input.value = ''; msg.textContent = 'Saved. Add a pick to confirm it can write to the repo.';
   });
 }
 
-// data.json has one entry per (asset, timeframe) watch; the watchlist shows
-// one row per asset, so group them: symKey -> { '1H': entry, '4H': entry, ... }.
-const TF_ORDER = ['1H', '4H', '1D'];
-let watchesBySym = {};
-const symKey = (a) => `${a.asset_class}__${a.ticker}`;
-// On watch on every timeframe, all pointing the same way.
-const isAligned = (byTf) => TF_ORDER.every(tf => byTf[tf]) && new Set(TF_ORDER.map(tf => byTf[tf].direction)).size === 1;
-const dirArrow = (d) => d === 'BULLISH' ? '▲' : '▼';
-// Name plus a small label for the non-crypto pairs on Kraken's list
-// ("currency", "stablecoin", "gold", ...).
-const nameHtml = (a) => `${a.display_name}${a.tag ? ` <span class="asset-tag">${a.tag}</span>` : ''}`;
+// ---------------------------------------------------------------------------
+// Watchlist
+// ---------------------------------------------------------------------------
+// Which of an asset's watches a row opens/summarises: among those matching
+// the tf/direction filters, the one that triggered most recently.
+function primaryWatch(byTf) {
+  if (F.tf === 'ALIGNED' && !isAligned(byTf)) return null;
+  const any = Object.values(byTf)[0];
+  const candidates = tfsFor(any).map(tf => byTf[tf]).filter(w => w
+    && (F.tf === 'ALL' || F.tf === 'ALIGNED' || w.higher_tf === F.tf)
+    && (F.dir === 'ALL' || w.direction === F.dir));
+  candidates.sort((x, y) => x.candles_ago_most_recent - y.candles_ago_most_recent);
+  return candidates[0] || null;
+}
 
-function selectAsset(id, assetsById) {
-  const entry = assetsById[id];
-  document.querySelectorAll('#watchlist .wl-item').forEach(el => {
-    const isOpen = el.dataset.sym === symKey(entry);
-    el.classList.toggle('active', isOpen);
-    if (isOpen && el.dataset.tf !== entry.higher_tf) { el.dataset.tf = entry.higher_tf; paintRow(el); }
+// Row = one asset. data-tf is the watch it shows: its RSI, its + / ✓, and
+// the boldest of the timeframe labels. Triggered tfs are coloured, others
+// grey; a gold underline marks a tf that's in the basket.
+function paintRow(row) {
+  const byTf = watchesBySym[row.dataset.sym], w = byTf && byTf[row.dataset.tf];
+  if (!w) return;
+  row.dataset.id = w._id;
+  const rsi = row.querySelector('.rsi');
+  rsi.textContent = w.last_rsi ?? w.rsi_at_trigger;
+  rsi.className = `rsi ${dirClass(w.direction)}`;
+  row.querySelectorAll('.tfs [data-tf]').forEach(m => {
+    m.classList.toggle('shown', m.dataset.tf === w.higher_tf);
+    m.classList.toggle('in-basket', !!byTf[m.dataset.tf] && inBasket(pickKey(byTf[m.dataset.tf])));
   });
-  document.querySelectorAll('#basketList .wl-item').forEach(el => el.classList.toggle('active', el.dataset.key === pickKey(entry)));
-  teardownCharts();
+  const plus = row.querySelector('.plus'), inB = inBasket(pickKey(w));
+  plus.classList.toggle('in', inB);
+  plus.textContent = inB ? '✓' : '+';
+  plus.title = inB ? `In the basket (${w.higher_tf}) — tap to remove` : `Add ${w.display_name} ${w.higher_tf} to the basket`;
+  plus.setAttribute('aria-label', plus.title);
+}
 
-  // If this asset + tf is a basket pick, the last hourly scan's entry-cycle
-  // history per lower tf — drawn as markers on those charts.
-  const cycleStatus = basketStatus[pickKey(entry)] || null;
-
-  // One button per timeframe: colored + clickable where this asset is on
-  // watch, dimmed where it isn't, outlined for the one being viewed.
-  const siblings = watchesBySym[symKey(entry)] || {};
-  const tfSwitcher = TF_ORDER.map(tf => {
-    const w = siblings[tf];
-    if (!w) return `<button class="tf-switch" type="button" disabled title="Not on watch on ${tf}">${tf} –</button>`;
-    return `<button class="tf-switch ${dirClass(w.direction)}${tf === entry.higher_tf ? ' current' : ''}" type="button" data-id="${w._id}" title="${tf} ${dirClass(w.direction)} watch">${tf} ${dirArrow(w.direction)}</button>`;
-  }).join('');
-
-  const detailEl = document.getElementById('detail');
-  const direction = entry.direction;
-  const dc = dirClass(direction);
-  const lowerTfs = Object.keys(entry.lower_tf_candles || {});
-  const agoWord = entry.candles_ago_most_recent === 1 ? 'candle' : 'candles';
-
-  detailEl.innerHTML = `
-    <div class="detail-top">
-      <div>
-        <div class="detail-sym">${nameHtml(entry)}</div>
-        ${entry.ticker !== entry.display_name ? `<div class="detail-name">${entry.ticker}</div>` : ""}
-        <div class="detail-thesis">${entry.higher_tf} trend + LSMA + RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} aligned (fired at RSI ${entry.rsi_at_trigger}) — <strong>${dc} continuation</strong>.</div>
-        <div class="settings-row" style="align-items:center;margin-top:8px"><button class="basket-btn" id="basketBtn" type="button"></button><span class="basket-msg" id="basketMsg"></span></div>
-      </div>
-      <div class="badge-group">${tfSwitcher}<span class="rsi-badge ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
-    </div>
-
-    <div class="watch-window">
-      <div class="watch-window-row">
-        <span>${entry.qualifying_count} of last ${entry.window} candles qualified (${entry.higher_tf}), most recent ${entry.candles_ago_most_recent} ${agoWord} ago</span>
-      </div>
-    </div>
-
-    <div class="legend-row">
-      <span><span class="dot" style="background:#D9A441"></span>EMA10</span>
-      <span><span class="dot" style="background:var(--violet)"></span>EMA20</span>
-      <span><span class="dot" style="background:var(--blue);border-bottom:2px dotted var(--blue);height:0"></span>LSMA 50,3</span>
-      <span class="zoom-hint">Ctrl+scroll or pinch to zoom · drag to pan</span>
-    </div>
-
-    <div class="chart-block">
-      <div class="chart-block-head">
-        <span class="chart-block-label">${entry.higher_tf} — trigger timeframe</span>
-        <button class="reset-zoom" id="detail-chart-reset" type="button">Reset zoom</button>
-      </div>
-      <div class="chart-box" id="detail-chart"></div>
-      <div class="macd-box" id="detail-macd"></div>
-    </div>
-    <div class="card-bottom"><span class="price" id="detail-price">—</span><span class="pct" id="detail-pct">—</span></div>
-
-    <div class="section-label">Lower timeframes</div>
-    ${cycleStatus ? `<div class="cycle-legend" title="Entry cycles for this basket pick, as of the last hourly scan">
-      <span><b style="color:var(--gold-bright)">●</b> pulled back</span>
-      <span><b style="color:var(--violet)">●</b> MACD followed (armed)</span>
-      <span><b style="color:${direction === 'BULLISH' ? 'var(--gain)' : 'var(--loss)'}">${direction === 'BULLISH' ? '▲' : '▼'}</b> entry — LSMA broken</span>
-    </div>` : ''}
-    ${lowerTfs.map((ltf, li) => `
-      <div class="chart-block">
-        <div class="chart-block-head">
-          <span class="chart-block-label">${ltf}</span>
-          <button class="reset-zoom" id="detail-mini-${li}-reset" type="button">Reset zoom</button>
-        </div>
-        <div class="chart-box" id="detail-mini-${li}"></div>
-        <div class="macd-box" id="detail-minimacd-${li}"></div>
-      </div>
-    `).join('')}
-  `;
-
-  detailEl.querySelectorAll('.tf-switch[data-id]').forEach(btn => {
-    if (btn.dataset.id !== id) btn.addEventListener('click', () => selectAsset(btn.dataset.id, assetsById));
+function applyFilters() {
+  let visible = 0;
+  document.querySelectorAll('#watchlist .grp-block').forEach(block => {
+    let any = false;
+    block.querySelectorAll('.row').forEach(row => {
+      const byTf = watchesBySym[row.dataset.sym];
+      const w = marketMatch(Object.values(byTf)[0]) ? primaryWatch(byTf) : null;
+      row.style.display = w ? '' : 'none';
+      if (!w) return;
+      any = true; visible++;
+      row.dataset.tf = w.higher_tf;
+      paintRow(row);
+    });
+    block.style.display = any ? '' : 'none';
   });
-  wireBasketButton(entry);
+  document.getElementById('wlCount').textContent = visible;
+  renderBasket();
+}
 
-  const candles = toCandles(entry.candles);
-  const rsiTriggerInfo = entry.trigger_times ? { times: entry.trigger_times, direction } : null;
-  renderBlock(candles, 'detail-chart', 'detail-macd', entry.window || 25, rsiTriggerInfo);
+function buildFilters(syms) {
+  const all = syms.map(byTf => Object.values(byTf)[0]);
+  const count = (pred) => syms.filter(byTf => Object.values(byTf).some(pred)).length;
+  const opt = (group, value, label, n) => `<button class="opt${F[group] === value ? ' on' : ''}" type="button" data-group="${group}" data-value="${value}">${label}${n != null ? `<span class="n">${n}</span>` : ''}</button>`;
 
-  if (candles.length > 1) {
-    const lastClose = candles[candles.length - 1].close, firstClose = candles[0].close;
-    const pct = ((lastClose - firstClose) / firstClose * 100);
-    document.getElementById('detail-price').textContent = lastClose;
-    const pctEl = document.getElementById('detail-pct');
-    pctEl.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
-    pctEl.className = `pct ${pct >= 0 ? 'up' : 'down'}`;
-  }
+  const market = document.querySelector('.seg[data-group="market"]');
+  market.insertAdjacentHTML('beforeend', MARKETS.map(([v, l]) =>
+    opt('market', v, l, v === 'all' ? all.length : all.filter(a => marketsOf(a).has(v)).length)).join('')
+    + `<button class="sub-opt is-hidden" type="button" id="largeCaps">large caps<span class="n">${all.filter(a => a.large_cap).length}</span></button>`);
 
-  lowerTfs.forEach((ltf, li) => {
-    // The server already trimmed each lower-tf's candles to the count that
-    // spans the same real time as the higher-tf's watch window — show all
-    // of them rather than re-deriving a separate zoom count client-side.
-    const ltfCandles = toCandles(entry.lower_tf_candles[ltf]);
-    const cycles = cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction } : null;
-    renderBlock(ltfCandles, `detail-mini-${li}`, `detail-minimacd-${li}`, ltfCandles.length, null, cycles);
+  const tf = document.querySelector('.seg[data-group="tf"]');
+  tf.insertAdjacentHTML('beforeend', [['ALL', 'all', syms.length], ['1H', '1H'], ['4H', '4H'], ['1D', '1D'], ['1W', '1W'], ['ALIGNED', 'aligned', syms.filter(isAligned).length]]
+    .map(([v, l, n]) => opt('tf', v, l, n != null ? n : count(w => w.higher_tf === v))).join(''));
+
+  const dir = document.querySelector('.seg[data-group="dir"]');
+  dir.insertAdjacentHTML('beforeend', [['ALL', 'all'], ['BULLISH', '<span class="bullish">▲</span>'], ['BEARISH', '<span class="bearish">▼</span>']]
+    .map(([v, l]) => opt('dir', v, l, v === 'ALL' ? null : count(w => w.direction === v))).join(''));
+
+  document.querySelectorAll('#filters .opt').forEach(b => b.addEventListener('click', () => {
+    F[b.dataset.group] = b.dataset.value;
+    if (b.dataset.group === 'market') F.large = false;
+    document.querySelectorAll(`#filters .opt[data-group="${b.dataset.group}"]`).forEach(x => x.classList.toggle('on', x === b));
+    const lc = document.getElementById('largeCaps');
+    lc.classList.toggle('is-hidden', F.market !== 'crypto');
+    lc.classList.toggle('on', F.large);
+    applyFilters();
+  }));
+  document.getElementById('largeCaps').addEventListener('click', (e) => {
+    F.large = !F.large;
+    e.currentTarget.classList.toggle('on', F.large);
+    applyFilters();
   });
 }
 
+function buildWatchlist(syms) {
+  const grouped = {};
+  syms.forEach(byTf => { const cls = Object.values(byTf)[0].asset_class; (grouped[cls] = grouped[cls] || []).push(byTf); });
+  const el = document.getElementById('watchlist');
+  el.innerHTML = GROUP_ORDER.filter(cls => grouped[cls]).map(cls => `
+    <div class="grp-block">
+      <div class="grp"><span>${GROUP_LABELS[cls] || cls.toUpperCase()}</span>${cls === 'pse' ? `<span class="session${pseOpen() ? ' open' : ''}">${pseOpen() ? 'open' : 'closed'}</span>` : ''}</div>
+      ${grouped[cls].map(byTf => {
+        const a = Object.values(byTf)[0];
+        const tfs = tfsFor(a).map(tf => {
+          const w = byTf[tf];
+          return w ? `<button type="button" class="${dirClass(w.direction)}" data-tf="${tf}" title="Open ${tf}">${tf}${dirArrow(w.direction)}</button>` : `<span class="off">${tf}</span>`;
+        }).join('');
+        const tag = a.tag && a.asset_class !== 'pse' ? `<span class="tag">${a.tag}</span>` : '';
+        return `
+        <div class="row" data-sym="${esc(symKey(a))}">
+          <div class="row-name"><span class="sym">${esc(a.display_name)}</span>${tag}<span class="rsi"></span></div>
+          <div class="tfs">${tfs}</div>
+          <button type="button" class="plus"></button>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+
+  el.querySelectorAll('.row').forEach(row => {
+    row.addEventListener('click', () => selectAsset(row.dataset.id));
+    row.querySelectorAll('.tfs button').forEach(m => m.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectAsset(watchesBySym[row.dataset.sym][m.dataset.tf]._id);
+    }));
+    row.querySelector('.plus').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!requireToken()) return;
+      const btn = e.currentTarget, w = watchesBySym[row.dataset.sym][row.dataset.tf];
+      btn.disabled = true; btn.textContent = '…';
+      try { await toggleBasket(w); }
+      catch (err) { alert(`Couldn't save the basket: ${err.message}`); }
+      finally { btn.disabled = false; paintRow(row); }
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Asset view
+// ---------------------------------------------------------------------------
+function selectAsset(id) {
+  const entry = assetsById[id];
+  if (!entry) return;
+  document.querySelectorAll('#watchlist .row').forEach(row => {
+    const isOpen = row.dataset.sym === symKey(entry);
+    row.classList.toggle('active', isOpen);
+    if (isOpen && row.dataset.tf !== entry.higher_tf) { row.dataset.tf = entry.higher_tf; paintRow(row); }
+  });
+  document.querySelectorAll('#basketList .bk').forEach(c => c.classList.toggle('active', c.dataset.id === id));
+  teardownCharts();
+
+  const direction = entry.direction, dc = dirClass(direction);
+  const siblings = watchesBySym[symKey(entry)] || {};
+  const cycleStatus = basketStatus[pickKey(entry)] || null;
+  const lowerTfs = Object.keys(entry.lower_tf_candles || {});
+  const tfSwitch = tfsFor(entry).map(tf => {
+    const w = siblings[tf];
+    if (!w) return `<span class="tf-sw off" title="Not on watch on ${tf}">${tf}</span>`;
+    return `<button class="tf-sw ${dirClass(w.direction)}${tf === entry.higher_tf ? ' current' : ''}" type="button" data-id="${w._id}">${tf}${dirArrow(w.direction)}</button>`;
+  }).join('');
+  const sub = entry.asset_class === 'pse' ? 'PSE' : (entry.tag || (entry.ticker !== entry.display_name ? entry.ticker : ''));
+  const ago = entry.candles_ago_most_recent;
+  const noLsma = entry.higher_tf === '1W' && entry.asset_class === 'pse';
+
+  const detail = document.getElementById('detail');
+  detail.innerHTML = `
+    <div class="d-top" data-current-id="${id}">
+      <div><span class="d-name">${esc(entry.display_name)}</span>${sub ? `<span class="d-sub">${esc(sub)}</span>` : ''} <span class="rsi ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
+      <div class="d-right">${tfSwitch}</div>
+    </div>
+    <div class="d-summary">${entry.higher_tf} <span class="${dc}">${dc} continuation</span> · trend${noLsma ? '' : ' + LSMA'} + RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} · ${entry.qualifying_count} of ${entry.window} qualified · last ${ago} ${ago === 1 ? 'candle' : 'candles'} ago</div>
+    <div class="d-actions"><button class="bk-btn" id="basketBtn" type="button"></button><span class="msg" id="basketMsg"></span></div>
+
+    <div class="legend">
+      <span><span class="ln" style="border-color:#D9A441"></span>EMA10</span>
+      <span><span class="ln" style="border-color:var(--violet)"></span>EMA20</span>
+      <span><span class="ln" style="border-color:var(--blue);border-top-style:dotted"></span>LSMA 50,3</span>
+      <span class="push">ctrl+scroll or pinch to zoom · drag to pan</span>
+    </div>
+    <div class="chart-head"><span class="chart-label">${entry.higher_tf} <span class="dim">trigger timeframe</span></span><button class="reset" id="detail-chart-reset" type="button">reset zoom</button></div>
+    <div class="chart-box" id="detail-chart"></div>
+    <div class="macd-box" id="detail-macd"></div>
+    <div class="price-line"><span id="detail-price">—</span><span id="detail-pct">—</span></div>
+
+    <div class="section"><span>LOWER TIMEFRAMES</span>${cycleStatus ? `<span class="cy"><span style="color:var(--gold-bright)">●</span> pulled back &nbsp;<span style="color:var(--violet)">●</span> armed &nbsp;<span>${dirArrow(direction)}</span> entry</span>` : ''}</div>
+    ${lowerTfs.map((ltf, li) => `
+      <div class="chart-head"><span class="chart-label">${ltf}</span><button class="reset" id="detail-mini-${li}-reset" type="button">reset zoom</button></div>
+      <div class="chart-box" id="detail-mini-${li}"></div>
+      <div class="macd-box" id="detail-minimacd-${li}"></div>
+    `).join('')}`;
+
+  detail.querySelectorAll('.tf-sw[data-id]').forEach(b => { if (b.dataset.id !== id) b.addEventListener('click', () => selectAsset(b.dataset.id)); });
+  wireBasketButton(entry);
+
+  const forex = marketsOf(entry).has('forex');
+  const candles = toCandles(entry.candles);
+  renderBlock(candles, 'detail-chart', 'detail-macd', entry.window || 25,
+    { forex, triggers: entry.trigger_times ? { times: entry.trigger_times, direction } : null });
+  if (candles.length > 1) {
+    const last = candles[candles.length - 1].close, first = candles[0].close;
+    const pct = (last - first) / first * 100;
+    document.getElementById('detail-price').textContent = last;
+    const pctEl = document.getElementById('detail-pct');
+    pctEl.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
+    pctEl.className = pct >= 0 ? 'up' : 'down';
+  }
+  lowerTfs.forEach((ltf, li) => {
+    const c = toCandles(entry.lower_tf_candles[ltf]);
+    renderBlock(c, `detail-mini-${li}`, `detail-minimacd-${li}`, c.length,
+      { forex, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction } : null });
+  });
+}
+
+function wireBasketButton(entry) {
+  const btn = document.getElementById('basketBtn'), msg = document.getElementById('basketMsg');
+  const key = pickKey(entry);
+  const paint = () => {
+    btn.classList.toggle('in', inBasket(key));
+    btn.textContent = inBasket(key) ? `✓ in basket (${entry.higher_tf}) · remove` : `+ add ${entry.higher_tf} to basket`;
+  };
+  paint();
+  repaintBasketButton = paint;
+  btn.addEventListener('click', async () => {
+    if (!requireToken()) return;
+    btn.disabled = true; msg.textContent = 'saving…';
+    try { msg.textContent = (await toggleBasket(entry)) === 'removed' ? 'removed' : 'added — watched from the next check'; }
+    catch (err) { msg.textContent = `Couldn't save: ${err.message}`; }
+    finally { btn.disabled = false; paint(); }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
 async function init() {
   wireBasketSettings();
   document.querySelectorAll('.panel-tab').forEach(tab => tab.addEventListener('click', () => {
@@ -780,160 +827,42 @@ async function init() {
   } catch (err) {
     document.querySelector('.layout').innerHTML = `
       <div class="load-error">
-        <strong>Couldn't load data.json</strong> (${err.message}).<br><br>
-        If you opened this file directly (<code>file://</code>), most browsers block that fetch for security reasons.
-        Serve this folder over local HTTP instead, e.g.:<br><br>
-        <code>python -m http.server 8000</code><br><br>
-        then open <code>http://localhost:8000/dashboard.html</code>.
+        <strong>Couldn't load data.json</strong> (${esc(err.message)}).<br><br>
+        If you opened this file directly (<code>file://</code>), browsers block that fetch. Serve the folder over local HTTP instead:<br><br>
+        <code>python -m http.server 8000</code> then open <code>http://localhost:8000/dashboard.html</code>.
       </div>`;
     return;
   }
 
   const assets = data.assets || [];
   basketStatus = data.basket_status || {};
-
-  watchesBySym = {};
+  watchesBySym = {}; assetsById = {};
   assets.forEach(a => {
     a._id = `${symKey(a)}__${a.higher_tf}`;
+    assetsById[a._id] = a;
     (watchesBySym[symKey(a)] = watchesBySym[symKey(a)] || {})[a.higher_tf] = a;
   });
   const syms = Object.values(watchesBySym);
 
-  const metaEl = document.getElementById('scanMeta');
-  const scanTime = data.generated_at ? new Date(data.generated_at).toLocaleString() : '—';
-  metaEl.innerHTML = `Last scan <strong>${scanTime}</strong> · <strong>${syms.length}</strong> assets on watch`;
+  const scanTime = data.generated_at ? new Date(data.generated_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+  document.getElementById('scanMeta').innerHTML = `scan <strong>${scanTime}</strong> · <strong>${syms.length}</strong> on watch`;
 
-  // Counts are assets, not watches: "All" = distinct assets; a timeframe =
-  // assets on watch there; a direction = assets with a watch that way.
-  const countSyms = (pred) => syms.filter(byTf => Object.values(byTf).some(pred)).length;
-  document.querySelectorAll('#tf-controls .chip').forEach(chip => {
-    const tf = chip.dataset.tf;
-    const label = tf === 'ALL' ? 'All timeframes' : tf === 'ALIGNED' ? 'All 3 aligned' : tf;
-    const count = tf === 'ALL' ? syms.length
-      : tf === 'ALIGNED' ? syms.filter(isAligned).length
-      : countSyms(w => w.higher_tf === tf);
-    chip.innerHTML = `${label} <span class="chip-count">${count}</span>`;
-  });
-
-  const directionLabels = { ALL: 'All directions', BULLISH: 'Bullish', BEARISH: 'Bearish' };
-  document.querySelectorAll('#direction-controls .chip').forEach(chip => {
-    const d = chip.dataset.direction;
-    const count = d === 'ALL' ? syms.length : countSyms(w => w.direction === d);
-    chip.innerHTML = `${directionLabels[d]} <span class="chip-count">${count}</span>`;
-  });
-
-  if (assets.length === 0) {
-    document.getElementById('watchlist').innerHTML = '';
-    document.getElementById('detail').innerHTML = '';
-    document.querySelector('.layout').insertAdjacentHTML('beforeend', '<div class="empty-state" style="grid-column:1/-1;width:100%">No assets currently on watch — nothing has hit an RSI extreme this run.</div>');
+  buildFilters(syms);
+  if (!assets.length) {
+    document.getElementById('detail').innerHTML = '<div class="empty">Nothing on watch right now — no asset meets the trigger condition this scan.</div>';
     return;
   }
-
-  const assetsById = {};
-  assets.forEach(a => { assetsById[a._id] = a; });
-
-  const grouped = {};
-  syms.forEach(byTf => {
-    const cls = Object.values(byTf)[0].asset_class;
-    (grouped[cls] = grouped[cls] || []).push(byTf);
-  });
-
-  // On-watch timeframes are buttons (open that tf); the rest are dim labels.
-  const tfMarkers = (byTf) => TF_ORDER.map(tf => {
-    const w = byTf[tf];
-    return w
-      ? `<button type="button" class="${dirClass(w.direction)}" data-tf="${tf}" title="Open ${tf}">${tf}<b>${dirArrow(w.direction)}</b></button>`
-      : `<span>${tf}<b>·</b></span>`;
-  }).join('');
-
-  const watchlistEl = document.getElementById('watchlist');
-  watchlistEl.innerHTML = CATEGORY_ORDER.filter(cls => grouped[cls] && grouped[cls].length).map(cls => `
-    <div class="wl-group">
-      <div class="wl-group-label">${CATEGORY_LABELS[cls] || cls}${cls === 'pse' ? pseSessionPill() : ''}</div>
-      ${grouped[cls].map(byTf => {
-        const a = Object.values(byTf)[0];
-        // PSE rows: the group already says PSE, and the ticker IS the name.
-        const isPse = a.asset_class === 'pse';
-        return `
-        <div class="wl-item" data-sym="${symKey(a)}">
-          <div class="wl-left">
-            <div class="wl-sym">${isPse ? a.display_name : nameHtml(a)}</div>
-            ${a.ticker !== a.display_name ? `<div class="wl-name">${a.ticker}</div>` : ''}
-            <div class="wl-rsi"></div>
-          </div>
-          <div class="wl-right">
-            <div class="wl-tfs">${tfMarkers(byTf)}</div>
-            <button type="button" class="row-bk"></button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-  `).join('');
-
-  // Which of an asset's watches a row opens and summarises: among those
-  // matching the active filters, the one that triggered most recently.
-  function primaryWatch(byTf, activeTf, activeDirection) {
-    if (activeTf === 'ALIGNED' && !isAligned(byTf)) return null;
-    const candidates = TF_ORDER.map(tf => byTf[tf]).filter(w => w
-      && (activeTf === 'ALL' || activeTf === 'ALIGNED' || w.higher_tf === activeTf)
-      && (activeDirection === 'ALL' || w.direction === activeDirection));
-    candidates.sort((x, y) => x.candles_ago_most_recent - y.candles_ago_most_recent);
-    return candidates[0] || null;
-  }
-
-  function applyFilters() {
-    const activeTf = document.querySelector('#tf-controls .chip.active')?.dataset.tf || 'ALL';
-    const activeDirection = document.querySelector('#direction-controls .chip.active')?.dataset.direction || 'ALL';
-    document.querySelectorAll('#watchlist .wl-item').forEach(item => {
-      const w = primaryWatch(watchesBySym[item.dataset.sym], activeTf, activeDirection);
-      item.style.display = w ? '' : 'none';
-      if (!w) return;
-      item.dataset.tf = w.higher_tf;
-      paintRow(item);
-    });
-  }
-
-  document.querySelectorAll('#watchlist .wl-item').forEach(el => {
-    el.addEventListener('click', () => selectAsset(el.dataset.id, assetsById));
-    el.querySelectorAll('.wl-tfs button').forEach(m => m.addEventListener('click', (e) => {
-      e.stopPropagation();
-      selectAsset(watchesBySym[el.dataset.sym][m.dataset.tf]._id, assetsById);
-    }));
-    el.querySelector('.row-bk').addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (!requireToken()) return;
-      const btn = e.currentTarget, w = watchesBySym[el.dataset.sym][el.dataset.tf];
-      btn.disabled = true; btn.textContent = '…';
-      try { await toggleBasket(w); }
-      catch (err) { btn.title = `Couldn't save: ${err.message}`; alert(`Couldn't save the basket: ${err.message}`); }
-      finally { btn.disabled = false; paintRow(el); }
-    });
-  });
-  assetsByIdAll = assetsById;
+  buildWatchlist(syms);
   applyFilters();
-  document.getElementById('wlCount').textContent = syms.length;
 
-  renderBasket(assetsById);
   fetchBasket()
     .then(({ picks }) => { basketPicks = picks; refreshBasketViews(); })
-    .catch(err => { document.getElementById('basketList').innerHTML = `<div class="bk-empty">Couldn't load the basket (${err.message}).</div>`; });
+    .catch(err => { document.getElementById('basketList').innerHTML = `<div class="empty">Couldn't load the basket (${esc(err.message)}).</div>`; });
 
-  document.querySelectorAll('#tf-controls .chip, #direction-controls .chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const group = chip.closest('.controls');
-      group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      applyFilters();
-    });
-  });
+  window.addEventListener('resize', () => activeCharts.forEach(({ chart, el }) => chart.applyOptions({ width: el.clientWidth })));
 
-  window.addEventListener('resize', () => {
-    document.querySelectorAll('.chart-box, .macd-box').forEach((el, i) => {
-      if (activeCharts[i]) activeCharts[i].applyOptions({ width: el.clientWidth });
-    });
-  });
-
-  selectAsset(document.querySelector('#watchlist .wl-item').dataset.id, assetsById);
+  const first = document.querySelector('#watchlist .row:not([style*="none"])');
+  if (first) selectAsset(first.dataset.id);
 }
 
 init();

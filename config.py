@@ -23,7 +23,17 @@ LOWER_TF_MAP = {
     "1H": ["15m", "5m"],
     "4H": ["1H", "15m"],
     "1D": ["4H", "1H"],
+    "1W": ["1D", "4H"],  # PSE only, see PSE_EXTRA_HIGHER_TIMEFRAMES
 }
+
+# PSE also gets a weekly watch. It has no AUTO_HIGHER_TF — its trigger is
+# the other three conditions without the LSMA-vs-next-timeframe check
+# (the user's choice: no monthly data, and newer listings can still
+# trigger). 1W is built from daily candles, so it costs no extra request.
+PSE_EXTRA_HIGHER_TIMEFRAMES = ["1W"]
+# Warm-up floor per timeframe where MIN_WARMUP_BARS (250) can't be met —
+# 800 daily bars make ~160 weekly ones, plenty for EMA20/RSI14.
+MIN_BARS_BY_TF = {"1W": 60}
 
 # The "one step up" timeframe used only for the watch-trigger's cross-
 # timeframe LSMA confirmation (see scan.find_phase_a_origin) — never
@@ -168,7 +178,7 @@ TV_INTERVAL = {
 # chart window (1D watch -> 600 x 1H), well under TradingView's 5000 cap.
 # 1D/1W need far fewer, and big daily requests were the ones dropping.
 TV_BARS = 1000
-TV_BARS_LONG_TF = {"1D": 400, "1W": 300}
+TV_BARS_LONG_TF = {"1D": 800, "1W": 300}  # 1D: ~160 weeks for the PSE 1W watch
 
 # PSE trading session (Asia/Manila), for the 5-minute basket check — outside
 # it there are no new candles, so PSE picks are skipped. Ends a little after
@@ -239,6 +249,15 @@ KRAKEN_EXCLUDED_BASES = {
     "USDT", "USDC", "DAI", "PYUSD", "RLUSD", "USDE", "USDG", "USDD", "USD1", "USDS",
     "USDQ", "USDGO", "USDPT", "USDSM", "USDUC", "AUSD", "EURC", "EURQ", "EUROP",
     "TGBP", "QCAD", "AUDX", "BRL1", "MXNB",
+}
+
+# "Large caps" for the dashboard's crypto filter — a fixed list, by
+# wsname base (after KRAKEN_BASE_ALIASES). From CoinGecko's market-cap
+# ranking on 2026-09-25: the top 20 non-stablecoins with a Kraken USD pair,
+# with WBT and CC swapped for SUI and HBAR at the user's request.
+CRYPTO_LARGE_CAPS = {
+    "BTC", "ETH", "BNB", "XRP", "SOL", "TRX", "ZEC", "HYPE", "DOGE", "XMR",
+    "LINK", "ADA", "XLM", "BCH", "NEAR", "UNI", "LTC", "AVAX", "SUI", "HBAR",
 }
 
 # The rest of Kraken's USD list that isn't crypto stays in the scan (its

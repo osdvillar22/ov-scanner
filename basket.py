@@ -197,6 +197,9 @@ def check_pick(pick: dict, alerted: dict, now: pd.Timestamp) -> tuple[dict, list
     old entry as a fresh alert."""
     asset = {k: pick[k] for k in ("asset_class", "ticker", "display_name")}
     added_at = _utc(pd.Timestamp(pick.get("added_at") or now.isoformat()))
+    # Lower tfs the user muted on the dashboard: still evaluated (the card
+    # and chart markers keep updating), just never alerted.
+    muted = set(pick.get("muted") or [])
     status, alerts = {}, []
 
     for ltf in config.LOWER_TF_MAP[pick["higher_tf"]]:
@@ -216,7 +219,7 @@ def check_pick(pick: dict, alerted: dict, now: pd.Timestamp) -> tuple[dict, list
         recent_cutoff = now - max(2 * bar, pd.Timedelta(minutes=30))
         for e in result["entries"]:
             opened = pd.Timestamp(e["time"])
-            if e["time"] in done or opened + bar <= added_at or opened < recent_cutoff:
+            if ltf in muted or e["time"] in done or opened + bar <= added_at or opened < recent_cutoff:
                 continue
             alerts.append({"pick": pick, "ltf": ltf, "now": float(df.iloc[-1]["close"]), **e})
     return status, alerts
@@ -313,12 +316,14 @@ def run_live() -> None:
             pick = {**pick, "tag": "PSE"}
         asset = {k: pick[k] for k in ("asset_class", "ticker", "display_name")}
         htf = pick["higher_tf"]
-        df_htf = scan.fetch_and_compute(asset, htf)
-        df_auto = scan.fetch_and_compute(asset, config.AUTO_HIGHER_TF[htf], min_bars=config.LSMA_WARMUP_BARS)
-        if df_htf is None or df_auto is None:
+        auto_tf = config.AUTO_HIGHER_TF.get(htf)  # None for PSE 1W: no LSMA check
+        df_htf = scan.fetch_and_compute(asset, htf, min_bars=config.MIN_BARS_BY_TF.get(htf, config.MIN_WARMUP_BARS))
+        df_auto = scan.fetch_and_compute(asset, auto_tf, min_bars=config.LSMA_WARMUP_BARS) if auto_tf else None
+        if df_htf is None or (auto_tf and df_auto is None):
             logger.warning("Fetch failed for %s — skipping this run", pick_key(pick))
             continue
-        watch = scan.find_phase_a_watch(df_htf, scan._align_auto_lsma(df_htf, df_auto), scan.last_closed_index(df_htf, htf))
+        aligned = scan._align_auto_lsma(df_htf, df_auto) if auto_tf else None
+        watch = scan.find_phase_a_watch(df_htf, aligned, scan.last_closed_index(df_htf, htf))
         reason = _watch_gone_reason(watch, pick)
         if reason:
             remove.add(pick_key(pick)); reasons[pick_key(pick)] = reason

@@ -90,7 +90,8 @@ def build_universe() -> list[dict]:
         universe.append({"asset_class": "energy", "ticker": ticker, "display_name": display_name})
 
     for p in fetch.get_kraken_usd_pairs():
-        universe.append({"asset_class": "crypto", "ticker": p["pair"], "display_name": p["display_name"], "tag": p["tag"]})
+        universe.append({"asset_class": "crypto", "ticker": p["pair"], "display_name": p["display_name"], "tag": p["tag"],
+                         "large_cap": p["display_name"].split("/")[0] in config.CRYPTO_LARGE_CAPS})
 
     logger.info("Universe built: %d assets", len(universe))
     return universe
@@ -163,17 +164,20 @@ def serialize_candles(df: pd.DataFrame, n: int = config.DASHBOARD_CANDLE_WINDOW)
 # Phase A — the watch-trigger condition
 # ---------------------------------------------------------------------------
 
-def _entry_direction(row: pd.Series, higher_lsma: float) -> str | None:
-    """The "black triangle" entry condition, evaluated for one candle."""
-    if pd.isna(higher_lsma):
+def _entry_direction(row: pd.Series, higher_lsma: float | None) -> str | None:
+    """The "black triangle" entry condition, evaluated for one candle.
+    `higher_lsma=None` means this timeframe has no next-higher timeframe
+    (the PSE 1W watch) — the LSMA check is skipped, the rest still apply."""
+    use_lsma = higher_lsma is not None
+    if use_lsma and pd.isna(higher_lsma):
         return None
     ema10, ema20, lsma, rsi, close = row["ema10"], row["ema20"], row["lsma"], row["rsi"], row["close"]
-    if pd.isna(ema10) or pd.isna(ema20) or pd.isna(lsma) or pd.isna(rsi):
+    if pd.isna(ema10) or pd.isna(ema20) or pd.isna(rsi) or (use_lsma and pd.isna(lsma)):
         return None
 
-    if ema10 > ema20 and lsma > higher_lsma and rsi >= config.RSI_OVERBOUGHT and close > ema10 and close > ema20:
+    if ema10 > ema20 and (not use_lsma or lsma > higher_lsma) and rsi >= config.RSI_OVERBOUGHT and close > ema10 and close > ema20:
         return config.DIRECTION_BULLISH
-    if ema10 < ema20 and lsma < higher_lsma and rsi <= config.RSI_OVERSOLD and close < ema10 and close < ema20:
+    if ema10 < ema20 and (not use_lsma or lsma < higher_lsma) and rsi <= config.RSI_OVERSOLD and close < ema10 and close < ema20:
         return config.DIRECTION_BEARISH
     return None
 
@@ -203,7 +207,7 @@ def last_closed_index(df: pd.DataFrame, tf: str) -> int:
 
 
 def find_phase_a_watch(
-    df_htf: pd.DataFrame, aligned_auto_lsma: pd.Series, last_closed: int,
+    df_htf: pd.DataFrame, aligned_auto_lsma: pd.Series | None, last_closed: int,
     window: int = config.WATCH_WINDOW_CANDLES,
 ) -> dict | None:
     """
@@ -212,7 +216,8 @@ def find_phase_a_watch(
     real data every call.
 
     `aligned_auto_lsma` is the next-higher timeframe's LSMA already
-    backward-aligned onto df_htf's index (see _align_auto_lsma).
+    backward-aligned onto df_htf's index (see _align_auto_lsma), or None
+    for a timeframe without one (PSE 1W) — then the LSMA check is skipped.
     `last_closed` is the index of the most recent finished candle (see
     last_closed_index) — the trend-break check below ignores anything after
     it, so an intrabar dip through EMA20 can't flap an asset off and back
@@ -235,7 +240,7 @@ def find_phase_a_watch(
     start = max(0, n - window)
     qualifying = [
         (i, d) for i in range(start, n)
-        if (d := _entry_direction(df_htf.iloc[i], aligned_auto_lsma.iloc[i])) is not None
+        if (d := _entry_direction(df_htf.iloc[i], None if aligned_auto_lsma is None else aligned_auto_lsma.iloc[i])) is not None
     ]
     if not qualifying:
         return None
@@ -276,13 +281,14 @@ def scan_higher_timeframe(
     add, refresh, or remove."""
     key = f"{asset['asset_class']}:{asset['ticker']}:{htf}"
     entry = state.get(key)
+    has_auto = htf in config.AUTO_HIGHER_TF
 
-    if df_htf is None or df_auto is None:
+    if df_htf is None or (has_auto and df_auto is None):
         if entry is not None:
             logger.warning("Fetch too short/failed for tracked entry %s — leaving state untouched this run", key)
         return
 
-    aligned_auto_lsma = _align_auto_lsma(df_htf, df_auto)
+    aligned_auto_lsma = _align_auto_lsma(df_htf, df_auto) if has_auto else None
     watch = find_phase_a_watch(df_htf, aligned_auto_lsma, last_closed_index(df_htf, htf))
 
     if watch is None or watch["invalidated_at"] is not None:
@@ -302,7 +308,7 @@ def scan_higher_timeframe(
             "ticker": asset["ticker"],
             "display_name": asset["display_name"],
             "higher_tf": htf,
-            "auto_higher_tf": config.AUTO_HIGHER_TF[htf],
+            "auto_higher_tf": config.AUTO_HIGHER_TF.get(htf),
             "first_seen": now_iso(),
         }
         state[key] = entry
@@ -316,6 +322,7 @@ def scan_higher_timeframe(
     # watches that were already on the list.
     entry["display_name"] = asset["display_name"]
     entry["tag"] = asset.get("tag")
+    entry["large_cap"] = bool(asset.get("large_cap"))
     entry["direction"] = watch["direction"]
     entry["rsi_at_trigger"] = watch["rsi_at_trigger"]
     entry["qualifying_count"] = watch["qualifying_count"]
@@ -342,21 +349,29 @@ def lower_tf_candle_count(htf: str, ltf: str) -> int:
     return round(span_minutes / config.TIMEFRAME_MINUTES[ltf])
 
 
+def higher_timeframes_for(asset: dict) -> list[str]:
+    """1H/4H/1D for everything, plus 1W for PSE stocks."""
+    extra = config.PSE_EXTRA_HIGHER_TIMEFRAMES if asset["asset_class"] == "pse" else []
+    return config.HIGHER_TIMEFRAMES + extra
+
+
 def scan_asset(asset: dict, state: dict) -> None:
-    """Run all 3 higher-timeframe checks for one asset. Each needed
+    """Run every higher-timeframe check for one asset. Each needed
     timeframe — including AUTO_HIGHER_TF lookups, several of which overlap
     with another timeframe's own scan (e.g. "4H" is both 1H's auto-tf and
-    4H's own scan) — is fetched at most once per asset per run."""
+    4H's own scan, and PSE's 1W is both 1D's auto-tf and its own watch) —
+    is fetched at most once per asset per run."""
+    htfs = higher_timeframes_for(asset)
     tf_data: dict[str, pd.DataFrame | None] = {}
-    for htf in config.HIGHER_TIMEFRAMES:
-        tf_data[htf] = fetch_and_compute(asset, htf)
+    for htf in htfs:
+        tf_data[htf] = fetch_and_compute(asset, htf, min_bars=config.MIN_BARS_BY_TF.get(htf, config.MIN_WARMUP_BARS))
 
-    auto_tfs = set(config.AUTO_HIGHER_TF.values()) - set(tf_data)
+    auto_tfs = {config.AUTO_HIGHER_TF[h] for h in htfs if h in config.AUTO_HIGHER_TF} - set(tf_data)
     for tf in auto_tfs:
         tf_data[tf] = fetch_and_compute(asset, tf, min_bars=config.LSMA_WARMUP_BARS)
 
-    for htf in config.HIGHER_TIMEFRAMES:
-        df_auto = tf_data.get(config.AUTO_HIGHER_TF[htf])
+    for htf in htfs:
+        df_auto = tf_data.get(config.AUTO_HIGHER_TF.get(htf))
         scan_higher_timeframe(asset, htf, tf_data[htf], df_auto, state)
 
 
