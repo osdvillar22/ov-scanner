@@ -209,6 +209,24 @@ ENERGY = {
 KRAKEN_BASE_URL = "https://api.kraken.com"
 KRAKEN_QUOTE_ASSET = "ZUSD"  # crypto universe = all Kraken USD pairs
 
+# Display names come from Kraken's "wsname" (e.g. "XBT/USD") — its pair keys
+# like "XXBTZUSD" are unreadable. These are Kraken's own non-standard codes.
+KRAKEN_BASE_ALIASES = {"XBT": "BTC", "XDG": "DOGE"}
+
+# Kraken's USD list isn't all crypto. These stay in the scan (Kraken data
+# is near-real-time), just labelled on the dashboard so they're not
+# mistaken for coins. Keyed by wsname base.
+KRAKEN_ASSET_TAGS = {
+    **{c: "currency" for c in ("AUD", "EUR", "GBP")},
+    **{c: "stablecoin" for c in (
+        "USDT", "USDC", "DAI", "PYUSD", "RLUSD", "USDE", "USDG", "USDD", "USD1", "USDS",
+        "USDQ", "USDGO", "USDPT", "USDSM", "USDUC", "AUSD", "EURC", "EURQ", "EUROP",
+        "TGBP", "QCAD", "AUDX", "BRL1", "MXNB",
+    )},
+    "PAXG": "gold", "XAUT": "gold",
+    "XU3O8": "uranium",
+}
+
 # ---------------------------------------------------------------------------
 # I/O
 # ---------------------------------------------------------------------------

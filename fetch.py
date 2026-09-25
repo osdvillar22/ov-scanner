@@ -90,26 +90,32 @@ def fetch_yfinance_ohlc(ticker: str, timeframe: str) -> pd.DataFrame | None:
 # Kraken (crypto) — native support for every timeframe we use, no resampling
 # ---------------------------------------------------------------------------
 
-def get_kraken_usd_pairs() -> list[str]:
+def get_kraken_usd_pairs() -> list[dict]:
     """
     Dynamically resolve the current USD pair universe from Kraken's
     AssetPairs endpoint, so new listings are picked up automatically with
-    zero config changes. Each dict key (e.g. "PAXGUSD") is directly usable
+    zero config changes. Each "pair" (e.g. "PAXGUSD") is directly usable
     as the `pair` param for the OHLC endpoint below — verified against a
     random sample of the full listing, including legacy-named pairs like
     "XXMRZUSD".
+
+    Returns [{"pair": "XXBTZUSD", "display_name": "BTC/USD", "tag": None}, ...]
+    — display name from Kraken's readable "wsname", tag from
+    config.KRAKEN_ASSET_TAGS for the non-crypto ones (currency, gold, ...).
     """
     url = f"{config.KRAKEN_BASE_URL}/0/public/AssetPairs"
     try:
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
         pairs = resp.json()["result"]
-        return [
-            name
-            for name, info in pairs.items()
-            if info.get("quote") == config.KRAKEN_QUOTE_ASSET
-            and info.get("status") == "online"
-        ]
+        out = []
+        for name, info in pairs.items():
+            if info.get("quote") != config.KRAKEN_QUOTE_ASSET or info.get("status") != "online":
+                continue
+            base = (info.get("wsname") or name).split("/")[0]
+            display = f"{config.KRAKEN_BASE_ALIASES.get(base, base)}/USD" if info.get("wsname") else name
+            out.append({"pair": name, "display_name": display, "tag": config.KRAKEN_ASSET_TAGS.get(base)})
+        return out
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to resolve Kraken USD pairs: %s", exc)
         return []

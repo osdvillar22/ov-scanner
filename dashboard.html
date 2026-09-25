@@ -92,6 +92,8 @@
   .bk-msg:empty { display: none; }
 
   .is-hidden { display: none !important; }
+  .asset-tag { font-family: var(--font-mono); font-size: 9px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gold-bright); border: 1px solid rgba(217,164,65,0.5); border-radius: 3px; padding: 0 4px; vertical-align: 2px; margin-left: 4px; }
+  .detail-sym .asset-tag { font-size: 10px; vertical-align: 3px; }
 
   /* Watchlist | Basket tabs at the top of the right-hand panel. */
   .panel-tabs { display: flex; border-bottom: 1px solid var(--border); }
@@ -510,7 +512,7 @@ function renderBasket(assetsById) {
       <div class="wl-item" data-key="${key}" data-id="${watch ? watch._id : ''}" title="${p.asset_class === 'crypto' ? 'Checked every 5 minutes' : 'Checked hourly'}">
         <div class="wl-left" style="width:100%">
           <div class="bk-head">
-            <div class="wl-sym">${p.display_name} <span class="bk-tf ${dirClass(p.direction)}">${p.higher_tf} ${dirArrow(p.direction)}</span></div>
+            <div class="wl-sym">${nameHtml(watch ? watch : p)} <span class="bk-tf ${dirClass(p.direction)}">${p.higher_tf} ${dirArrow(p.direction)}</span></div>
             <button class="bk-remove" type="button" title="Remove ${p.display_name} ${p.higher_tf} from the basket" aria-label="Remove ${p.display_name} ${p.higher_tf} from the basket">×</button>
           </div>
           ${body}
@@ -638,6 +640,9 @@ const symKey = (a) => `${a.asset_class}__${a.ticker}`;
 // On watch on every timeframe, all pointing the same way.
 const isAligned = (byTf) => TF_ORDER.every(tf => byTf[tf]) && new Set(TF_ORDER.map(tf => byTf[tf].direction)).size === 1;
 const dirArrow = (d) => d === 'BULLISH' ? '▲' : '▼';
+// Name plus a small label for the non-crypto pairs on Kraken's list
+// ("currency", "stablecoin", "gold", ...).
+const nameHtml = (a) => `${a.display_name}${a.tag ? ` <span class="asset-tag">${a.tag}</span>` : ''}`;
 
 function selectAsset(id, assetsById) {
   const entry = assetsById[id];
@@ -671,7 +676,7 @@ function selectAsset(id, assetsById) {
   detailEl.innerHTML = `
     <div class="detail-top">
       <div>
-        <div class="detail-sym">${entry.display_name}</div>
+        <div class="detail-sym">${nameHtml(entry)}</div>
         <div class="detail-name">${entry.ticker}</div>
         <div class="detail-thesis">${entry.higher_tf} trend + LSMA + RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} aligned (fired at RSI ${entry.rsi_at_trigger}) — <strong>${dc} continuation</strong>.</div>
         <div class="settings-row" style="align-items:center;margin-top:8px"><button class="basket-btn" id="basketBtn" type="button"></button><span class="basket-msg" id="basketMsg"></span></div>
@@ -839,7 +844,7 @@ async function init() {
         return `
         <div class="wl-item" data-sym="${symKey(a)}">
           <div class="wl-left">
-            <div class="wl-sym">${a.display_name}</div>
+            <div class="wl-sym">${nameHtml(a)}</div>
             <div class="wl-name">${a.ticker}</div>
             <div class="wl-rsi"></div>
           </div>

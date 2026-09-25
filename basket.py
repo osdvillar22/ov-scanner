@@ -40,13 +40,13 @@ import base64
 import json
 import logging
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 import requests
 
 import config
+import fetch
 import scan
 
 logger = logging.getLogger("basket")
@@ -243,8 +243,9 @@ def send_entry_alerts(alerts: list) -> bool:
     for a in alerts:
         p, bull = a["pick"], a["pick"]["direction"] == config.DIRECTION_BULLISH
         opened = int(pd.Timestamp(a["time"]).timestamp())
+        tag = f" ({p['tag']})" if p.get("tag") else ""
         embeds.append({
-            "title": f"Entry trigger: {p['display_name']} {'bullish' if bull else 'bearish'}",
+            "title": f"Entry trigger: {p['display_name']}{tag} {'bullish' if bull else 'bearish'}",
             "color": 0x2F7A4F if bull else 0xA8402C,
             "description": (
                 f"**{a['ltf']}** candle broke {'above' if bull else 'below'} LSMA `{scan._sig(a['lsma'])}` · MACD {'green' if bull else 'red'}\n"
@@ -284,8 +285,13 @@ def run_crypto() -> None:
     alerted = load_alerted(config.BASKET_ALERTS_CRYPTO_FILE)
     now = pd.Timestamp.now(tz="UTC")
     remove, reasons, alerts = set(), {}, []
+    # Current readable names/labels (picks saved before the rename carry
+    # Kraken codes like "XLTCZUSD") — one cheap call, only if there's work.
+    names = {p["pair"]: p for p in fetch.get_kraken_usd_pairs()} if picks else {}
 
     for pick in picks:
+        if pick["ticker"] in names:
+            pick = {**pick, "display_name": names[pick["ticker"]]["display_name"], "tag": names[pick["ticker"]]["tag"]}
         asset = {k: pick[k] for k in ("asset_class", "ticker", "display_name")}
         htf = pick["higher_tf"]
         df_htf = scan.fetch_and_compute(asset, htf)
@@ -336,6 +342,7 @@ def run_hourly(state: dict) -> dict:
             remove.add(key)
             reasons[key] = "higher-tf watch dropped off" if watch is None else f"higher-tf watch flipped to {watch['direction']}"
             continue
+        pick = {**pick, "display_name": watch.get("display_name", pick["display_name"]), "tag": watch.get("tag")}
         is_crypto = pick["asset_class"] == "crypto"
         status, new = check_pick(pick, crypto_alerted if is_crypto else alerted, now)
         statuses[key] = status

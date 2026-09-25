@@ -75,8 +75,8 @@ def build_universe() -> list[dict]:
     for display_name, ticker in config.ENERGY.items():
         universe.append({"asset_class": "energy", "ticker": ticker, "display_name": display_name})
 
-    for symbol in fetch.get_kraken_usd_pairs():
-        universe.append({"asset_class": "crypto", "ticker": symbol, "display_name": symbol})
+    for p in fetch.get_kraken_usd_pairs():
+        universe.append({"asset_class": "crypto", "ticker": p["pair"], "display_name": p["display_name"], "tag": p["tag"]})
 
     logger.info("Universe built: %d assets", len(universe))
     return universe
@@ -298,6 +298,10 @@ def scan_higher_timeframe(
             watch["qualifying_count"], watch["window"], watch["candles_ago_most_recent"],
         )
 
+    # Refreshed every run, not just at creation, so naming changes reach
+    # watches that were already on the list.
+    entry["display_name"] = asset["display_name"]
+    entry["tag"] = asset.get("tag")
     entry["direction"] = watch["direction"]
     entry["rsi_at_trigger"] = watch["rsi_at_trigger"]
     entry["qualifying_count"] = watch["qualifying_count"]
