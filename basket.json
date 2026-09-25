@@ -152,7 +152,9 @@
       "higher_tf": "1W",
       "direction": "BULLISH",
       "added_at": "2026-09-25T08:54:18.605Z",
-      "muted": []
+      "muted": [
+        "1D"
+      ]
     }
   ]
 }
