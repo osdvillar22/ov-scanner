@@ -274,7 +274,10 @@
       "display_name": "PX",
       "higher_tf": "1W",
       "direction": "BULLISH",
-      "added_at": "2026-09-25T09:38:34.460Z"
+      "added_at": "2026-09-25T09:38:34.460Z",
+      "muted": [
+        "1D"
+      ]
     }
   ]
 }
