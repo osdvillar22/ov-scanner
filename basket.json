@@ -84,14 +84,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "QNTUSD",
-      "display_name": "QNTUSD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T00:54:08.872Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "XXBTZUSD",
       "display_name": "BTC/USD",
       "higher_tf": "1D",
