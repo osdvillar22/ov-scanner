@@ -216,6 +216,44 @@ def get_pse_symbols() -> list[str]:
 _tv = None
 
 
+# 4H and 1W for PSE are built from 1H / 1D instead of fetched: halves the
+# TradingView requests per stock, and with them the dropped connections
+# (~1 in 9 on back-to-back requests) and their retries. Both are anchored to
+# a Monday 09:30 Manila (01:30 UTC) origin, which reproduces TradingView's
+# own PSE bars exactly: 4H = [09:30-13:30) + [13:30-close), weekly from
+# Monday. (24h is a whole multiple of 4h, so the 4H anchor holds day to
+# day. Weekly uses pandas' Monday-anchored "W-MON" bins — a "7D" rule
+# ignores `origin` — then relabels to Monday 09:30 like TradingView's.)
+_PSE_BUILT_FROM = {"4H": ("1H", "4h"), "1W": ("1D", "W-MON")}
+_PSE_ORIGIN = pd.Timestamp("2024-01-01 01:30")  # a Monday, 09:30 Manila, naive UTC
+_PSE_CACHE_SECONDS = 120
+_pse_cache: dict = {}
+
+
+def fetch_pse_ohlc(symbol: str, timeframe: str) -> pd.DataFrame | None:
+    """PSE candles for any timeframe, from at most two TradingView requests
+    per stock (1H and 1D), shared briefly across calls — scan_asset asks for
+    1H, 4H, 1D and 1W of the same stock back to back."""
+    base_tf, rule = _PSE_BUILT_FROM.get(timeframe, (timeframe, None))
+    now = time.time()
+    for k in [k for k, (t, _) in _pse_cache.items() if now - t > _PSE_CACHE_SECONDS]:
+        del _pse_cache[k]
+    hit = _pse_cache.get((symbol, base_tf))
+    df = hit[1] if hit else fetch_tradingview_ohlc(symbol, base_tf)
+    if df is None:
+        return None
+    _pse_cache[(symbol, base_tf)] = (now, df)
+    if rule is None:
+        return df
+    ohlcv = {"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}
+    if rule == "W-MON":
+        out = df.resample(rule, label="left", closed="left").agg(ohlcv)
+        out.index = out.index + pd.Timedelta(hours=1, minutes=30)
+    else:
+        out = df.resample(rule, origin=_PSE_ORIGIN).agg(ohlcv)
+    return out.dropna(subset=["open", "high", "low", "close"])
+
+
 def fetch_tradingview_ohlc(symbol: str, timeframe: str, exchange: str = config.PSE_TV_EXCHANGE) -> pd.DataFrame | None:
     """OHLC candles from TradingView via the unofficial tvdatafeed library
     (anonymous session — no login). Timestamps are converted to naive UTC,
@@ -267,7 +305,7 @@ def fetch_ohlc(asset_class: str, symbol_or_ticker: str, timeframe: str) -> pd.Da
     if asset_class == "crypto":
         return fetch_kraken_ohlc(symbol_or_ticker, timeframe)
     if asset_class == "pse":
-        return fetch_tradingview_ohlc(symbol_or_ticker, timeframe)
+        return fetch_pse_ohlc(symbol_or_ticker, timeframe)
     if asset_class in ("forex", "metals", "indices", "energy"):
         return fetch_yfinance_ohlc(symbol_or_ticker, timeframe)
 

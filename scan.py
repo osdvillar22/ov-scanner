@@ -59,12 +59,23 @@ logger = logging.getLogger("scan")
 # Universe
 # ---------------------------------------------------------------------------
 
+def load_pse_exclusions() -> set[str]:
+    """Codes from config.PSE_EXCLUDED_FILE (one per line, # = comment)."""
+    path = Path(config.PSE_EXCLUDED_FILE)
+    if not path.exists():
+        return set()
+    return {line.strip().upper() for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")}
+
+
 def build_universe() -> list[dict]:
     """Every (asset_class, ticker, display_name) triple we scan."""
     universe = []
 
+    excluded = load_pse_exclusions()
     for symbol in fetch.get_pse_symbols():
-        universe.append({"asset_class": "pse", "ticker": symbol, "display_name": symbol, "tag": "PSE"})
+        if symbol not in excluded:
+            universe.append({"asset_class": "pse", "ticker": symbol, "display_name": symbol, "tag": "PSE"})
 
     for display_name, ticker in config.FOREX_PAIRS.items():
         universe.append({"asset_class": "forex", "ticker": ticker, "display_name": display_name})

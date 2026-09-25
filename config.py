@@ -154,6 +154,8 @@ DASHBOARD_CANDLE_WINDOW = 120
 # can break or be blocked without notice. The stock list itself comes from
 # PSE EDGE's public company directory (~283 listings incl. ETFs).
 PSE_TV_EXCHANGE = "PSE"
+# The user's list of PSE codes to leave out of the scan (see the file).
+PSE_EXCLUDED_FILE = "pse_excluded.txt"
 PSE_EDGE_DIRECTORY_URL = "https://edge.pse.com.ph/companyDirectory/search.ax"
 PSE_EDGE_RATE_LIMIT_SECONDS = 0.6  # be polite to a small exchange's site
 
