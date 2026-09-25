@@ -242,7 +242,10 @@
       "display_name": "TUGS",
       "higher_tf": "1W",
       "direction": "BULLISH",
-      "added_at": "2026-09-25T09:37:18.537Z"
+      "added_at": "2026-09-25T09:37:18.537Z",
+      "muted": [
+        "1D"
+      ]
     },
     {
       "asset_class": "pse",
