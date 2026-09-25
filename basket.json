@@ -194,6 +194,14 @@
       "muted": [
         "4H"
       ]
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "UPSON",
+      "display_name": "UPSON",
+      "higher_tf": "1W",
+      "direction": "BULLISH",
+      "added_at": "2026-09-25T09:15:58.235Z"
     }
   ]
 }
