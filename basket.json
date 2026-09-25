@@ -6,7 +6,10 @@
       "display_name": "AUDUSD",
       "higher_tf": "4H",
       "direction": "BEARISH",
-      "added_at": "2026-09-24T10:42:18.746Z"
+      "added_at": "2026-09-24T10:42:18.746Z",
+      "muted": [
+        "1H"
+      ]
     },
     {
       "asset_class": "crypto",
