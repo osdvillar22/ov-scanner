@@ -226,6 +226,14 @@
       "higher_tf": "1W",
       "direction": "BULLISH",
       "added_at": "2026-09-25T09:24:36.595Z"
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "CHP",
+      "display_name": "CHP",
+      "higher_tf": "1W",
+      "direction": "BULLISH",
+      "added_at": "2026-09-25T09:29:11.572Z"
     }
   ]
 }
