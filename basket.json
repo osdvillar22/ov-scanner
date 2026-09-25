@@ -28,14 +28,6 @@
       "added_at": "2026-09-24T11:24:12.556Z"
     },
     {
-      "asset_class": "forex",
-      "ticker": "EURUSD=X",
-      "display_name": "EURUSD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-09-24T12:11:35.990Z"
-    },
-    {
       "asset_class": "crypto",
       "ticker": "ADIUSD",
       "display_name": "ADIUSD",
