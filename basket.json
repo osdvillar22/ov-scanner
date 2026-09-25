@@ -151,7 +151,10 @@
       "display_name": "PNB",
       "higher_tf": "1W",
       "direction": "BULLISH",
-      "added_at": "2026-09-25T08:54:18.605Z"
+      "added_at": "2026-09-25T08:54:18.605Z",
+      "muted": [
+        "4H"
+      ]
     }
   ]
 }
