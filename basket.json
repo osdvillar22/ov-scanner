@@ -254,6 +254,14 @@
       "muted": [
         "1D"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "AUDUSD",
+      "display_name": "AUD/USD",
+      "higher_tf": "1D",
+      "direction": "BEARISH",
+      "added_at": "2026-09-25T10:28:30.515Z"
     }
   ]
 }
