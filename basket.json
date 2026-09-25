@@ -56,17 +56,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "CAKEUSD",
-      "display_name": "CAKEUSD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T00:50:32.771Z",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "PEAQUSD",
       "display_name": "PEAQUSD",
       "higher_tf": "4H",
