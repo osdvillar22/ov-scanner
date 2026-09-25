@@ -95,6 +95,14 @@
       "higher_tf": "1H",
       "direction": "BULLISH",
       "added_at": "2026-09-25T00:54:08.872Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "XLTCZUSD",
+      "display_name": "XLTCZUSD",
+      "higher_tf": "4H",
+      "direction": "BULLISH",
+      "added_at": "2026-09-25T00:54:45.628Z"
     }
   ]
 }
