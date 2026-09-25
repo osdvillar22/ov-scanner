@@ -64,17 +64,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "DBRUSD",
-      "display_name": "DBRUSD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T00:52:15.620Z",
-      "muted": [
-        "5m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "PEAQUSD",
       "display_name": "PEAQUSD",
       "higher_tf": "4H",
