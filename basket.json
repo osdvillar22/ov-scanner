@@ -144,7 +144,8 @@
       "direction": "BULLISH",
       "added_at": "2026-09-25T09:08:26.425Z",
       "muted": [
-        "1H"
+        "1H",
+        "15m"
       ]
     },
     {
