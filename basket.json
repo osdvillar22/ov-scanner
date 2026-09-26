@@ -37,7 +37,9 @@
       "higher_tf": "4H",
       "direction": "BULLISH",
       "added_at": "2026-09-25T00:53:38.405Z",
-      "muted": []
+      "muted": [
+        "15m"
+      ]
     },
     {
       "asset_class": "crypto",
