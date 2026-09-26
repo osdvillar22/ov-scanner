@@ -74,6 +74,13 @@
   .panel-tab { flex: 1; font-size: 11px; color: var(--ink-dim); padding: 8px 6px; }
   .panel-tab.active { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); }
   .panel-tab .n { color: var(--ink-faint); margin-left: 3px; }
+  .search { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--hair); color: var(--ink-faint); }
+  .search input { flex: 1; min-width: 0; font: inherit; font-size: 11px; color: var(--ink); background: none; border: 0; outline: 0; padding: 2px 0; }
+  .search input::placeholder { color: var(--ink-faint); }
+  .search:focus-within { color: var(--gold-bright); }
+  .search input::-webkit-search-cancel-button { display: none; }
+  .search-clear { font-size: 13px; line-height: 1; color: var(--ink-dim); padding: 0 2px; }
+  .search-clear:hover { color: var(--ink); }
   .scroll { max-height: calc(100vh - 70px); overflow-y: auto; }
 
   /* ---- Watchlist rows: one line — name + RSI · timeframes · +/✓ ---- */
@@ -119,6 +126,7 @@
   .bk-gone { font-size: 10.5px; color: var(--loss); margin-top: 3px; }
   .bk-msg { font-size: 10.5px; color: var(--loss); }
   .bk-msg:empty { display: none; }
+  .empty:empty { display: none; }
   .empty { padding: 14px 12px; font-family: var(--font-ui); font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
   .hint { padding: 7px 10px; font-size: 10.5px; color: var(--ink-faint); }
 
@@ -204,6 +212,7 @@
         <button class="panel-tab active" data-view="watchlist" type="button">watchlist<span class="n" id="wlCount"></span></button>
         <button class="panel-tab" data-view="basket" type="button">basket<span class="n" id="bkCount"></span></button>
       </div>
+      <label class="search"><span aria-hidden="true">⌕</span><input type="search" id="search" placeholder="search…" autocomplete="off" spellcheck="false" aria-label="Search assets"><button class="search-clear is-hidden" id="searchClear" type="button" aria-label="Clear search">×</button></label>
       <div class="scroll" id="watchlist"></div>
       <div class="scroll is-hidden" id="basketList"></div>
     </div>
@@ -228,7 +237,7 @@ const TF_ORDER = ['1H', '4H', '1D'];          // the "aligned" set, every market
 const tfsFor = (a) => a.asset_class === 'pse' ? ['1H', '4H', '1D', '1W'] : TF_ORDER;
 const LOWER_TF_MAP = { '1H': ['15m', '5m'], '4H': ['1H', '15m'], '1D': ['4H', '1H'], '1W': ['1D', '4H'] };
 
-const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL' };
+const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL', q: '' };
 
 // PSE session (Mon-Fri 9:30-15:00 Manila). Doesn't know PSE holidays.
 function pseOpen() {
@@ -249,7 +258,9 @@ const isAligned = (byTf) => TF_ORDER.every(tf => byTf[tf]) && new Set(TF_ORDER.m
 
 // Market filter for any asset-like object (a watch, or a basket pick with
 // its watch's tag/large_cap when available).
+// Market filter plus the search box (ticker or name, anywhere, any case).
 function marketMatch(a, f = F) {
+  if (f.q && !`${a.ticker} ${a.display_name || ''}`.toLowerCase().includes(f.q)) return false;
   if (f.market === 'all') return true;
   if (!marketsOf(a).has(f.market)) return false;
   return !(f.market === 'crypto' && f.large) || !!a.large_cap;
@@ -557,7 +568,7 @@ function renderBasket() {
     return;
   }
   const shown = basketPicks.filter(basketPickVisible);
-  if (!shown.length) { el.innerHTML = `<div class="empty">No basket picks match these filters.</div>`; return; }
+  if (!shown.length) { el.innerHTML = `<div class="empty">${F.q ? `No basket pick matches "${esc(F.q)}".` : 'No basket picks match these filters.'}</div>`; return; }
   el.innerHTML = shown.map(p => {
     const key = pickKey(p), w = watchOf(p), st = basketStatus[key], muted = new Set(p.muted || []);
     const name = w ? w.display_name : p.display_name, tag = w && w.tag && p.asset_class !== 'pse' ? w.tag : '';
@@ -680,6 +691,7 @@ function applyFilters() {
     block.style.display = any ? '' : 'none';
   });
   document.getElementById('wlCount').textContent = visible;
+  document.getElementById('wlEmpty').textContent = visible ? '' : (F.q ? `No match for "${F.q}".` : 'No assets match these filters.');
   updateCounts();
   renderBasket();
 }
@@ -749,7 +761,7 @@ function buildWatchlist(syms) {
           <button type="button" class="plus"></button>
         </div>`;
       }).join('')}
-    </div>`).join('');
+    </div>`).join('') + '<div class="empty" id="wlEmpty"></div>';
 
   el.querySelectorAll('.row').forEach(row => {
     row.addEventListener('click', () => selectAsset(row.dataset.id));
@@ -866,8 +878,27 @@ function wireBasketButton(entry) {
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
+function wireSearch() {
+  const input = document.getElementById('search'), clear = document.getElementById('searchClear');
+  const set = (v) => {
+    input.value = v;
+    F.q = v.trim().toLowerCase();
+    clear.classList.toggle('is-hidden', !v);
+    if (Object.keys(watchesBySym).length) applyFilters();
+  };
+  input.addEventListener('input', () => set(input.value));
+  input.addEventListener('keydown', (e) => { if (e.key === 'Escape') { set(''); input.blur(); } });
+  clear.addEventListener('click', (e) => { e.preventDefault(); set(''); input.focus(); });
+  // "/" jumps to the search box unless you're already typing somewhere.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+    e.preventDefault(); input.focus(); input.select();
+  });
+}
+
 async function init() {
   wireBasketSettings();
+  wireSearch();
   document.querySelectorAll('.panel-tab').forEach(tab => tab.addEventListener('click', () => {
     document.querySelectorAll('.panel-tab').forEach(t => t.classList.toggle('active', t === tab));
     document.getElementById('watchlist').classList.toggle('is-hidden', tab.dataset.view !== 'watchlist');
