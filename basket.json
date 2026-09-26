@@ -267,6 +267,14 @@
       "muted": [
         "15m"
       ]
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "ROCK",
+      "display_name": "ROCK",
+      "higher_tf": "1W",
+      "direction": "BULLISH",
+      "added_at": "2026-09-26T00:12:34.275Z"
     }
   ]
 }
