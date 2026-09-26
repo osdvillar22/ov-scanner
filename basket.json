@@ -437,6 +437,15 @@
       "muted": [
         "1H"
       ]
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "NRCP",
+      "display_name": "NRCP",
+      "higher_tf": "4H",
+      "direction": "BULLISH",
+      "added_at": "2026-09-26T13:34:40.662Z",
+      "setup": "sma50"
     }
   ]
 }
