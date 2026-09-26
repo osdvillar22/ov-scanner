@@ -2,17 +2,6 @@
   "picks": [
     {
       "asset_class": "crypto",
-      "ticker": "NILUSD",
-      "display_name": "NILUSD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-24T11:23:15.451Z",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "ADIUSD",
       "display_name": "ADIUSD",
       "higher_tf": "4H",
