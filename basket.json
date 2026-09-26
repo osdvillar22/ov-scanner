@@ -389,6 +389,15 @@
       "muted": [
         "15m"
       ]
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "SGP",
+      "display_name": "SGP",
+      "higher_tf": "1W",
+      "direction": "BULLISH",
+      "added_at": "2026-09-26T13:30:45.031Z",
+      "setup": "sma50"
     }
   ]
 }
