@@ -305,6 +305,15 @@
       "muted": [
         "1H"
       ]
+    },
+    {
+      "asset_class": "forex",
+      "ticker": "USDJPY=X",
+      "display_name": "USDJPY",
+      "higher_tf": "4H",
+      "direction": "BULLISH",
+      "added_at": "2026-09-26T12:15:09.348Z",
+      "setup": "sma50"
     }
   ]
 }
