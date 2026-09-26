@@ -233,7 +233,7 @@ const GROUP_LABELS = { pse: 'PSE', forex: 'FOREX', metals: 'METALS', indices: 'I
 const TAG_MARKET = { currency: 'forex', gold: 'metals', uranium: 'energy' };
 const marketsOf = (a) => new Set([a.asset_class, TAG_MARKET[a.tag]].filter(Boolean));
 
-const TF_ORDER = ['1H', '4H', '1D'];          // the "aligned" set, every market
+const TF_ORDER = ['1H', '4H', '1D'];          // markets without a weekly watch
 const tfsFor = (a) => a.asset_class === 'pse' || a.asset_class === 'crypto' ? ['1H', '4H', '1D', '1W'] : TF_ORDER;
 // Markets with a large-caps sub-filter (PSE = the PSEi 30).
 const LARGE_CAP_MARKETS = ['pse', 'crypto'];
@@ -256,7 +256,8 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 
 let watchesBySym = {};     // symKey -> { '1H': watch, '4H': watch, ... }
 let assetsById = {};       // watch _id -> watch
-const isAligned = (byTf) => TF_ORDER.every(tf => byTf[tf]) && new Set(TF_ORDER.map(tf => byTf[tf].direction)).size === 1;
+// Aligned = on watch, same direction, on every tf the market has (1W too for PSE/crypto).
+const isAligned = (byTf) => { const tfs = tfsFor(Object.values(byTf)[0]); return tfs.every(tf => byTf[tf]) && new Set(tfs.map(tf => byTf[tf].direction)).size === 1; };
 
 // Market filter for any asset-like object (a watch, or a basket pick with
 // its watch's tag/large_cap when available).
