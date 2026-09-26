@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OV Scanner</title>
+<title>OV SCANNER</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314140F'/%3E%3Ccircle cx='10' cy='16' r='5.5' fill='none' stroke='%23E8CC66' stroke-width='3'/%3E%3Cpath d='M18.5 10.5l3.5 11 3.5-11' fill='none' stroke='%23E8CC66' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -178,7 +179,7 @@
 
   <header class="page">
     <div class="topbar">
-      <span class="brand">OV <span>Scanner</span></span>
+      <span class="brand">OV <span>SCANNER</span></span>
       <span class="meta"><span id="scanMeta">Loading…</span> · <button class="link-btn" id="basketSettingsBtn" type="button">basket settings</button></span>
     </div>
     <div class="settings-panel is-hidden" id="basketSettings">
@@ -248,10 +249,10 @@ const isAligned = (byTf) => TF_ORDER.every(tf => byTf[tf]) && new Set(TF_ORDER.m
 
 // Market filter for any asset-like object (a watch, or a basket pick with
 // its watch's tag/large_cap when available).
-function marketMatch(a) {
-  if (F.market === 'all') return true;
-  if (!marketsOf(a).has(F.market)) return false;
-  return !(F.market === 'crypto' && F.large) || !!a.large_cap;
+function marketMatch(a, f = F) {
+  if (f.market === 'all') return true;
+  if (!marketsOf(a).has(f.market)) return false;
+  return !(f.market === 'crypto' && f.large) || !!a.large_cap;
 }
 
 // scan.py ships candles as {fields, rows}; expand back to objects. Plain
@@ -632,12 +633,12 @@ function wireBasketSettings() {
 // ---------------------------------------------------------------------------
 // Which of an asset's watches a row opens/summarises: among those matching
 // the tf/direction filters, the one that triggered most recently.
-function primaryWatch(byTf) {
-  if (F.tf === 'ALIGNED' && !isAligned(byTf)) return null;
+function primaryWatch(byTf, f = F) {
+  if (f.tf === 'ALIGNED' && !isAligned(byTf)) return null;
   const any = Object.values(byTf)[0];
   const candidates = tfsFor(any).map(tf => byTf[tf]).filter(w => w
-    && (F.tf === 'ALL' || F.tf === 'ALIGNED' || w.higher_tf === F.tf)
-    && (F.dir === 'ALL' || w.direction === F.dir));
+    && (f.tf === 'ALL' || f.tf === 'ALIGNED' || w.higher_tf === f.tf)
+    && (f.dir === 'ALL' || w.direction === f.dir));
   candidates.sort((x, y) => x.candles_ago_most_recent - y.candles_ago_most_recent);
   return candidates[0] || null;
 }
@@ -679,26 +680,37 @@ function applyFilters() {
     block.style.display = any ? '' : 'none';
   });
   document.getElementById('wlCount').textContent = visible;
+  updateCounts();
   renderBasket();
 }
 
+// Each filter's counts reflect the other filters' current choices, e.g.
+// with PSE selected the tf and direction counts cover PSE only.
+function updateCounts() {
+  const syms = Object.values(watchesBySym);
+  const n = (over) => { const f = { ...F, ...over }; return syms.filter(byTf => marketMatch(Object.values(byTf)[0], f) && primaryWatch(byTf, f)).length; };
+  document.querySelectorAll('#filters .opt .n').forEach(el => {
+    const { group, value } = el.parentElement.dataset;
+    el.textContent = n(group === 'market' ? { market: value, large: false } : { [group]: value });
+  });
+  document.querySelector('#largeCaps .n').textContent = n({ market: 'crypto', large: true });
+}
+
 function buildFilters(syms) {
-  const all = syms.map(byTf => Object.values(byTf)[0]);
-  const count = (pred) => syms.filter(byTf => Object.values(byTf).some(pred)).length;
-  const opt = (group, value, label, n) => `<button class="opt${F[group] === value ? ' on' : ''}" type="button" data-group="${group}" data-value="${value}">${label}${n != null ? `<span class="n">${n}</span>` : ''}</button>`;
+  // Counts are filled in by updateCounts().
+  const opt = (group, value, label, counted = true) => `<button class="opt${F[group] === value ? ' on' : ''}" type="button" data-group="${group}" data-value="${value}">${label}${counted ? '<span class="n"></span>' : ''}</button>`;
 
   const market = document.querySelector('.seg[data-group="market"]');
-  market.insertAdjacentHTML('beforeend', MARKETS.map(([v, l]) =>
-    opt('market', v, l, v === 'all' ? all.length : all.filter(a => marketsOf(a).has(v)).length)).join('')
-    + `<button class="sub-opt is-hidden" type="button" id="largeCaps">large caps<span class="n">${all.filter(a => a.large_cap).length}</span></button>`);
+  market.insertAdjacentHTML('beforeend', MARKETS.map(([v, l]) => opt('market', v, l)).join('')
+    + `<button class="sub-opt is-hidden" type="button" id="largeCaps">large caps<span class="n"></span></button>`);
 
   const tf = document.querySelector('.seg[data-group="tf"]');
-  tf.insertAdjacentHTML('beforeend', [['ALL', 'all', syms.length], ['1H', '1H'], ['4H', '4H'], ['1D', '1D'], ['1W', '1W'], ['ALIGNED', 'aligned', syms.filter(isAligned).length]]
-    .map(([v, l, n]) => opt('tf', v, l, n != null ? n : count(w => w.higher_tf === v))).join(''));
+  tf.insertAdjacentHTML('beforeend', [['ALL', 'all'], ['1H', '1H'], ['4H', '4H'], ['1D', '1D'], ['1W', '1W'], ['ALIGNED', 'aligned']]
+    .map(([v, l]) => opt('tf', v, l)).join(''));
 
   const dir = document.querySelector('.seg[data-group="dir"]');
   dir.insertAdjacentHTML('beforeend', [['ALL', 'all'], ['BULLISH', '<span class="bullish">▲</span>'], ['BEARISH', '<span class="bearish">▼</span>']]
-    .map(([v, l]) => opt('dir', v, l, v === 'ALL' ? null : count(w => w.direction === v))).join(''));
+    .map(([v, l]) => opt('dir', v, l, v !== 'ALL')).join(''));
 
   document.querySelectorAll('#filters .opt').forEach(b => b.addEventListener('click', () => {
     F[b.dataset.group] = b.dataset.value;
