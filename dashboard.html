@@ -293,7 +293,10 @@ function toCandles(c) {
   if (Array.isArray(c)) return c;
   return c.rows.map(r => Object.fromEntries(c.fields.map((f, i) => [f, r[i]])));
 }
-const toUnixTime = (iso) => iso ? Math.floor(new Date(iso).getTime() / 1000) : null;
+// Crypto and PSE times come without a timezone but are UTC — read them as
+// UTC, not as the browser's local time (which put every marker 8h early).
+const parseTime = (iso) => new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}Z`);
+const toUnixTime = (iso) => iso ? Math.floor(parseTime(iso).getTime() / 1000) : null;
 
 // ---------------------------------------------------------------------------
 // Charts
@@ -569,7 +572,7 @@ function refreshBasketViews() {
 
 // "4:38 PM" today, "Sep 23 4:38 PM" otherwise.
 function fmtTime(iso) {
-  const d = new Date(iso), today = new Date().toDateString() === d.toDateString();
+  const d = parseTime(iso), today = new Date().toDateString() === d.toDateString();
   const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   return today ? time : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
 }
@@ -973,7 +976,9 @@ async function init() {
 
   let data;
   try {
-    const resp = await fetch('data.json', { cache: 'no-store' });
+    // 'no-cache' = ask GitHub whether it changed: a new scan downloads, an
+    // unchanged file comes from the browser cache (no 20+ MB re-download).
+    const resp = await fetch('data.json', { cache: 'no-cache' });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     data = await resp.json();
   } catch (err) {

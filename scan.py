@@ -376,7 +376,12 @@ def scan_higher_timeframe(
 
 
 def _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache) -> None:
+    if (asset["asset_class"], htf) in config.SMA50_EXCLUDED:
+        state.pop(key, None)
+        return
     watch = find_sma50_watch(df_htf, aligned_auto_lsma, last_closed)
+    if watch and asset["asset_class"] in config.SMA50_BULLISH_ONLY and watch["direction"] != config.DIRECTION_BULLISH:
+        watch = None
     entry = state.get(key)
     if watch is None:
         if entry is not None:
