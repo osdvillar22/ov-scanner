@@ -2,14 +2,6 @@
   "picks": [
     {
       "asset_class": "crypto",
-      "ticker": "ADIUSD",
-      "display_name": "ADIUSD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-09-24T12:12:31.789Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "PEAQUSD",
       "display_name": "PEAQUSD",
       "higher_tf": "4H",
