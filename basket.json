@@ -425,6 +425,15 @@
       "muted": [
         "15m"
       ]
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "CHP",
+      "display_name": "CHP",
+      "higher_tf": "1D",
+      "direction": "BULLISH",
+      "added_at": "2026-09-26T13:33:57.957Z",
+      "setup": "sma50"
     }
   ]
 }
