@@ -18,6 +18,8 @@ your own machine for now) and it will:
      the most recent trigger closed on the wrong side of EMA20 (trend
      break) — recomputed fresh every run. Every qualifying candle in the
      window gets marked on the dashboard, not just the first one.
+     After that removal, a candle reaching SMA 50 starts a separate SMA 50
+     watch for the next few candles (see find_sma50_watch).
   3. For every watchlisted asset, also fetch+serialize its two mapped lower
      timeframes (config.LOWER_TF_MAP) purely as reference charts for the
      dashboard — no state or setup tracking runs on them.
@@ -274,23 +276,136 @@ def find_phase_a_watch(
 # Phase A — per-asset scan
 # ---------------------------------------------------------------------------
 
+def find_sma50_watch(
+    df_htf: pd.DataFrame, aligned_auto_lsma: pd.Series | None, last_closed: int,
+    window: int = config.WATCH_WINDOW_CANDLES,
+) -> dict | None:
+    """
+    The SMA 50 pullback watch. Replays the trend watch's own life cycle over
+    recent candles — trigger(s), then the removal candle (a finished candle
+    closing past EMA20 while the last trigger is still in its window) — and
+    looks from that removal candle (included) through the next
+    SMA50_SEARCH_CANDLES for a candle reaching SMA 50: low within
+    SMA50_TOUCH_ATR x ATR14 above it, or through it (bullish; mirrored for
+    bearish). The watch lasts SMA50_WATCH_CANDLES candles counted from that
+    touch candle — whether price then bounces or goes under SMA 50.
+
+    The still-forming candle can be the touch: once its low has reached the
+    level it can't un-reach it. Returns the live watch, or None.
+    """
+    n = len(df_htf)
+    search, life = config.SMA50_SEARCH_CANDLES, config.SMA50_WATCH_CANDLES
+    start = max(1, n - (window + search + life + 20))
+    last_trig, direction, trig_idx, found = None, None, [], None
+    for i in range(start, last_closed + 1):
+        row = df_htf.iloc[i]
+        d = _entry_direction(row, None if aligned_auto_lsma is None else aligned_auto_lsma.iloc[i])
+        if d:
+            if last_trig is None or d != direction:
+                trig_idx = []
+            last_trig, direction = i, d
+            trig_idx.append(i)
+            continue
+        if last_trig is None:
+            continue
+        if i - last_trig >= window:  # aged out of the window — not a removal
+            last_trig = None
+            continue
+        bull = direction == config.DIRECTION_BULLISH
+        if not ((row["close"] < row["ema20"]) if bull else (row["close"] > row["ema20"])):
+            continue
+        last_trig = None  # removed
+        for j in range(i, min(i + search, n)):
+            c = df_htf.iloc[j]
+            if pd.isna(c["sma50"]) or pd.isna(c["atr"]):
+                continue
+            reach = config.SMA50_TOUCH_ATR * c["atr"]
+            if (c["low"] <= c["sma50"] + reach) if bull else (c["high"] >= c["sma50"] - reach):
+                if (n - 1) - j < life:
+                    found = {
+                        "direction": direction,
+                        "trigger_times": [df_htf.index[k] for k in trig_idx],
+                        "removed_at": df_htf.index[i],
+                        "touch_at": df_htf.index[j],
+                        "touch_gap": j - i,
+                        "candles_since_touch": (n - 1) - j,
+                        "candles_left": life - ((n - 1) - j),
+                    }
+                break
+    return found
+
+
+def _fill_charts(entry: dict, asset: dict, htf: str, df_htf: pd.DataFrame, ltf_cache: dict) -> None:
+    """Chart data for one watch: its own timeframe plus both lower tfs,
+    fetched once per asset even when a tf has both a trend and an SMA 50
+    watch. Also refreshes naming, so renames reach existing watches."""
+    entry["display_name"] = asset["display_name"]
+    entry["tag"] = asset.get("tag")
+    entry["large_cap"] = bool(asset.get("large_cap"))
+    entry["last_rsi"] = round(float(df_htf.iloc[-1]["rsi"]), 2)
+    entry["candles"] = serialize_candles(df_htf)
+    entry["lower_tf_candles"] = {}
+    for ltf in config.LOWER_TF_MAP[htf]:
+        if ltf not in ltf_cache:
+            ltf_cache[ltf] = fetch_and_compute(asset, ltf)
+        if ltf_cache[ltf] is not None:
+            entry["lower_tf_candles"][ltf] = serialize_candles(ltf_cache[ltf], n=lower_tf_candle_count(htf, ltf))
+
+
 def scan_higher_timeframe(
     asset: dict, htf: str, df_htf: pd.DataFrame | None, df_auto: pd.DataFrame | None, state: dict,
+    ltf_cache: dict | None = None,
 ) -> None:
     """Check one asset on one higher timeframe using its (already-fetched)
     own data and its AUTO_HIGHER_TF data, and mutate `state` accordingly:
-    add, refresh, or remove."""
+    add, refresh, or remove — the trend watch, then the SMA 50 watch."""
     key = f"{asset['asset_class']}:{asset['ticker']}:{htf}"
-    entry = state.get(key)
     has_auto = htf in config.AUTO_HIGHER_TF
+    ltf_cache = {} if ltf_cache is None else ltf_cache
 
     if df_htf is None or (has_auto and df_auto is None):
-        if entry is not None:
-            logger.warning("Fetch too short/failed for tracked entry %s — leaving state untouched this run", key)
+        for k in (key, f"{key}:sma50"):
+            if k in state:
+                logger.warning("Fetch too short/failed for tracked entry %s — leaving state untouched this run", k)
         return
 
     aligned_auto_lsma = _align_auto_lsma(df_htf, df_auto) if has_auto else None
-    watch = find_phase_a_watch(df_htf, aligned_auto_lsma, last_closed_index(df_htf, htf))
+    last_closed = last_closed_index(df_htf, htf)
+    _scan_trend(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache)
+    _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, f"{key}:sma50", ltf_cache)
+
+
+def _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache) -> None:
+    watch = find_sma50_watch(df_htf, aligned_auto_lsma, last_closed)
+    entry = state.get(key)
+    if watch is None:
+        if entry is not None:
+            logger.info("REMOVED: %s %s SMA 50 — %d candles since the touch", asset["display_name"], htf, config.SMA50_WATCH_CANDLES)
+            del state[key]
+        return
+    if entry is None or entry.get("touch_at") != watch["touch_at"].isoformat():
+        entry = {
+            "asset_class": asset["asset_class"], "ticker": asset["ticker"], "higher_tf": htf,
+            "setup": "sma50", "first_seen": now_iso(),
+        }
+        state[key] = entry
+        logger.info("NEW SMA 50 WATCH: %s %s (%s) touched %d candles after the EMA20 removal",
+                    asset["display_name"], htf, watch["direction"], watch["touch_gap"])
+    entry["direction"] = watch["direction"]
+    entry["trigger_times"] = [t.isoformat() for t in watch["trigger_times"]]
+    entry["removed_at"] = watch["removed_at"].isoformat()
+    entry["touch_at"] = watch["touch_at"].isoformat()
+    entry["touch_gap"] = watch["touch_gap"]
+    entry["candles_ago_most_recent"] = watch["candles_since_touch"]
+    entry["candles_left"] = watch["candles_left"]
+    entry["life"] = config.SMA50_WATCH_CANDLES
+    entry["window"] = config.WATCH_WINDOW_CANDLES
+    _fill_charts(entry, asset, htf, df_htf, ltf_cache)
+
+
+def _scan_trend(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache) -> None:
+    entry = state.get(key)
+    watch = find_phase_a_watch(df_htf, aligned_auto_lsma, last_closed)
 
     if watch is None or watch["invalidated_at"] is not None:
         if entry is not None:
@@ -309,6 +424,7 @@ def scan_higher_timeframe(
             "ticker": asset["ticker"],
             "display_name": asset["display_name"],
             "higher_tf": htf,
+            "setup": "trend",
             "auto_higher_tf": config.AUTO_HIGHER_TF.get(htf),
             "first_seen": now_iso(),
         }
@@ -319,26 +435,15 @@ def scan_higher_timeframe(
             watch["qualifying_count"], watch["window"], watch["candles_ago_most_recent"],
         )
 
-    # Refreshed every run, not just at creation, so naming changes reach
-    # watches that were already on the list.
-    entry["display_name"] = asset["display_name"]
-    entry["tag"] = asset.get("tag")
-    entry["large_cap"] = bool(asset.get("large_cap"))
+    # Refreshed every run, not just at creation.
+    entry["setup"] = "trend"
     entry["direction"] = watch["direction"]
     entry["rsi_at_trigger"] = watch["rsi_at_trigger"]
     entry["qualifying_count"] = watch["qualifying_count"]
     entry["window"] = watch["window"]
     entry["candles_ago_most_recent"] = watch["candles_ago_most_recent"]
     entry["trigger_times"] = [t.isoformat() for t in watch["trigger_times"]]
-
-    entry["last_rsi"] = round(float(df_htf.iloc[-1]["rsi"]), 2)
-    entry["candles"] = serialize_candles(df_htf)
-    entry["lower_tf_candles"] = {}
-    for ltf in config.LOWER_TF_MAP[htf]:
-        df_ltf = fetch_and_compute(asset, ltf)
-        if df_ltf is not None:
-            n = lower_tf_candle_count(htf, ltf)
-            entry["lower_tf_candles"][ltf] = serialize_candles(df_ltf, n=n)
+    _fill_charts(entry, asset, htf, df_htf, ltf_cache)
 
 
 def lower_tf_candle_count(htf: str, ltf: str) -> int:
@@ -370,9 +475,11 @@ def scan_asset(asset: dict, state: dict) -> None:
     for tf in auto_tfs:
         tf_data[tf] = fetch_and_compute(asset, tf, min_bars=config.LSMA_WARMUP_BARS)
 
+    # Lower-tf charts reuse a frame already fetched here (e.g. 1H for 4H).
+    ltf_cache = {tf: df for tf, df in tf_data.items() if tf in htfs and df is not None}
     for htf in htfs:
         df_auto = tf_data.get(config.AUTO_HIGHER_TF.get(htf))
-        scan_higher_timeframe(asset, htf, tf_data[htf], df_auto, state)
+        scan_higher_timeframe(asset, htf, tf_data[htf], df_auto, state, ltf_cache)
 
 
 # ---------------------------------------------------------------------------

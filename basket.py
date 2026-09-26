@@ -21,10 +21,15 @@ lower-tf charts show (scan.lower_tf_candle_count), not a stored state
 machine, so a lost cache can never leave a pick stuck in a wrong state.
 The only persisted state is which candles already alerted (dedupe).
 
+SMA 50 picks (setup "sma50", see scan.find_sma50_watch) use the same
+pullback -> MACD -> break steps, run separately on the lower tf's SMA 50 and
+its LSMA, from the higher-tf touch candle on — and each line fires only
+once per pick. A candle crossing both lines sends one alert naming both.
+
 A pick is removed from basket.json by the user, or automatically once its
-higher-timeframe watch is gone (dropped off the watchlist, or flipped
-direction) — deleted rather than hidden, so a later re-trigger doesn't
-quietly bring it back.
+higher-timeframe watch is gone (dropped off the watchlist, flipped
+direction, or an SMA 50 watch's candles ran out) — deleted rather than
+hidden, so a later re-trigger doesn't quietly bring it back.
 
 Two entry points:
   - `python basket.py --live` — the 5-minute workflow (basket.yml): crypto
@@ -56,10 +61,27 @@ logger = logging.getLogger("basket")
 WAITING = "waiting"          # no pullback since the last entry (or window start)
 PULLED_BACK = "pulled_back"  # closed past the LSMA, MACD hasn't followed yet
 ARMED = "armed"              # pulled back + MACD followed — next LSMA break alerts
+DONE = "done"                # SMA 50 picks: this line already fired its one entry
+
+
+def is_sma50(pick: dict) -> bool:
+    return pick.get("setup") == "sma50"
 
 
 def pick_key(pick: dict) -> str:
-    return f"{pick['asset_class']}:{pick['ticker']}:{pick['higher_tf']}"
+    """Same as the pick's watch key in scan's state."""
+    base = f"{pick['asset_class']}:{pick['ticker']}:{pick['higher_tf']}"
+    return f"{base}:sma50" if is_sma50(pick) else base
+
+
+# The lines each setup's entries break, and each line's alert-history key.
+TREND_LINES = ("lsma",)
+SMA50_LINES = ("sma50", "lsma")
+LINE_LABEL = {"lsma": "LSMA", "sma50": "SMA 50"}
+
+
+def dedupe_key(pick: dict, ltf: str, line: str) -> str:
+    return f"{pick_key(pick)}|{ltf}|{line}" if is_sma50(pick) else f"{pick_key(pick)}|{ltf}"
 
 
 # ---------------------------------------------------------------------------
@@ -143,11 +165,14 @@ def _utc(ts: pd.Timestamp) -> pd.Timestamp:
     return ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
 
 
-def evaluate_ltf(df: pd.DataFrame, ltf: str, direction: str, window: int, alerted_times: set) -> dict:
-    """Replay the pullback -> MACD -> LSMA-break setup over the trailing
-    `window` candles. `alerted_times` (UTC iso strings) are candles that
-    already fired an alert: they're treated as entries even if the candle
-    later closed differently, so one pullback can never alert twice.
+def evaluate_ltf(df: pd.DataFrame, ltf: str, direction: str, window: int, alerted_times: set,
+                 line: str = "lsma", since: pd.Timestamp | None = None, once: bool = False) -> dict:
+    """Replay the pullback -> MACD -> break setup against one line (the
+    LSMA, or SMA 50) over the trailing `window` candles — from `since` on,
+    if given, and stopping after the first entry if `once`. `alerted_times`
+    (UTC iso strings) are candles that already fired an alert: they're
+    treated as entries even if the candle later closed differently, so one
+    pullback can never alert twice.
 
     Returns {"state": WAITING|PULLED_BACK|ARMED,
              "entries": [{"time": utc iso, "lsma": .., "extreme": ..}, ...],
@@ -161,8 +186,12 @@ def evaluate_ltf(df: pd.DataFrame, ltf: str, direction: str, window: int, alerte
     pulled_back = macd_followed = False
     entries, events = [], []
     for i in range(start, len(df)):
+        if since is not None and _utc(df.index[i]) < since:
+            continue
+        if once and entries:
+            break
         row = df.iloc[i]
-        lsma, hist = row["lsma"], row["macd_hist"]
+        lsma, hist = row[line], row["macd_hist"]
         if pd.isna(lsma) or pd.isna(hist):
             continue
         t = _utc(df.index[i]).isoformat()
@@ -185,21 +214,31 @@ def evaluate_ltf(df: pd.DataFrame, ltf: str, direction: str, window: int, alerte
                 macd_followed = True
                 events.append({"time": t, "type": "armed"})
 
-    state = ARMED if pulled_back and macd_followed else PULLED_BACK if pulled_back else WAITING
+    if once and entries:
+        state = DONE
+    else:
+        state = ARMED if pulled_back and macd_followed else PULLED_BACK if pulled_back else WAITING
+    for e in events:
+        e["line"] = line
     return {"state": state, "entries": entries, "events": events}
 
 
-def check_pick(pick: dict, alerted: dict, now: pd.Timestamp) -> tuple[dict, list]:
+def check_pick(pick: dict, alerted: dict, now: pd.Timestamp, since: str | None = None) -> tuple[dict, list]:
     """Evaluate both lower timeframes of one pick. Returns (status, alerts):
     status per ltf for the dashboard, and new entries to alert on — only
     ones on candles still open when (or opened after) the pick was added,
     and within the last couple of candles, so a cold cache can't replay an
-    old entry as a fresh alert."""
+    old entry as a fresh alert. `since` is an SMA 50 pick's touch candle
+    time: its lines are only replayed from there. Entries on the same
+    candle (both lines at once) become one alert."""
     asset = {k: pick[k] for k in ("asset_class", "ticker", "display_name")}
     added_at = _utc(pd.Timestamp(pick.get("added_at") or now.isoformat()))
-    # Lower tfs the user muted on the dashboard: still evaluated (the card
-    # and chart markers keep updating), just never alerted.
+    # Lower tfs the user switched off on the dashboard: still evaluated (the
+    # card and chart markers keep updating), just never alerted.
     muted = set(pick.get("muted") or [])
+    sma50 = is_sma50(pick)
+    lines = SMA50_LINES if sma50 else TREND_LINES
+    since_ts = _utc(pd.Timestamp(since)) if (sma50 and since) else None
     status, alerts = {}, []
 
     for ltf in config.LOWER_TF_MAP[pick["higher_tf"]]:
@@ -207,21 +246,27 @@ def check_pick(pick: dict, alerted: dict, now: pd.Timestamp) -> tuple[dict, list
         if df is None:
             status[ltf] = {"state": "no_data", "last_entry": None}
             continue
-        done = set(alerted.get(f"{pick_key(pick)}|{ltf}", []))
-        result = evaluate_ltf(df, ltf, pick["direction"], scan.lower_tf_candle_count(pick["higher_tf"], ltf), done)
-        status[ltf] = {
-            "state": result["state"],
-            "last_entry": result["entries"][-1]["time"] if result["entries"] else None,
-            "events": result["events"],
-        }
-
+        window = scan.lower_tf_candle_count(pick["higher_tf"], ltf)
         bar = pd.Timedelta(minutes=config.TIMEFRAME_MINUTES[ltf])
         recent_cutoff = now - max(2 * bar, pd.Timedelta(minutes=30))
-        for e in result["entries"]:
-            opened = pd.Timestamp(e["time"])
-            if ltf in muted or e["time"] in done or opened + bar <= added_at or opened < recent_cutoff:
-                continue
-            alerts.append({"pick": pick, "ltf": ltf, "now": float(df.iloc[-1]["close"]), **e})
+        per_line, events, fresh = {}, [], {}
+        for line in lines:
+            done = set(alerted.get(dedupe_key(pick, ltf, line), []))
+            result = evaluate_ltf(df, ltf, pick["direction"], window, done, line=line, since=since_ts, once=sma50)
+            per_line[line] = {"state": result["state"], "last_entry": result["entries"][-1]["time"] if result["entries"] else None}
+            events += result["events"]
+            for e in result["entries"]:
+                opened = pd.Timestamp(e["time"])
+                if ltf in muted or e["time"] in done or opened + bar <= added_at or opened < recent_cutoff:
+                    continue
+                a = fresh.setdefault(e["time"], {"pick": pick, "ltf": ltf, "now": float(df.iloc[-1]["close"]),
+                                                  "time": e["time"], "extreme": e["extreme"], "lines": []})
+                a["lines"].append({"line": line, "level": e["lsma"]})
+        alerts += fresh.values()
+        if sma50:
+            status[ltf] = {"lines": per_line, "events": sorted(events, key=lambda e: e["time"])}
+        else:
+            status[ltf] = {**per_line["lsma"], "events": events}
     return status, alerts
 
 
@@ -237,7 +282,9 @@ def send_entry_alerts(alerts: list) -> bool:
         return True
     url = os.environ.get(config.DISCORD_ENTRY_WEBHOOK_ENV)
     for a in alerts:
-        logger.info("ENTRY: %s %s — %s broke LSMA @ %s", a["pick"]["display_name"], a["pick"]["direction"], a["ltf"], a["time"])
+        logger.info("ENTRY: %s %s %s — %s broke %s @ %s", a["pick"]["display_name"], a["pick"]["direction"],
+                    "SMA 50 setup" if is_sma50(a["pick"]) else "trend", a["ltf"],
+                    " + ".join(LINE_LABEL[l["line"]] for l in a["lines"]), a["time"])
     if not url:
         logger.info("%s not set — skipping Discord send for %d entries.", config.DISCORD_ENTRY_WEBHOOK_ENV, len(alerts))
         return False
@@ -248,11 +295,13 @@ def send_entry_alerts(alerts: list) -> bool:
         p, bull = a["pick"], a["pick"]["direction"] == config.DIRECTION_BULLISH
         opened = int(pd.Timestamp(a["time"]).timestamp())
         tag = f" ({p['tag']})" if p.get("tag") else ""
+        setup = " · SMA 50 setup" if is_sma50(p) else ""
+        broke = " + ".join(f"{LINE_LABEL[l['line']]} `{scan._sig(l['level'])}`" for l in a["lines"])
         embeds.append({
-            "title": f"Entry trigger: {p['display_name']}{tag} {'bullish' if bull else 'bearish'}",
+            "title": f"Entry trigger: {p['display_name']}{tag} {'bullish' if bull else 'bearish'}{setup}",
             "color": 0x2F7A4F if bull else 0xA8402C,
             "description": (
-                f"**{a['ltf']}** candle broke {'above' if bull else 'below'} LSMA `{scan._sig(a['lsma'])}` · MACD {'green' if bull else 'red'}\n"
+                f"**{a['ltf']}** candle broke {'above' if bull else 'below'} {broke} · MACD {'green' if bull else 'red'}\n"
                 f"Candle {'high' if bull else 'low'} `{scan._sig(a['extreme'])}` · price now `{scan._sig(a['now'])}`\n"
                 # <t:…:t> renders in each reader's own timezone in Discord.
                 f"{a['ltf']} candle opened <t:{opened}:t> · basket pick {p['higher_tf']} {'▲' if bull else '▼'}"
@@ -274,7 +323,8 @@ def _alert_and_record(alerts: list, alerted: dict) -> None:
     """Send, and only on success remember the candles as alerted."""
     if alerts and send_entry_alerts(alerts):
         for a in alerts:
-            alerted.setdefault(f"{pick_key(a['pick'])}|{a['ltf']}", []).append(a["time"])
+            for l in a["lines"]:
+                alerted.setdefault(dedupe_key(a["pick"], a["ltf"], l["line"]), []).append(a["time"])
 
 
 # ---------------------------------------------------------------------------
@@ -323,12 +373,18 @@ def run_live() -> None:
             logger.warning("Fetch failed for %s — skipping this run", pick_key(pick))
             continue
         aligned = scan._align_auto_lsma(df_htf, df_auto) if auto_tf else None
-        watch = scan.find_phase_a_watch(df_htf, aligned, scan.last_closed_index(df_htf, htf))
-        reason = _watch_gone_reason(watch, pick)
+        last_closed = scan.last_closed_index(df_htf, htf)
+        if is_sma50(pick):
+            watch = scan.find_sma50_watch(df_htf, aligned, last_closed)
+            reason = _sma50_gone_reason(watch, pick)
+        else:
+            watch = scan.find_phase_a_watch(df_htf, aligned, last_closed)
+            reason = _watch_gone_reason(watch, pick)
         if reason:
             remove.add(pick_key(pick)); reasons[pick_key(pick)] = reason
             continue
-        _, new = check_pick(pick, alerted, now)
+        since = watch["touch_at"].isoformat() if is_sma50(pick) else None
+        _, new = check_pick(pick, alerted, now, since)
         alerts += new
 
     _alert_and_record(alerts, alerted)
@@ -337,6 +393,14 @@ def run_live() -> None:
     # the ones checked this run — PSE picks are skipped out of session).
     live_keys = {pick_key(p) for p in load_basket() if p["asset_class"] in LIVE_CLASSES}
     save_alerted(config.BASKET_ALERTS_LIVE_FILE, alerted, live_keys - remove)
+
+
+def _sma50_gone_reason(watch: dict | None, pick: dict) -> str | None:
+    if watch is None:
+        return f"SMA 50 watch ended ({config.SMA50_WATCH_CANDLES} candles since the touch)"
+    if watch["direction"] != pick["direction"]:
+        return f"SMA 50 watch flipped to {watch['direction']}"
+    return None
 
 
 def _watch_gone_reason(watch: dict | None, pick: dict) -> str | None:
@@ -368,11 +432,12 @@ def run_hourly(state: dict) -> dict:
         watch = state.get(key)
         if watch is None or watch.get("direction") != pick["direction"]:
             remove.add(key)
-            reasons[key] = "higher-tf watch dropped off" if watch is None else f"higher-tf watch flipped to {watch['direction']}"
+            gone = "SMA 50 watch ended" if is_sma50(pick) else "higher-tf watch dropped off"
+            reasons[key] = gone if watch is None else f"higher-tf watch flipped to {watch['direction']}"
             continue
         pick = {**pick, "display_name": watch.get("display_name", pick["display_name"]), "tag": watch.get("tag")}
         is_live = pick["asset_class"] in LIVE_CLASSES
-        status, new = check_pick(pick, live_alerted if is_live else alerted, now)
+        status, new = check_pick(pick, live_alerted if is_live else alerted, now, watch.get("touch_at"))
         statuses[key] = status
         if not is_live:
             alerts += new

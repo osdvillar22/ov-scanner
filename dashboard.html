@@ -99,6 +99,8 @@
   .tfs button { padding: 1px 0; opacity: 0.85; }
   .tfs button:hover { opacity: 1; }
   .tfs .shown { font-weight: 700; opacity: 1; }
+  /* SMA 50 watch on that tf: dashed box, like the chart's SMA 50 line. */
+  .tfs .s50 { outline: 1px dashed var(--ink); outline-offset: 1px; border-radius: 2px; padding: 1px 2px; }
   /* In the basket: gold underline under that timeframe. */
   .tfs .in-basket { text-decoration: underline; text-decoration-color: var(--gold-bright); text-decoration-thickness: 2px; text-underline-offset: 3px; }
   .plus { font-size: 14px; line-height: 1; color: var(--ink-faint); text-align: center; }
@@ -106,7 +108,7 @@
   .plus.in { color: var(--gold-bright); }
   .plus:disabled { opacity: 0.4; cursor: wait; }
 
-  /* ---- Basket cards: two lines, plain coloured text, tap a tf to mute ---- */
+  /* ---- Basket cards: name, setup, then one row per lower tf with a switch ---- */
   .bk { padding: 7px 10px; border-bottom: 1px solid var(--hair); cursor: pointer; }
   .bk:hover { background: var(--surface-raised); }
   .bk.active { background: var(--surface-raised); box-shadow: inset 2px 0 0 var(--gold-bright); }
@@ -114,14 +116,19 @@
   .bk-htf { font-size: 11px; margin-left: 6px; }
   .bk-x { color: var(--ink-faint); font-size: 14px; line-height: 1; padding: 0 2px; }
   .bk-x:hover { color: var(--loss); }
-  .bk-ltfs { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 3px; font-size: 11px; }
-  .sw { display: inline-flex; gap: 5px; }
-  .sw .k { color: var(--ink-dim); }
-  .sw.muted { opacity: 0.35; }
-  .sw.muted .k { text-decoration: line-through; }
+  .bk-sub { font-size: 10.5px; color: var(--ink-dim); margin-top: 2px; }
+  .s50-tag { outline: 1px dashed var(--ink); outline-offset: 1px; border-radius: 2px; padding: 0 3px; color: var(--ink); }
+  .bk-ltfs { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 5px 6px; align-items: center; margin-top: 6px; font-size: 11px; }
+  .bk-ltfs .k { color: var(--ink); }
+  .bk-ltfs .off { color: var(--ink-faint); }
+  .tgl { width: 24px; height: 13px; border-radius: 7px; background: var(--border); position: relative; flex-shrink: 0; }
+  .tgl::after { content: ''; position: absolute; top: 2.5px; left: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); transition: left .15s; }
+  .tgl[aria-checked="true"] { background: color-mix(in srgb, var(--gold-bright) 28%, var(--border)); }
+  .tgl[aria-checked="true"]::after { left: 13px; background: var(--gold-bright); }
+  .tgl:disabled { opacity: 0.5; cursor: wait; }
   .st-waiting, .st-pulled_back, .st-no_data, .st-pending { color: var(--ink-dim); }
   .st-armed { color: var(--gold-bright); }
-  .st-entry { color: var(--gain); }
+  .st-entry, .st-done { color: var(--gain); }
   .bk-note { font-size: 10.5px; color: var(--ink-dim); margin-top: 3px; }
   .bk-gone { font-size: 10.5px; color: var(--loss); margin-top: 3px; }
   .bk-msg { font-size: 10.5px; color: var(--loss); }
@@ -139,6 +146,10 @@
   .tf-sw.off { color: var(--ink-faint); cursor: default; }
   .tf-sw.current { font-weight: 700; background: var(--surface-raised); border-color: var(--border); }
   .d-summary { font-size: 11px; color: var(--ink-dim); margin-top: 3px; }
+  .tf-sw.s50 { outline: 1px dashed var(--ink); outline-offset: -2px; }
+  .setup-sw { margin-left: 8px; }
+  .setup-sw button { color: var(--ink-dim); padding: 0 4px; }
+  .setup-sw button.current { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
   .d-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 11px; }
   .bk-btn { color: var(--gold-bright); }
   .bk-btn.in { color: var(--ink-dim); }
@@ -203,6 +214,7 @@
       <div class="seg" data-group="market"><span class="seg-label">market</span></div>
       <div class="seg" data-group="tf"><span class="seg-label">tf</span></div>
       <div class="seg" data-group="dir"><span class="seg-label">dir</span></div>
+      <div class="seg" data-group="setup"><span class="seg-label">setup</span></div>
     </div>
   </header>
 
@@ -239,7 +251,7 @@ const tfsFor = (a) => a.asset_class === 'pse' || a.asset_class === 'crypto' ? ['
 const LARGE_CAP_MARKETS = ['pse', 'crypto'];
 const LOWER_TF_MAP = { '1H': ['15m', '5m'], '4H': ['1H', '15m'], '1D': ['4H', '1H'], '1W': ['1D', '4H'] };
 
-const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL', q: '' };
+const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL', setup: 'ALL', q: '' };
 
 // PSE session (Mon-Fri 9:30-15:00 Manila). Doesn't know PSE holidays.
 function pseOpen() {
@@ -251,10 +263,15 @@ function pseOpen() {
 const dirClass = (d) => (d || '').toLowerCase();
 const dirArrow = (d) => d === 'BULLISH' ? '▲' : '▼';
 const symKey = (a) => `${a.asset_class}__${a.ticker}`;
-const pickKey = (p) => `${p.asset_class}:${p.ticker}:${p.higher_tf}`;
+// A tf can hold two watches: the trend watch ('4H') and the SMA 50 watch
+// ('4H:50'). Picks and watches share keys with scan.py / basket.py.
+const isS50 = (w) => w.setup === 'sma50';
+const slotOf = (w) => isS50(w) ? `${w.higher_tf}:50` : w.higher_tf;
+const pickKey = (p) => `${p.asset_class}:${p.ticker}:${p.higher_tf}${isS50(p) ? ':sma50' : ''}`;
+const setupMatch = (w, f = F) => f.setup === 'ALL' || (isS50(w) ? 'sma50' : 'trend') === f.setup;
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-let watchesBySym = {};     // symKey -> { '1H': watch, '4H': watch, ... }
+let watchesBySym = {};     // symKey -> { '1H': watch, '4H:50': SMA 50 watch, ... }
 let assetsById = {};       // watch _id -> watch
 // Aligned = on watch, same direction, on every tf the market has (1W too for PSE/crypto).
 const isAligned = (byTf) => { const tfs = tfsFor(Object.values(byTf)[0]); return tfs.every(tf => byTf[tf]) && new Set(tfs.map(tf => byTf[tf].direction)).size === 1; };
@@ -408,12 +425,21 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
   if (opts.triggers && opts.triggers.times && opts.triggers.times.length) {
     // Every qualifying candle in the window, in neutral ink so it never
     // blends into a green or red candle; only the latest gets a label.
+    // An SMA 50 watch adds its removal candle and its touch candle.
     const isBuy = opts.triggers.direction === 'BULLISH';
     const times = opts.triggers.times.map(toUnixTime).filter(t => t != null).sort((a, b) => a - b);
-    candleSeries.setMarkers(times.map((t, i) => ({
+    const inChart = new Set(candles.map(c => c.time));
+    const marks = times.map((t, i) => ({
       time: t, position: isBuy ? 'belowBar' : 'aboveBar', color: ink,
-      shape: isBuy ? 'arrowUp' : 'arrowDown', text: i === times.length - 1 ? 'RSI TRIGGER' : '',
-    })));
+      shape: isBuy ? 'arrowUp' : 'arrowDown', text: i === times.length - 1 && !opts.triggers.s50 ? 'RSI TRIGGER' : '',
+    }));
+    const s = opts.triggers.s50;
+    if (s) {
+      const side = isBuy ? 'aboveBar' : 'belowBar';
+      marks.push({ time: toUnixTime(s.removed_at), position: side, color: cssVar('--ink-dim'), shape: 'square', size: 0.6, text: 'EMA20' });
+      marks.push({ time: toUnixTime(s.touch_at), position: isBuy ? 'belowBar' : 'aboveBar', color: cssVar('--gold-bright'), shape: 'circle', text: 'SMA 50' });
+    }
+    candleSeries.setMarkers(marks.filter(m => inChart.has(m.time)).sort((a, b) => a.time - b.time));
   }
   if (opts.cycles && opts.cycles.events && opts.cycles.events.length) {
     // Basket pick on a lower tf: every step of every entry cycle. Pullback
@@ -426,8 +452,10 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
       entry: { position: bull ? 'belowBar' : 'aboveBar', color: ink, shape: bull ? 'arrowUp' : 'arrowDown' },
     };
     const inChart = new Set(candles.map(c => c.time));
+    // SMA 50 picks: entries are labelled by the line crossed (S / L).
+    const label = (e) => opts.cycles.s50 && e.type === 'entry' ? (e.line === 'sma50' ? 'S' : 'L') : '';
     candleSeries.setMarkers(opts.cycles.events
-      .map(e => ({ time: toUnixTime(e.time), ...style[e.type] }))
+      .map(e => ({ time: toUnixTime(e.time), ...style[e.type], text: label(e) }))
       .filter(m => m.position && inChart.has(m.time))
       .sort((a, b) => a.time - b.time));
   }
@@ -516,8 +544,9 @@ async function toggleBasket(pick) {
     : picks.filter(p => pickKey(p) !== key).concat([{
         asset_class: pick.asset_class, ticker: pick.ticker, display_name: pick.display_name,
         higher_tf: pick.higher_tf, direction: pick.direction, added_at: new Date().toISOString(),
+        ...(isS50(pick) ? { setup: 'sma50' } : {}),
       }]),
-    `Basket: ${removing ? 'remove' : 'add'} ${pick.display_name} ${pick.higher_tf}`);
+    `Basket: ${removing ? 'remove' : 'add'} ${pick.display_name} ${pick.higher_tf}${isS50(pick) ? ' SMA 50' : ''}`);
   refreshBasketViews();
   return removing ? 'removed' : 'added';
 }
@@ -528,7 +557,7 @@ async function toggleMute(pick, ltf) {
   const muted = new Set(pick.muted || []);
   muted.has(ltf) ? muted.delete(ltf) : muted.add(ltf);
   await updateBasket(picks => picks.map(p => pickKey(p) === key ? { ...p, muted: [...muted] } : p),
-    `Basket: ${muted.has(ltf) ? 'mute' : 'unmute'} ${pick.display_name} ${pick.higher_tf} ${ltf}`);
+    `Basket: ${muted.has(ltf) ? 'mute' : 'unmute'} ${pick.display_name} ${pick.higher_tf}${isS50(pick) ? ' SMA 50' : ''} ${ltf}`);
   refreshBasketViews();
 }
 
@@ -548,19 +577,20 @@ function fmtTime(iso) {
 const STATE_TEXT = {
   waiting: ['waiting', 'Waiting for a pullback past the LSMA'],
   pulled_back: ['pulled back', "Pulled back past the LSMA — MACD hasn't followed yet"],
-  armed: ['armed', 'Pulled back + MACD followed — the next LSMA break alerts'],
+  armed: ['armed', 'Pulled back + MACD followed — the next break alerts'],
+  done: ['✓', 'Fired its one entry'],
   no_data: ['no data', "Couldn't fetch this timeframe on the last check"],
 };
 
 // A pick's watch (for its market tag / large-cap flag / charts), if still on.
-const watchOf = (p) => assetsById[`${p.asset_class}__${p.ticker}__${p.higher_tf}`];
+const watchOf = (p) => assetsById[`${p.asset_class}__${p.ticker}__${slotOf(p)}`];
 
 function basketPickVisible(p) {
   const w = watchOf(p);
   if (!marketMatch(w || p)) return false;
   if (F.tf === 'ALIGNED') { const byTf = watchesBySym[symKey(p)]; if (!byTf || !isAligned(byTf)) return false; }
   else if (F.tf !== 'ALL' && p.higher_tf !== F.tf) return false;
-  return F.dir === 'ALL' || p.direction === F.dir;
+  return (F.dir === 'ALL' || p.direction === F.dir) && setupMatch(p);
 }
 
 function renderBasket() {
@@ -575,34 +605,48 @@ function renderBasket() {
   el.innerHTML = shown.map(p => {
     const key = pickKey(p), w = watchOf(p), st = basketStatus[key], muted = new Set(p.muted || []);
     const name = w ? w.display_name : p.display_name, tag = w && w.tag && p.asset_class !== 'pse' ? w.tag : '';
+    const s50 = isS50(p);
+    const sub = s50
+      ? `<div class="bk-sub"><span class="s50-tag">SMA 50</span>${w ? ` · ${w.candles_left} of ${w.life} candles left` : ''}</div>`
+      : '<div class="bk-sub">trend</div>';
     let body;
     if (!w) {
-      body = '<div class="bk-gone">off the watchlist — being removed</div>';
+      body = `<div class="bk-gone">${s50 ? 'SMA 50 watch ended' : 'off the watchlist'} — being removed</div>`;
     } else {
-      // One entry per lower tf: its latest activity only (full history is on
-      // the lower-tf charts). Tap to mute / unmute its alerts.
+      // One row per lower tf: its latest activity only (full history is on
+      // the lower-tf charts), and a switch for its alerts.
       body = `<div class="bk-ltfs">${LOWER_TF_MAP[p.higher_tf].map(ltf => {
-        const s = st && st[ltf];
-        let text = 'pending', cls = 'pending', tip = 'Status appears after the next hourly scan';
-        if (s) {
+        const s = st && st[ltf], on = !muted.has(ltf);
+        let status = '<span class="st-pending" title="Status appears after the next hourly scan">pending</span>';
+        if (s && s.lines) {
+          // SMA 50 pick: each line fires once — L = LSMA, S = SMA 50.
+          status = ['lsma', 'sma50'].map(line => {
+            const x = s.lines[line]; if (!x) return '';
+            const k = line === 'lsma' ? 'L' : 'S';
+            return x.state === 'done' && x.last_entry
+              ? `<span class="st-done" title="Entry on the ${line === 'lsma' ? 'LSMA' : 'SMA 50'}">${k} ✓ ${fmtTime(x.last_entry)}</span>`
+              : `<span class="st-${x.state}" title="${esc((STATE_TEXT[x.state] || [x.state, ''])[1])}">${k} ${(STATE_TEXT[x.state] || [x.state])[0]}</span>`;
+          }).filter(Boolean).join(' <span class="st-pending">·</span> ');
+        } else if (s) {
           const last = (s.events || []).at(-1);
-          if (s.state === 'waiting' && last && last.type === 'entry') { text = `entry ${fmtTime(last.time)}`; cls = 'entry'; tip = 'Latest entry — waiting for the next pullback'; }
-          else { [text, tip] = STATE_TEXT[s.state] || [s.state, '']; cls = s.state; }
+          if (s.state === 'waiting' && last && last.type === 'entry') status = `<span class="st-entry" title="Latest entry — waiting for the next pullback">✓ ${fmtTime(last.time)}</span>`;
+          else { const [text, tip] = STATE_TEXT[s.state] || [s.state, '']; status = `<span class="st-${s.state}" title="${esc(tip)}">${text}</span>`; }
         }
-        const m = muted.has(ltf);
-        return `<button class="sw${m ? ' muted' : ''}" type="button" data-ltf="${ltf}" title="${esc(tip)} · ${m ? 'alerts muted — tap to unmute' : 'tap to mute alerts'}"><span class="k">${ltf}</span><span class="st-${cls}">${text}</span></button>`;
+        return `<span class="k${on ? '' : ' off'}">${ltf}</span><span class="${on ? '' : 'off'}">${on ? status : 'off'}</span>`
+          + `<button class="tgl" type="button" role="switch" aria-checked="${on}" data-ltf="${ltf}" aria-label="${ltf} alerts" title="${on ? 'Alerts on — switch off' : 'Alerts off — switch on'}"></button>`;
       }).join('')}</div>`;
     }
     return `
       <div class="bk" data-key="${esc(key)}" data-id="${w ? w._id : ''}" title="${p.asset_class === 'crypto' ? 'Checked every 5 minutes' : p.asset_class === 'pse' ? 'Checked every 5 minutes during PSE hours' : 'Checked hourly'}">
         <div class="bk-head">
           <span><span class="sym">${esc(name)}</span>${tag ? `<span class="tag">${tag}</span>` : ''}<span class="bk-htf ${dirClass(p.direction)}">${p.higher_tf}${dirArrow(p.direction)}</span></span>
-          <button class="bk-x" type="button" aria-label="Remove ${esc(name)} ${p.higher_tf} from the basket" title="Remove from the basket">×</button>
+          <button class="bk-x" type="button" aria-label="Remove ${esc(name)} ${p.higher_tf}${s50 ? ' SMA 50' : ''} from the basket" title="Remove from the basket">×</button>
         </div>
+        ${sub}
         ${body}
         <div class="bk-msg"></div>
       </div>`;
-  }).join('') + `<div class="hint">tap a timeframe to mute or unmute its alerts</div>`;
+  }).join('') + `<div class="hint">switch a timeframe off to stop its alerts</div>`;
 
   el.querySelectorAll('.bk').forEach(card => {
     const pick = basketPicks.find(p => pickKey(p) === card.dataset.key);
@@ -614,7 +658,7 @@ function renderBasket() {
       e.currentTarget.disabled = true; say('removing…');
       try { await toggleBasket(pick); } catch (err) { say(`Couldn't remove: ${err.message}`); }
     });
-    card.querySelectorAll('.sw').forEach(sw => sw.addEventListener('click', async (e) => {
+    card.querySelectorAll('.tgl').forEach(sw => sw.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!requireToken()) return;
       sw.disabled = true;
@@ -649,19 +693,19 @@ function wireBasketSettings() {
 // the tf/direction filters, the one that triggered most recently.
 function primaryWatch(byTf, f = F) {
   if (f.tf === 'ALIGNED' && !isAligned(byTf)) return null;
-  const any = Object.values(byTf)[0];
-  const candidates = tfsFor(any).map(tf => byTf[tf]).filter(w => w
-    && (f.tf === 'ALL' || f.tf === 'ALIGNED' || w.higher_tf === f.tf)
-    && (f.dir === 'ALL' || w.direction === f.dir));
-  candidates.sort((x, y) => x.candles_ago_most_recent - y.candles_ago_most_recent);
+  const candidates = Object.values(byTf).filter(w =>
+    (f.tf === 'ALL' || f.tf === 'ALIGNED' || w.higher_tf === f.tf)
+    && (f.dir === 'ALL' || w.direction === f.dir) && setupMatch(w, f));
+  candidates.sort((x, y) => x.candles_ago_most_recent - y.candles_ago_most_recent || isS50(x) - isS50(y));
   return candidates[0] || null;
 }
 
-// Row = one asset. data-tf is the watch it shows: its RSI, its + / ✓, and
+// Row = one asset. data-slot is the watch it shows: its RSI, its + / ✓, and
 // the boldest of the timeframe labels. Triggered tfs are coloured, others
-// grey; a gold underline marks a tf that's in the basket.
+// grey; a dashed box marks an SMA 50 watch; a gold underline marks a tf
+// with a watch in the basket.
 function paintRow(row) {
-  const byTf = watchesBySym[row.dataset.sym], w = byTf && byTf[row.dataset.tf];
+  const byTf = watchesBySym[row.dataset.sym], w = byTf && byTf[row.dataset.slot];
   if (!w) return;
   row.dataset.id = w._id;
   const rsi = row.querySelector('.rsi');
@@ -669,12 +713,13 @@ function paintRow(row) {
   rsi.className = `rsi ${dirClass(w.direction)}`;
   row.querySelectorAll('.tfs [data-tf]').forEach(m => {
     m.classList.toggle('shown', m.dataset.tf === w.higher_tf);
-    m.classList.toggle('in-basket', !!byTf[m.dataset.tf] && inBasket(pickKey(byTf[m.dataset.tf])));
+    m.classList.toggle('in-basket', [m.dataset.tf, `${m.dataset.tf}:50`].some(k => byTf[k] && inBasket(pickKey(byTf[k]))));
   });
   const plus = row.querySelector('.plus'), inB = inBasket(pickKey(w));
+  const label = `${w.higher_tf}${isS50(w) ? ' SMA 50' : ''}`;
   plus.classList.toggle('in', inB);
   plus.textContent = inB ? '✓' : '+';
-  plus.title = inB ? `In the basket (${w.higher_tf}) — tap to remove` : `Add ${w.display_name} ${w.higher_tf} to the basket`;
+  plus.title = inB ? `In the basket (${label}) — tap to remove` : `Add ${w.display_name} ${label} to the basket`;
   plus.setAttribute('aria-label', plus.title);
 }
 
@@ -688,7 +733,7 @@ function applyFilters() {
       row.style.display = w ? '' : 'none';
       if (!w) return;
       any = true; visible++;
-      row.dataset.tf = w.higher_tf;
+      row.dataset.slot = slotOf(w);
       paintRow(row);
     });
     block.style.display = any ? '' : 'none';
@@ -727,6 +772,10 @@ function buildFilters(syms) {
   dir.insertAdjacentHTML('beforeend', [['ALL', 'all'], ['BULLISH', '<span class="bullish">▲</span>'], ['BEARISH', '<span class="bearish">▼</span>']]
     .map(([v, l]) => opt('dir', v, l, v !== 'ALL')).join(''));
 
+  const setup = document.querySelector('.seg[data-group="setup"]');
+  setup.insertAdjacentHTML('beforeend', [['ALL', 'all'], ['trend', 'trend'], ['sma50', 'SMA 50']]
+    .map(([v, l]) => opt('setup', v, l, v !== 'ALL')).join(''));
+
   document.querySelectorAll('#filters .opt').forEach(b => b.addEventListener('click', () => {
     F[b.dataset.group] = b.dataset.value;
     if (b.dataset.group === 'market') F.large = false;
@@ -753,8 +802,10 @@ function buildWatchlist(syms) {
       ${grouped[cls].map(byTf => {
         const a = Object.values(byTf)[0];
         const tfs = tfsFor(a).map(tf => {
-          const w = byTf[tf];
-          return w ? `<button type="button" class="${dirClass(w.direction)}" data-tf="${tf}" title="Open ${tf}">${tf}${dirArrow(w.direction)}</button>` : `<span class="off">${tf}</span>`;
+          const t = byTf[tf], s = byTf[`${tf}:50`], w = t || s;
+          if (!w) return `<span class="off">${tf}</span>`;
+          const title = t && s ? `Open ${tf} (trend + SMA 50 watch)` : `Open ${tf}${s ? ' SMA 50 watch' : ''}`;
+          return `<button type="button" class="${dirClass(w.direction)}${s ? ' s50' : ''}" data-tf="${tf}" title="${title}">${tf}${dirArrow(w.direction)}</button>`;
         }).join('');
         const tag = a.tag && a.asset_class !== 'pse' ? `<span class="tag">${a.tag}</span>` : '';
         return `
@@ -770,12 +821,13 @@ function buildWatchlist(syms) {
     row.addEventListener('click', () => selectAsset(row.dataset.id));
     row.querySelectorAll('.tfs button').forEach(m => m.addEventListener('click', (e) => {
       e.stopPropagation();
-      selectAsset(watchesBySym[row.dataset.sym][m.dataset.tf]._id);
+      const byTf = watchesBySym[row.dataset.sym], t = byTf[m.dataset.tf], s = byTf[`${m.dataset.tf}:50`];
+      selectAsset(((F.setup === 'sma50' || !t) ? s : t)._id);
     }));
     row.querySelector('.plus').addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!requireToken()) return;
-      const btn = e.currentTarget, w = watchesBySym[row.dataset.sym][row.dataset.tf];
+      const btn = e.currentTarget, w = watchesBySym[row.dataset.sym][row.dataset.slot];
       btn.disabled = true; btn.textContent = '…';
       try { await toggleBasket(w); }
       catch (err) { alert(`Couldn't save the basket: ${err.message}`); }
@@ -793,7 +845,7 @@ function selectAsset(id) {
   document.querySelectorAll('#watchlist .row').forEach(row => {
     const isOpen = row.dataset.sym === symKey(entry);
     row.classList.toggle('active', isOpen);
-    if (isOpen && row.dataset.tf !== entry.higher_tf) { row.dataset.tf = entry.higher_tf; paintRow(row); }
+    if (isOpen && row.dataset.slot !== slotOf(entry)) { row.dataset.slot = slotOf(entry); paintRow(row); }
   });
   document.querySelectorAll('#basketList .bk').forEach(c => c.classList.toggle('active', c.dataset.id === id));
   teardownCharts();
@@ -802,14 +854,24 @@ function selectAsset(id) {
   const siblings = watchesBySym[symKey(entry)] || {};
   const cycleStatus = basketStatus[pickKey(entry)] || null;
   const lowerTfs = Object.keys(entry.lower_tf_candles || {});
+  const s50 = isS50(entry);
   const tfSwitch = tfsFor(entry).map(tf => {
-    const w = siblings[tf];
+    // Same setup as the open watch where the tf has it, else the other one.
+    const t = siblings[tf], s = siblings[`${tf}:50`], w = (s50 ? s || t : t || s);
     if (!w) return `<span class="tf-sw off" title="Not on watch on ${tf}">${tf}</span>`;
-    return `<button class="tf-sw ${dirClass(w.direction)}${tf === entry.higher_tf ? ' current' : ''}" type="button" data-id="${w._id}">${tf}${dirArrow(w.direction)}</button>`;
+    return `<button class="tf-sw ${dirClass(w.direction)}${s ? ' s50' : ''}${tf === entry.higher_tf ? ' current' : ''}" type="button" data-id="${w._id}">${tf}${dirArrow(w.direction)}</button>`;
   }).join('');
+  const other = siblings[s50 ? entry.higher_tf : `${entry.higher_tf}:50`];
+  const setupSw = other
+    ? `<span class="setup-sw">${[[s50 ? other : entry, 'trend'], [s50 ? entry : other, 'SMA 50']].map(([w, l]) =>
+        `<button type="button" data-id="${w._id}" class="${w === entry ? 'current' : ''}">${l}</button>`).join('')}</span>`
+    : '';
   const sub = entry.asset_class === 'pse' ? 'PSE' : (entry.tag || (entry.ticker !== entry.display_name ? entry.ticker : ''));
   const ago = entry.candles_ago_most_recent;
   const noLsma = entry.higher_tf === '1W';
+  const summary = s50
+    ? `${entry.higher_tf} <span class="${dc}">${dc}</span> <span class="s50-tag">SMA 50</span> pullback · removed ${fmtTime(entry.removed_at)} (close past EMA20) · touched SMA 50 ${entry.touch_gap ? `${entry.touch_gap} ${entry.touch_gap === 1 ? 'candle' : 'candles'} later` : 'on that candle'} · ${entry.candles_left} of ${entry.life} candles left`
+    : `${entry.higher_tf} <span class="${dc}">${dc} continuation</span> · trend${noLsma ? '' : ' + LSMA'} + RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} · ${entry.qualifying_count} of ${entry.window} qualified · last ${ago} ${ago === 1 ? 'candle' : 'candles'} ago`;
 
   const detail = document.getElementById('detail');
   detail.innerHTML = `
@@ -817,7 +879,7 @@ function selectAsset(id) {
       <div><span class="d-name">${esc(entry.display_name)}</span>${sub ? `<span class="d-sub">${esc(sub)}</span>` : ''} <span class="rsi ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
       <div class="d-right">${tfSwitch}</div>
     </div>
-    <div class="d-summary">${entry.higher_tf} <span class="${dc}">${dc} continuation</span> · trend${noLsma ? '' : ' + LSMA'} + RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} · ${entry.qualifying_count} of ${entry.window} qualified · last ${ago} ${ago === 1 ? 'candle' : 'candles'} ago</div>
+    <div class="d-summary">${summary}${setupSw}</div>
     <div class="d-actions"><button class="bk-btn" id="basketBtn" type="button"></button><span class="msg" id="basketMsg"></span></div>
 
     <div class="legend">
@@ -829,14 +891,14 @@ function selectAsset(id) {
     <div class="macd-box" id="detail-macd"></div>
     <div class="price-line"><span id="detail-price">—</span><span id="detail-pct">—</span></div>
 
-    <div class="section"><span>LOWER TIMEFRAMES</span>${cycleStatus ? `<span class="cy"><span style="color:var(--gold-bright)">●</span> pulled back &nbsp;<span style="color:var(--violet)">●</span> armed &nbsp;<span>${dirArrow(direction)}</span> entry</span>` : ''}</div>
+    <div class="section"><span>LOWER TIMEFRAMES</span>${cycleStatus ? `<span class="cy"><span style="color:var(--gold-bright)">●</span> pulled back &nbsp;<span style="color:var(--violet)">●</span> armed &nbsp;<span>${dirArrow(direction)}</span> entry${s50 ? ' (S = SMA 50, L = LSMA · first cross of each only)' : ''}</span>` : ''}</div>
     ${lowerTfs.map((ltf, li) => `
       <div class="chart-head"><span class="chart-label">${ltf}</span><button class="reset" id="detail-mini-${li}-reset" type="button">reset zoom</button></div>
       <div class="chart-box" id="detail-mini-${li}"></div>
       <div class="macd-box" id="detail-minimacd-${li}"></div>
     `).join('')}`;
 
-  detail.querySelectorAll('.tf-sw[data-id]').forEach(b => { if (b.dataset.id !== id) b.addEventListener('click', () => selectAsset(b.dataset.id)); });
+  detail.querySelectorAll('.tf-sw[data-id], .setup-sw [data-id]').forEach(b => { if (b.dataset.id !== id) b.addEventListener('click', () => selectAsset(b.dataset.id)); });
   detail.querySelectorAll('.ind').forEach(b => b.addEventListener('click', () => setIndicator(b.dataset.key, !shown[b.dataset.key])));
   if (!shown.macd) detail.querySelectorAll('.macd-box').forEach(el => el.classList.add('is-hidden'));
   wireBasketButton(entry);
@@ -844,7 +906,7 @@ function selectAsset(id) {
   const forex = marketsOf(entry).has('forex');
   const candles = toCandles(entry.candles);
   renderBlock(candles, 'detail-chart', 'detail-macd', entry.window || 25,
-    { forex, triggers: entry.trigger_times ? { times: entry.trigger_times, direction } : null });
+    { forex, triggers: entry.trigger_times ? { times: entry.trigger_times, direction, s50: s50 ? entry : null } : null });
   if (candles.length > 1) {
     const last = candles[candles.length - 1].close, first = candles[0].close;
     const pct = (last - first) / first * 100;
@@ -856,7 +918,7 @@ function selectAsset(id) {
   lowerTfs.forEach((ltf, li) => {
     const c = toCandles(entry.lower_tf_candles[ltf]);
     renderBlock(c, `detail-mini-${li}`, `detail-minimacd-${li}`, c.length,
-      { forex, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction } : null });
+      { forex, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50 } : null });
   });
 }
 
@@ -865,7 +927,8 @@ function wireBasketButton(entry) {
   const key = pickKey(entry);
   const paint = () => {
     btn.classList.toggle('in', inBasket(key));
-    btn.textContent = inBasket(key) ? `✓ in basket (${entry.higher_tf}) · remove` : `+ add ${entry.higher_tf} to basket`;
+    const label = `${entry.higher_tf}${isS50(entry) ? ' SMA 50' : ''}`;
+    btn.textContent = inBasket(key) ? `✓ in basket (${label}) · remove` : `+ add ${label} to basket`;
   };
   paint();
   repaintBasketButton = paint;
@@ -927,9 +990,9 @@ async function init() {
   basketStatus = data.basket_status || {};
   watchesBySym = {}; assetsById = {};
   assets.forEach(a => {
-    a._id = `${symKey(a)}__${a.higher_tf}`;
+    a._id = `${symKey(a)}__${slotOf(a)}`;
     assetsById[a._id] = a;
-    (watchesBySym[symKey(a)] = watchesBySym[symKey(a)] || {})[a.higher_tf] = a;
+    (watchesBySym[symKey(a)] = watchesBySym[symKey(a)] || {})[slotOf(a)] = a;
   });
   const syms = Object.values(watchesBySym);
 

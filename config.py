@@ -59,6 +59,17 @@ TIMEFRAME_MINUTES = {
 # dashboard always shows exactly the window the logic is evaluating.
 WATCH_WINDOW_CANDLES = 25
 
+# The SMA 50 pullback watch (see scan.find_sma50_watch). After a trend watch
+# is removed (close past EMA20), a candle from that removal candle through
+# the next SMA50_SEARCH_CANDLES that reaches SMA 50 — its low within
+# SMA50_TOUCH_ATR x ATR14 above it (bullish; mirrored for bearish), or
+# through it — starts an SMA 50 watch lasting SMA50_WATCH_CANDLES candles
+# counted from that touch candle. Its basket entries fire once per line.
+SMA50_SEARCH_CANDLES = 25
+SMA50_WATCH_CANDLES = 10
+SMA50_TOUCH_ATR = 0.25
+ATR_PERIOD = 14
+
 # yfinance's native intraday intervals. Anything not in this dict (4H) has to
 # be resampled from 1H bars ourselves — see fetch.resample_to_4h().
 YFINANCE_NATIVE_INTERVAL = {
@@ -106,7 +117,7 @@ MACD_SIGNAL = 9
 
 EMA_PERIODS = [10, 20]
 
-# Chart-only reference line (not part of any trigger rule).
+# SMA 50: a chart line, and the level of the SMA 50 pullback watch.
 SMA_PERIOD = 50
 
 LSMA_LENGTH = 50

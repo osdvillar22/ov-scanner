@@ -78,6 +78,15 @@ def compute_lsma(series: pd.Series, length: int = 50, offset: int = 3) -> pd.Ser
     return pd.Series(out, index=series.index, name=f"lsma_{length}_{offset}")
 
 
+def compute_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """Wilder's ATR (TradingView's default ATR)."""
+    prev_close = df["close"].shift()
+    true_range = pd.concat(
+        [df["high"] - df["low"], (df["high"] - prev_close).abs(), (df["low"] - prev_close).abs()], axis=1
+    ).max(axis=1)
+    return true_range.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
+
+
 def compute_all(df: pd.DataFrame, close_col: str = "close") -> pd.DataFrame:
     """
     Convenience wrapper: takes an OHLC dataframe, returns it with every
@@ -103,7 +112,8 @@ def compute_all(df: pd.DataFrame, close_col: str = "close") -> pd.DataFrame:
 
     out["lsma"] = compute_lsma(close, config.LSMA_LENGTH, config.LSMA_OFFSET)
 
-    # Plain simple moving average — drawn on the dashboard charts only.
+    # Plain simple moving average — a chart line and the SMA 50 watch level.
     out[f"sma{config.SMA_PERIOD}"] = close.rolling(config.SMA_PERIOD).mean()
+    out["atr"] = compute_atr(out, config.ATR_PERIOD)
 
     return out
