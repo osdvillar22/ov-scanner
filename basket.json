@@ -264,39 +264,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "SEIUSD",
-      "display_name": "SEI/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-26T08:11:37.324Z",
-      "muted": [
-        "5m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "SUIUSD",
-      "display_name": "SUI/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-26T08:12:24.053Z",
-      "muted": [
-        "5m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "VELODROMEUSD",
-      "display_name": "VELODROME/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-26T08:14:57.517Z",
-      "muted": [
-        "5m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "SYNUSD",
       "display_name": "SYN/USD",
       "higher_tf": "1D",
