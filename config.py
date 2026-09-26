@@ -10,11 +10,7 @@ indicators.py never hardcode a threshold or a ticker list inline.
 # ---------------------------------------------------------------------------
 
 # The timeframes we scan the FULL universe on, looking for a watch trigger.
-# 1W is deliberately excluded: its own AUTO_HIGHER_TF step would be "1M",
-# and Kraken's OHLC endpoint can't supply enough monthly history for
-# crypto to ever satisfy that condition (~24 bars from its ~720-day cap,
-# short of LSMA(50)'s minimum) — rather than have 1W work for some asset
-# classes and never for others, it's dropped entirely.
+# 1W is added per asset class below (EXTRA_HIGHER_TIMEFRAMES).
 HIGHER_TIMEFRAMES = ["1H", "4H", "1D"]
 
 # Purely for the dashboard's two extra reference charts per watchlisted
@@ -23,14 +19,15 @@ LOWER_TF_MAP = {
     "1H": ["15m", "5m"],
     "4H": ["1H", "15m"],
     "1D": ["4H", "1H"],
-    "1W": ["1D", "4H"],  # PSE only, see PSE_EXTRA_HIGHER_TIMEFRAMES
+    "1W": ["1D", "4H"],  # PSE and crypto, see EXTRA_HIGHER_TIMEFRAMES
 }
 
-# PSE also gets a weekly watch. It has no AUTO_HIGHER_TF — its trigger is
-# the other three conditions without the LSMA-vs-next-timeframe check
-# (the user's choice: no monthly data, and newer listings can still
-# trigger). 1W is built from daily candles, so it costs no extra request.
-PSE_EXTRA_HIGHER_TIMEFRAMES = ["1W"]
+# PSE and crypto also get a weekly watch. It has no AUTO_HIGHER_TF — its
+# trigger is the other three conditions without the LSMA-vs-next-timeframe
+# check (the user's choice: a monthly LSMA(50) needs 50+ months, far more
+# than either source gives). Both build 1W from daily candles, weeks
+# starting Monday like TradingView, so it costs no extra request.
+EXTRA_HIGHER_TIMEFRAMES = {"pse": ["1W"], "crypto": ["1W"]}
 # Warm-up floor per timeframe where MIN_WARMUP_BARS (250) can't be met —
 # 800 daily bars make ~160 weekly ones, plenty for EMA20/RSI14.
 MIN_BARS_BY_TF = {"1W": 60}
@@ -73,8 +70,9 @@ YFINANCE_NATIVE_INTERVAL = {
     "1W": "1wk",
 }
 
-# Kraken's OHLC endpoint takes interval-in-minutes and supports all of these
-# natively — no resampling needed for crypto.
+# Kraken's OHLC endpoint takes interval-in-minutes. 1W is NOT fetched
+# natively — Kraken's weeks start on Thursday; fetch.py builds Monday weeks
+# from the 1D candles instead (~720 days -> ~100 weeks).
 KRAKEN_NATIVE_INTERVAL = {
     "5m": 5,
     "15m": 15,
@@ -82,7 +80,6 @@ KRAKEN_NATIVE_INTERVAL = {
     "1H": 60,
     "4H": 240,
     "1D": 1440,
-    "1W": 10080,
 }
 
 # yfinance's unofficial intraday endpoint only keeps ~60 days of history for
@@ -252,6 +249,15 @@ KRAKEN_EXCLUDED_BASES = {
     "USDT", "USDC", "DAI", "PYUSD", "RLUSD", "USDE", "USDG", "USDD", "USD1", "USDS",
     "USDQ", "USDGO", "USDPT", "USDSM", "USDUC", "AUSD", "EURC", "EURQ", "EUROP",
     "TGBP", "QCAD", "AUDX", "BRL1", "MXNB",
+}
+
+# "Large caps" for PSE = the 30 PSEi constituents, effective 2026-08-03
+# (MYNLD in for CNVRG). Always scanned, even if listed in pse_excluded.txt.
+# PSE reviews the index each January and July — update this list then.
+PSE_LARGE_CAPS = {
+    "AC", "ACEN", "AEV", "ALI", "AREIT", "BDO", "BPI", "CBC", "CNPF", "DMC",
+    "EMI", "GLO", "GTCAP", "ICT", "JFC", "JGS", "LTG", "MBT", "MER", "MONDE",
+    "MYNLD", "PGOLD", "PLUS", "RCR", "SCC", "SM", "SMC", "SMPH", "TEL", "URC",
 }
 
 # "Large caps" for the dashboard's crypto filter — a fixed list, by

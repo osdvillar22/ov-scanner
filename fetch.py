@@ -125,9 +125,37 @@ def get_kraken_usd_pairs() -> list[dict]:
         return []
 
 
+_KRAKEN_CACHE_SECONDS = 120
+_kraken_daily_cache: dict = {}
+
+
 def fetch_kraken_ohlc(pair: str, timeframe: str) -> pd.DataFrame | None:
-    """Fetch OHLC candles for one Kraken pair/timeframe. Returns 350-720 bars
-    depending on interval — comfortably above MIN_WARMUP_BARS either way."""
+    """Kraken candles for any timeframe. 1W is built from the 1D candles
+    (Monday weeks, like TradingView — Kraken's own start on Thursday); the
+    1D frame is shared briefly so 1D + 1W of a pair cost one request."""
+    if timeframe not in ("1D", "1W"):
+        return _fetch_kraken_raw(pair, timeframe)
+    now = time.time()
+    for k in [k for k, (t, _) in _kraken_daily_cache.items() if now - t > _KRAKEN_CACHE_SECONDS]:
+        del _kraken_daily_cache[k]
+    hit = _kraken_daily_cache.get(pair)
+    df = hit[1] if hit else _fetch_kraken_raw(pair, "1D")
+    if df is None:
+        return None
+    _kraken_daily_cache[pair] = (now, df)
+    if timeframe == "1D":
+        return df
+    ohlcv = {"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}
+    out = df.resample("W-MON", label="left", closed="left").agg(ohlcv).dropna(subset=["open", "high", "low", "close"])
+    # Kraken's ~720-day cap usually starts mid-week: drop that partial week.
+    if len(out) and out.index[0] < df.index[0]:
+        out = out.iloc[1:]
+    return out
+
+
+def _fetch_kraken_raw(pair: str, timeframe: str) -> pd.DataFrame | None:
+    """One Kraken OHLC request (native intervals only). Returns up to 720
+    bars — comfortably above MIN_WARMUP_BARS for the intraday/daily tfs."""
     interval = config.KRAKEN_NATIVE_INTERVAL.get(timeframe)
     if interval is None:
         logger.error("No Kraken interval mapping for timeframe %s", timeframe)

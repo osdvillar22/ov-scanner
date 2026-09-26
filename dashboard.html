@@ -234,7 +234,9 @@ const TAG_MARKET = { currency: 'forex', gold: 'metals', uranium: 'energy' };
 const marketsOf = (a) => new Set([a.asset_class, TAG_MARKET[a.tag]].filter(Boolean));
 
 const TF_ORDER = ['1H', '4H', '1D'];          // the "aligned" set, every market
-const tfsFor = (a) => a.asset_class === 'pse' ? ['1H', '4H', '1D', '1W'] : TF_ORDER;
+const tfsFor = (a) => a.asset_class === 'pse' || a.asset_class === 'crypto' ? ['1H', '4H', '1D', '1W'] : TF_ORDER;
+// Markets with a large-caps sub-filter (PSE = the PSEi 30).
+const LARGE_CAP_MARKETS = ['pse', 'crypto'];
 const LOWER_TF_MAP = { '1H': ['15m', '5m'], '4H': ['1H', '15m'], '1D': ['4H', '1H'], '1W': ['1D', '4H'] };
 
 const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL', q: '' };
@@ -263,7 +265,7 @@ function marketMatch(a, f = F) {
   if (f.q && !`${a.ticker} ${a.display_name || ''}`.toLowerCase().includes(f.q)) return false;
   if (f.market === 'all') return true;
   if (!marketsOf(a).has(f.market)) return false;
-  return !(f.market === 'crypto' && f.large) || !!a.large_cap;
+  return !(LARGE_CAP_MARKETS.includes(f.market) && f.large) || !!a.large_cap;
 }
 
 // scan.py ships candles as {fields, rows}; expand back to objects. Plain
@@ -705,7 +707,7 @@ function updateCounts() {
     const { group, value } = el.parentElement.dataset;
     el.textContent = n(group === 'market' ? { market: value, large: false } : { [group]: value });
   });
-  document.querySelector('#largeCaps .n').textContent = n({ market: 'crypto', large: true });
+  if (LARGE_CAP_MARKETS.includes(F.market)) document.querySelector('#largeCaps .n').textContent = n({ large: true });
 }
 
 function buildFilters(syms) {
@@ -729,7 +731,7 @@ function buildFilters(syms) {
     if (b.dataset.group === 'market') F.large = false;
     document.querySelectorAll(`#filters .opt[data-group="${b.dataset.group}"]`).forEach(x => x.classList.toggle('on', x === b));
     const lc = document.getElementById('largeCaps');
-    lc.classList.toggle('is-hidden', F.market !== 'crypto');
+    lc.classList.toggle('is-hidden', !LARGE_CAP_MARKETS.includes(F.market));
     lc.classList.toggle('on', F.large);
     applyFilters();
   }));
@@ -806,7 +808,7 @@ function selectAsset(id) {
   }).join('');
   const sub = entry.asset_class === 'pse' ? 'PSE' : (entry.tag || (entry.ticker !== entry.display_name ? entry.ticker : ''));
   const ago = entry.candles_ago_most_recent;
-  const noLsma = entry.higher_tf === '1W' && entry.asset_class === 'pse';
+  const noLsma = entry.higher_tf === '1W';
 
   const detail = document.getElementById('detail');
   detail.innerHTML = `

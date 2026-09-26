@@ -74,8 +74,9 @@ def build_universe() -> list[dict]:
 
     excluded = load_pse_exclusions()
     for symbol in fetch.get_pse_symbols():
-        if symbol not in excluded:
-            universe.append({"asset_class": "pse", "ticker": symbol, "display_name": symbol, "tag": "PSE"})
+        if symbol not in excluded or symbol in config.PSE_LARGE_CAPS:
+            universe.append({"asset_class": "pse", "ticker": symbol, "display_name": symbol, "tag": "PSE",
+                             "large_cap": symbol in config.PSE_LARGE_CAPS})
 
     for display_name, ticker in config.FOREX_PAIRS.items():
         universe.append({"asset_class": "forex", "ticker": ticker, "display_name": display_name})
@@ -350,9 +351,8 @@ def lower_tf_candle_count(htf: str, ltf: str) -> int:
 
 
 def higher_timeframes_for(asset: dict) -> list[str]:
-    """1H/4H/1D for everything, plus 1W for PSE stocks."""
-    extra = config.PSE_EXTRA_HIGHER_TIMEFRAMES if asset["asset_class"] == "pse" else []
-    return config.HIGHER_TIMEFRAMES + extra
+    """1H/4H/1D for everything, plus 1W for PSE and crypto."""
+    return config.HIGHER_TIMEFRAMES + config.EXTRA_HIGHER_TIMEFRAMES.get(asset["asset_class"], [])
 
 
 def scan_asset(asset: dict, state: dict) -> None:
