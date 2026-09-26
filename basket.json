@@ -276,7 +276,10 @@
       "display_name": "SEI/USD",
       "higher_tf": "1H",
       "direction": "BULLISH",
-      "added_at": "2026-09-26T08:11:37.324Z"
+      "added_at": "2026-09-26T08:11:37.324Z",
+      "muted": [
+        "5m"
+      ]
     }
   ]
 }
