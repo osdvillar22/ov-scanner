@@ -401,6 +401,15 @@
       "muted": [
         "4H"
       ]
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "TUGS",
+      "display_name": "TUGS",
+      "higher_tf": "1D",
+      "direction": "BULLISH",
+      "added_at": "2026-09-26T13:31:47.385Z",
+      "setup": "sma50"
     }
   ]
 }
