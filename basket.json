@@ -428,6 +428,15 @@
       "muted": [
         "15m"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "AIUSD",
+      "display_name": "AI/USD",
+      "higher_tf": "1H",
+      "direction": "BULLISH",
+      "added_at": "2026-09-27T07:14:10.173Z",
+      "setup": "sma50"
     }
   ]
 }
