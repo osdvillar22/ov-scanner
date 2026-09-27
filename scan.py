@@ -335,20 +335,31 @@ def find_sma50_watch(
     return found
 
 
-def trigger_marks(df_htf: pd.DataFrame, aligned_auto_lsma: pd.Series | None, n: int = config.DASHBOARD_CANDLE_WINDOW) -> list:
-    """Every candle in the chart window that met the watch-trigger condition,
-    either direction, as [unix time, RSI, +1 bullish / -1 bearish] — the
-    chart's permanent arrows. A finished candle's result never changes; the
-    still-forming one can until it closes."""
-    marks = []
-    for i in range(max(0, len(df_htf) - n), len(df_htf)):
-        row = df_htf.iloc[i]
-        d = _entry_direction(row, None if aligned_auto_lsma is None else aligned_auto_lsma.iloc[i])
-        if d:
-            ts = df_htf.index[i]
-            ts = ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
-            marks.append([int(ts.timestamp()), round(float(row["rsi"]), 1), 1 if d == config.DIRECTION_BULLISH else -1])
-    return marks
+def trigger_marks(df: pd.DataFrame, aligned_auto_lsma: pd.Series | None) -> list:
+    """Every candle that met the watch-trigger condition (_entry_direction,
+    vectorised), either direction, as [unix time, RSI, +1 bullish / -1
+    bearish] — the charts' permanent arrows, on this tf's own chart and on
+    any lower-tf chart showing this tf. A finished candle's result never
+    changes; the still-forming one can until it closes."""
+    c, e10, e20 = df["close"], df["ema10"], df["ema20"]
+    rsi_hi, rsi_lo = df["rsi"] >= config.RSI_OVERBOUGHT, df["rsi"] <= config.RSI_OVERSOLD
+    if aligned_auto_lsma is None:
+        lsma_up = lsma_down = True
+    else:
+        lsma_up, lsma_down = df["lsma"] > aligned_auto_lsma, df["lsma"] < aligned_auto_lsma
+    bull = (e10 > e20) & lsma_up & rsi_hi & (c > e10) & (c > e20)
+    bear = (e10 < e20) & lsma_down & rsi_lo & (c < e10) & (c < e20)
+    idx = df.index if df.index.tz is not None else df.index.tz_localize("UTC")
+    return [[int(idx[i].timestamp()), round(float(df["rsi"].iloc[i]), 1), 1 if bull.iloc[i] else -1]
+            for i in range(len(df)) if bull.iloc[i] or bear.iloc[i]]
+
+
+def _marks_in(marks: list | None, chart: dict) -> list:
+    """The marks falling inside a serialized chart's time range."""
+    if not marks or not chart["rows"]:
+        return []
+    first = chart["rows"][0][0]
+    return [m for m in marks if m[0] >= first]
 
 
 def macd_state(df: pd.DataFrame | None) -> str | None:
@@ -365,7 +376,7 @@ def macd_state(df: pd.DataFrame | None) -> str | None:
 
 
 def _fill_charts(entry: dict, asset: dict, htf: str, df_htf: pd.DataFrame, ltf_cache: dict,
-                 aligned_auto_lsma: pd.Series | None = None) -> None:
+                 marks_by_tf: dict | None = None) -> None:
     """Chart data for one watch: its own timeframe plus both lower tfs,
     fetched once per asset even when a tf has both a trend and an SMA 50
     watch. Also refreshes naming, so renames reach existing watches."""
@@ -373,19 +384,25 @@ def _fill_charts(entry: dict, asset: dict, htf: str, df_htf: pd.DataFrame, ltf_c
     entry["tag"] = asset.get("tag")
     entry["large_cap"] = bool(asset.get("large_cap"))
     entry["last_rsi"] = round(float(df_htf.iloc[-1]["rsi"]), 2)
+    marks_by_tf = marks_by_tf or {}
     entry["candles"] = serialize_candles(df_htf)
-    entry["marks"] = trigger_marks(df_htf, aligned_auto_lsma)
-    entry["lower_tf_candles"] = {}
+    entry["marks"] = _marks_in(marks_by_tf.get(htf), entry["candles"])
+    entry["lower_tf_candles"], entry["lower_tf_marks"] = {}, {}
     for ltf in config.LOWER_TF_MAP[htf]:
         if ltf not in ltf_cache:
             ltf_cache[ltf] = fetch_and_compute(asset, ltf)
         if ltf_cache[ltf] is not None:
-            entry["lower_tf_candles"][ltf] = serialize_candles(ltf_cache[ltf], n=lower_tf_candle_count(htf, ltf))
+            chart = serialize_candles(ltf_cache[ltf], n=lower_tf_candle_count(htf, ltf))
+            entry["lower_tf_candles"][ltf] = chart
+            # A lower tf that's also a higher tf (1H, 4H, 1D) keeps its own
+            # trigger arrows there too.
+            if ltf in marks_by_tf:
+                entry["lower_tf_marks"][ltf] = _marks_in(marks_by_tf[ltf], chart)
 
 
 def scan_higher_timeframe(
     asset: dict, htf: str, df_htf: pd.DataFrame | None, df_auto: pd.DataFrame | None, state: dict,
-    ltf_cache: dict | None = None,
+    ltf_cache: dict | None = None, marks_by_tf: dict | None = None,
 ) -> None:
     """Check one asset on one higher timeframe using its (already-fetched)
     own data and its AUTO_HIGHER_TF data, and mutate `state` accordingly:
@@ -402,11 +419,13 @@ def scan_higher_timeframe(
 
     aligned_auto_lsma = _align_auto_lsma(df_htf, df_auto) if has_auto else None
     last_closed = last_closed_index(df_htf, htf)
-    _scan_trend(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache)
-    _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, f"{key}:sma50", ltf_cache)
+    if marks_by_tf is None:
+        marks_by_tf = {htf: trigger_marks(df_htf, aligned_auto_lsma)}
+    _scan_trend(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache, marks_by_tf)
+    _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, f"{key}:sma50", ltf_cache, marks_by_tf)
 
 
-def _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache) -> None:
+def _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache, marks_by_tf) -> None:
     if (asset["asset_class"], htf) in config.SMA50_EXCLUDED:
         state.pop(key, None)
         return
@@ -436,10 +455,10 @@ def _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, 
     entry["candles_left"] = watch["candles_left"]
     entry["life"] = config.SMA50_WATCH_CANDLES
     entry["window"] = config.WATCH_WINDOW_CANDLES
-    _fill_charts(entry, asset, htf, df_htf, ltf_cache, aligned_auto_lsma)
+    _fill_charts(entry, asset, htf, df_htf, ltf_cache, marks_by_tf)
 
 
-def _scan_trend(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache) -> None:
+def _scan_trend(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache, marks_by_tf) -> None:
     entry = state.get(key)
     watch = find_phase_a_watch(df_htf, aligned_auto_lsma, last_closed)
 
@@ -479,7 +498,7 @@ def _scan_trend(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, 
     entry["window"] = watch["window"]
     entry["candles_ago_most_recent"] = watch["candles_ago_most_recent"]
     entry["trigger_times"] = [t.isoformat() for t in watch["trigger_times"]]
-    _fill_charts(entry, asset, htf, df_htf, ltf_cache, aligned_auto_lsma)
+    _fill_charts(entry, asset, htf, df_htf, ltf_cache, marks_by_tf)
 
 
 def lower_tf_candle_count(htf: str, ltf: str) -> int:
@@ -513,9 +532,16 @@ def scan_asset(asset: dict, state: dict) -> None:
 
     # Lower-tf charts reuse a frame already fetched here (e.g. 1H for 4H).
     ltf_cache = {tf: df for tf, df in tf_data.items() if tf in htfs and df is not None}
+    # Trigger arrows of every higher tf, for its own chart and for lower-tf
+    # charts showing the same tf (e.g. 1D's 4H and 1H charts).
+    marks_by_tf = {}
+    for htf in htfs:
+        df, auto = tf_data.get(htf), tf_data.get(config.AUTO_HIGHER_TF.get(htf))
+        if df is not None and (htf not in config.AUTO_HIGHER_TF or auto is not None):
+            marks_by_tf[htf] = trigger_marks(df, _align_auto_lsma(df, auto) if htf in config.AUTO_HIGHER_TF else None)
     for htf in htfs:
         df_auto = tf_data.get(config.AUTO_HIGHER_TF.get(htf))
-        scan_higher_timeframe(asset, htf, tf_data[htf], df_auto, state, ltf_cache)
+        scan_higher_timeframe(asset, htf, tf_data[htf], df_auto, state, ltf_cache, marks_by_tf)
 
     # MACD/LSMA state of every higher tf, on each of this asset's watches —
     # the watchlist row colours all its tfs, including ones not on watch.

@@ -438,12 +438,13 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
   });
 
   const ink = cssVar('--ink');
+  const inChart = new Set(candles.map(c => c.time));
+  const allMarks = [];
   if (opts.triggers && ((opts.triggers.marks && opts.triggers.marks.length) || (opts.triggers.times && opts.triggers.times.length))) {
     // Every qualifying candle in the window, in neutral ink so it never
     // blends into a green or red candle; only the latest gets a label.
     // An SMA 50 watch adds its removal candle and its touch candle.
     const isBuy = opts.triggers.direction === 'BULLISH';
-    const inChart = new Set(candles.map(c => c.time));
     // Every qualifying candle on the chart ([time, RSI, ±1] from scan.py),
     // labelled with its RSI. Older data without them: the window's triggers.
     const marks = opts.triggers.marks
@@ -460,7 +461,7 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
       marks.push({ time: toUnixTime(s.removed_at), position: side, color: cssVar('--ink-dim'), shape: 'square', size: 0.6, text: 'EMA20' });
       marks.push({ time: toUnixTime(s.touch_at), position: isBuy ? 'belowBar' : 'aboveBar', color: cssVar('--gold-bright'), shape: 'circle', text: 'SMA 50' });
     }
-    candleSeries.setMarkers(marks.filter(m => inChart.has(m.time)).sort((a, b) => a.time - b.time));
+    allMarks.push(...marks);
   }
   if (opts.cycles && opts.cycles.events && opts.cycles.events.length) {
     // Basket pick on a lower tf: every step of every entry cycle. Pullback
@@ -472,14 +473,16 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
       armed: { position: pbSide, color: cssVar('--violet'), shape: 'circle', size: 0.5 },
       entry: { position: bull ? 'belowBar' : 'aboveBar', color: ink, shape: bull ? 'arrowUp' : 'arrowDown' },
     };
-    const inChart = new Set(candles.map(c => c.time));
-    // SMA 50 picks: entries are labelled by the line crossed (S / L).
-    const label = (e) => opts.cycles.s50 && e.type === 'entry' ? (e.line === 'sma50' ? 'S' : 'L') : '';
-    candleSeries.setMarkers(opts.cycles.events
+    // Entries are labelled so they don't read as trigger arrows (which
+    // carry an RSI): ENTRY, or for SMA 50 picks the line crossed (S / L).
+    const label = (e) => e.type !== 'entry' ? '' : opts.cycles.s50 ? (e.line === 'sma50' ? 'S' : 'L') : 'ENTRY';
+    allMarks.push(...opts.cycles.events
       .map(e => ({ time: toUnixTime(e.time), ...style[e.type], text: label(e) }))
-      .filter(m => m.position && inChart.has(m.time))
-      .sort((a, b) => a.time - b.time));
+      .filter(m => m.position));
   }
+  // One setMarkers call: a lower-tf chart can have both trigger arrows
+  // (when it's also a higher tf) and a basket pick's entry cycle.
+  if (allMarks.length) candleSeries.setMarkers(allMarks.filter(m => inChart.has(m.time)).sort((a, b) => a.time - b.time));
 
   const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, ...followerInteraction, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderVisible: false, textColor: 'transparent', minimumWidth: AXIS_WIDTH }, timeScale: { visible: false, rightOffset: RIGHT_GAP } });
   activeCharts.push({ chart: macdChart, el: macdEl });
@@ -940,7 +943,8 @@ function selectAsset(id) {
   lowerTfs.forEach((ltf, li) => {
     const c = toCandles(entry.lower_tf_candles[ltf]);
     renderBlock(c, `detail-mini-${li}`, `detail-minimacd-${li}`, c.length,
-      { forex, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50 } : null });
+      { forex, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50 } : null,
+        triggers: (entry.lower_tf_marks || {})[ltf] ? { marks: entry.lower_tf_marks[ltf], times: [], direction } : null });
   });
 }
 
