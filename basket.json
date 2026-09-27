@@ -436,7 +436,10 @@
       "higher_tf": "4H",
       "direction": "BULLISH",
       "added_at": "2026-09-27T11:26:03.652Z",
-      "setup": "sma50"
+      "setup": "sma50",
+      "muted": [
+        "15m"
+      ]
     }
   ]
 }
