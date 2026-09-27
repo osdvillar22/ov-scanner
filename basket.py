@@ -295,10 +295,9 @@ def send_entry_alerts(alerts: list) -> bool:
         p, bull = a["pick"], a["pick"]["direction"] == config.DIRECTION_BULLISH
         opened = int(pd.Timestamp(a["time"]).timestamp())
         tag = f" ({p['tag']})" if p.get("tag") else ""
-        setup = " · SMA 50 setup" if is_sma50(p) else ""
         broke = " + ".join(f"{LINE_LABEL[l['line']]} `{scan._sig(l['level'])}`" for l in a["lines"])
         embeds.append({
-            "title": f"Entry trigger: {p['display_name']}{tag} {'bullish' if bull else 'bearish'}{setup}",
+            "title": f"{'SMA50' if is_sma50(p) else 'TREND'} · {p['display_name']}{tag} {'bullish' if bull else 'bearish'}",
             "color": 0x2F7A4F if bull else 0xA8402C,
             "description": (
                 f"**{a['ltf']}** candle broke {'above' if bull else 'below'} {broke} · MACD {'green' if bull else 'red'}\n"

@@ -87,7 +87,7 @@
   .grp { font-size: 10px; letter-spacing: 0.08em; color: var(--ink-dim); padding: 6px 10px 3px; background: var(--surface-raised); display: flex; justify-content: space-between; }
   .grp .session { letter-spacing: 0; text-transform: none; }
   .grp .session.open { color: var(--gain); }
-  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--hair); cursor: pointer; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; align-items: center; gap: 8px; padding: 8px 10px 6px; border-bottom: 1px solid var(--hair); cursor: pointer; }
   .row:hover { background: var(--surface-raised); }
   .row.active { background: var(--surface-raised); box-shadow: inset 2px 0 0 var(--gold-bright); }
   .row-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -96,6 +96,10 @@
   .rsi { font-size: 11px; margin-left: 6px; }
   .tfs { display: flex; gap: 7px; font-size: 11px; }
   .tfs .off { color: var(--ink-faint); }
+  /* MACD/LSMA state line above each tf (see MACD_STATE). */
+  .tfs > * { position: relative; }
+  .tfs > [style*="--m"]::before { content: ''; position: absolute; top: -4px; left: 0; right: 0; height: 2px; border-radius: 1px; background: var(--m); }
+  .tfs > .s50[style*="--m"]::before { top: -5px; left: 2px; right: 2px; }
   .tfs button { padding: 1px 0; opacity: 0.85; }
   .tfs button:hover { opacity: 1; }
   .tfs .shown { font-weight: 700; opacity: 1; }
@@ -269,6 +273,15 @@ const isS50 = (w) => w.setup === 'sma50';
 const slotOf = (w) => isS50(w) ? `${w.higher_tf}:50` : w.higher_tf;
 const pickKey = (p) => `${p.asset_class}:${p.ticker}:${p.higher_tf}${isS50(p) ? ':sma50' : ''}`;
 const setupMatch = (w, f = F) => f.setup === 'ALL' || (isS50(w) ? 'sma50' : 'trend') === f.setup;
+// MACD/LSMA state at scan time, per tf: side of the LSMA sets green/red,
+// a MACD against it fades the colour.
+const MACD_STATE = {
+  G: ['var(--gain)', 'MACD green · price above LSMA'],
+  g: ['color-mix(in srgb, var(--gain) 45%, var(--bg))', 'MACD red · price above LSMA'],
+  R: ['var(--loss)', 'MACD red · price below LSMA'],
+  r: ['color-mix(in srgb, var(--loss) 45%, var(--bg))', 'MACD green · price below LSMA'],
+};
+const macdAttrs = (a, tf) => { const s = MACD_STATE[(a.macd_state || {})[tf]]; return s ? ` style="--m:${s[0]}" data-macd="${s[1]}"` : ''; };
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 let watchesBySym = {};     // symKey -> { '1H': watch, '4H:50': SMA 50 watch, ... }
@@ -425,17 +438,22 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
   });
 
   const ink = cssVar('--ink');
-  if (opts.triggers && opts.triggers.times && opts.triggers.times.length) {
+  if (opts.triggers && ((opts.triggers.marks && opts.triggers.marks.length) || (opts.triggers.times && opts.triggers.times.length))) {
     // Every qualifying candle in the window, in neutral ink so it never
     // blends into a green or red candle; only the latest gets a label.
     // An SMA 50 watch adds its removal candle and its touch candle.
     const isBuy = opts.triggers.direction === 'BULLISH';
-    const times = opts.triggers.times.map(toUnixTime).filter(t => t != null).sort((a, b) => a - b);
     const inChart = new Set(candles.map(c => c.time));
-    const marks = times.map((t, i) => ({
-      time: t, position: isBuy ? 'belowBar' : 'aboveBar', color: ink,
-      shape: isBuy ? 'arrowUp' : 'arrowDown', text: i === times.length - 1 && !opts.triggers.s50 ? 'RSI TRIGGER' : '',
-    }));
+    // Every qualifying candle on the chart ([time, RSI, ±1] from scan.py),
+    // labelled with its RSI. Older data without them: the window's triggers.
+    const marks = opts.triggers.marks
+      ? opts.triggers.marks.map(([t, rsi, d]) => ({
+          time: t, position: d > 0 ? 'belowBar' : 'aboveBar', color: ink,
+          shape: d > 0 ? 'arrowUp' : 'arrowDown', text: rsi.toFixed(1),
+        }))
+      : opts.triggers.times.map(toUnixTime).filter(t => t != null).map(t => ({
+          time: t, position: isBuy ? 'belowBar' : 'aboveBar', color: ink, shape: isBuy ? 'arrowUp' : 'arrowDown',
+        }));
     const s = opts.triggers.s50;
     if (s) {
       const side = isBuy ? 'aboveBar' : 'belowBar';
@@ -805,10 +823,11 @@ function buildWatchlist(syms) {
       ${grouped[cls].map(byTf => {
         const a = Object.values(byTf)[0];
         const tfs = tfsFor(a).map(tf => {
-          const t = byTf[tf], s = byTf[`${tf}:50`], w = t || s;
-          if (!w) return `<span class="off">${tf}</span>`;
-          const title = t && s ? `Open ${tf} (trend + SMA 50 watch)` : `Open ${tf}${s ? ' SMA 50 watch' : ''}`;
-          return `<button type="button" class="${dirClass(w.direction)}${s ? ' s50' : ''}" data-tf="${tf}" title="${title}">${tf}${dirArrow(w.direction)}</button>`;
+          const t = byTf[tf], s = byTf[`${tf}:50`], w = t || s, m = macdAttrs(a, tf);
+          const macd = (MACD_STATE[(a.macd_state || {})[tf]] || [])[1];
+          if (!w) return `<span class="off"${m}${macd ? ` title="${tf}: ${macd}"` : ''}>${tf}</span>`;
+          const title = `Open ${tf}${t && s ? ' (trend + SMA 50 watch)' : s ? ' SMA 50 watch' : ''}${macd ? ` · ${macd}` : ''}`;
+          return `<button type="button" class="${dirClass(w.direction)}${s ? ' s50' : ''}" data-tf="${tf}"${m} title="${title}">${tf}${dirArrow(w.direction)}</button>`;
         }).join('');
         const tag = a.tag && a.asset_class !== 'pse' ? `<span class="tag">${a.tag}</span>` : '';
         return `
@@ -909,7 +928,7 @@ function selectAsset(id) {
   const forex = marketsOf(entry).has('forex');
   const candles = toCandles(entry.candles);
   renderBlock(candles, 'detail-chart', 'detail-macd', entry.window || 25,
-    { forex, triggers: entry.trigger_times ? { times: entry.trigger_times, direction, s50: s50 ? entry : null } : null });
+    { forex, triggers: { marks: entry.marks, times: entry.trigger_times || [], direction, s50: s50 ? entry : null } });
   if (candles.length > 1) {
     const last = candles[candles.length - 1].close, first = candles[0].close;
     const pct = (last - first) / first * 100;

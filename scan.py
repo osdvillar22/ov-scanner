@@ -335,7 +335,37 @@ def find_sma50_watch(
     return found
 
 
-def _fill_charts(entry: dict, asset: dict, htf: str, df_htf: pd.DataFrame, ltf_cache: dict) -> None:
+def trigger_marks(df_htf: pd.DataFrame, aligned_auto_lsma: pd.Series | None, n: int = config.DASHBOARD_CANDLE_WINDOW) -> list:
+    """Every candle in the chart window that met the watch-trigger condition,
+    either direction, as [unix time, RSI, +1 bullish / -1 bearish] — the
+    chart's permanent arrows. A finished candle's result never changes; the
+    still-forming one can until it closes."""
+    marks = []
+    for i in range(max(0, len(df_htf) - n), len(df_htf)):
+        row = df_htf.iloc[i]
+        d = _entry_direction(row, None if aligned_auto_lsma is None else aligned_auto_lsma.iloc[i])
+        if d:
+            ts = df_htf.index[i]
+            ts = ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
+            marks.append([int(ts.timestamp()), round(float(row["rsi"]), 1), 1 if d == config.DIRECTION_BULLISH else -1])
+    return marks
+
+
+def macd_state(df: pd.DataFrame | None) -> str | None:
+    """The latest candle (as of the scan) on one tf: G = MACD green and price
+    above LSMA, g = MACD red but above LSMA, R = MACD red and below LSMA,
+    r = MACD green but below LSMA. MACD green = histogram above zero."""
+    if df is None or not len(df):
+        return None
+    row = df.iloc[-1]
+    if pd.isna(row["macd_hist"]) or pd.isna(row["lsma"]):
+        return None
+    above, green = row["close"] > row["lsma"], row["macd_hist"] > 0
+    return ("G" if green else "g") if above else ("R" if not green else "r")
+
+
+def _fill_charts(entry: dict, asset: dict, htf: str, df_htf: pd.DataFrame, ltf_cache: dict,
+                 aligned_auto_lsma: pd.Series | None = None) -> None:
     """Chart data for one watch: its own timeframe plus both lower tfs,
     fetched once per asset even when a tf has both a trend and an SMA 50
     watch. Also refreshes naming, so renames reach existing watches."""
@@ -344,6 +374,7 @@ def _fill_charts(entry: dict, asset: dict, htf: str, df_htf: pd.DataFrame, ltf_c
     entry["large_cap"] = bool(asset.get("large_cap"))
     entry["last_rsi"] = round(float(df_htf.iloc[-1]["rsi"]), 2)
     entry["candles"] = serialize_candles(df_htf)
+    entry["marks"] = trigger_marks(df_htf, aligned_auto_lsma)
     entry["lower_tf_candles"] = {}
     for ltf in config.LOWER_TF_MAP[htf]:
         if ltf not in ltf_cache:
@@ -405,7 +436,7 @@ def _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, 
     entry["candles_left"] = watch["candles_left"]
     entry["life"] = config.SMA50_WATCH_CANDLES
     entry["window"] = config.WATCH_WINDOW_CANDLES
-    _fill_charts(entry, asset, htf, df_htf, ltf_cache)
+    _fill_charts(entry, asset, htf, df_htf, ltf_cache, aligned_auto_lsma)
 
 
 def _scan_trend(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache) -> None:
@@ -448,7 +479,7 @@ def _scan_trend(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, 
     entry["window"] = watch["window"]
     entry["candles_ago_most_recent"] = watch["candles_ago_most_recent"]
     entry["trigger_times"] = [t.isoformat() for t in watch["trigger_times"]]
-    _fill_charts(entry, asset, htf, df_htf, ltf_cache)
+    _fill_charts(entry, asset, htf, df_htf, ltf_cache, aligned_auto_lsma)
 
 
 def lower_tf_candle_count(htf: str, ltf: str) -> int:
@@ -485,6 +516,14 @@ def scan_asset(asset: dict, state: dict) -> None:
     for htf in htfs:
         df_auto = tf_data.get(config.AUTO_HIGHER_TF.get(htf))
         scan_higher_timeframe(asset, htf, tf_data[htf], df_auto, state, ltf_cache)
+
+    # MACD/LSMA state of every higher tf, on each of this asset's watches —
+    # the watchlist row colours all its tfs, including ones not on watch.
+    states = {tf: s for tf in htfs if (s := macd_state(tf_data.get(tf)))}
+    for htf in htfs:
+        for key in (f"{asset['asset_class']}:{asset['ticker']}:{htf}", f"{asset['asset_class']}:{asset['ticker']}:{htf}:sma50"):
+            if key in state:
+                state[key]["macd_state"] = states
 
 
 # ---------------------------------------------------------------------------
