@@ -448,7 +448,10 @@
       "higher_tf": "1H",
       "direction": "BULLISH",
       "added_at": "2026-09-27T07:14:26.789Z",
-      "setup": "sma50"
+      "setup": "sma50",
+      "muted": [
+        "5m"
+      ]
     },
     {
       "asset_class": "crypto",
