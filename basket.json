@@ -452,6 +452,15 @@
       "muted": [
         "15m"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "INJUSD",
+      "display_name": "INJ/USD",
+      "higher_tf": "4H",
+      "direction": "BULLISH",
+      "added_at": "2026-09-27T11:28:57.822Z",
+      "setup": "sma50"
     }
   ]
 }
