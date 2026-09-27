@@ -446,6 +446,15 @@
       "direction": "BULLISH",
       "added_at": "2026-09-27T07:14:26.789Z",
       "setup": "sma50"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "ATOMUSD",
+      "display_name": "ATOM/USD",
+      "higher_tf": "1H",
+      "direction": "BULLISH",
+      "added_at": "2026-09-27T07:15:03.765Z",
+      "setup": "sma50"
     }
   ]
 }
