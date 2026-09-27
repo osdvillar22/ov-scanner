@@ -512,6 +512,14 @@
       "muted": [
         "15m"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "GLMRUSD",
+      "display_name": "GLMR/USD",
+      "higher_tf": "1H",
+      "direction": "BULLISH",
+      "added_at": "2026-09-27T11:31:45.315Z"
     }
   ]
 }
