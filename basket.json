@@ -440,6 +440,15 @@
       "muted": [
         "15m"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "DRVUSD",
+      "display_name": "DRV/USD",
+      "higher_tf": "4H",
+      "direction": "BULLISH",
+      "added_at": "2026-09-27T11:28:45.764Z",
+      "setup": "sma50"
     }
   ]
 }
