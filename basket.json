@@ -431,18 +431,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "SOSOUSD",
-      "display_name": "SOSO/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-27T11:26:03.652Z",
-      "setup": "sma50",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "DRVUSD",
       "display_name": "DRV/USD",
       "higher_tf": "4H",
