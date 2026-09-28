@@ -315,18 +315,6 @@
       ]
     },
     {
-      "asset_class": "crypto",
-      "ticker": "SUSD",
-      "display_name": "S/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-27T11:29:26.815Z",
-      "setup": "sma50",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
       "asset_class": "metals",
       "ticker": "GC=F",
       "display_name": "GOLD",
