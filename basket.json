@@ -2,17 +2,6 @@
   "picks": [
     {
       "asset_class": "crypto",
-      "ticker": "PEAQUSD",
-      "display_name": "PEAQUSD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T00:53:22.994Z",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "PLUMEUSD",
       "display_name": "PLUMEUSD",
       "higher_tf": "4H",
@@ -242,17 +231,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "AEROUSD",
-      "display_name": "AERO/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-26T07:51:55.872Z",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "SYNUSD",
       "display_name": "SYN/USD",
       "higher_tf": "1D",
@@ -377,30 +355,6 @@
       "higher_tf": "4H",
       "direction": "BULLISH",
       "added_at": "2026-09-27T11:29:26.815Z",
-      "setup": "sma50",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "VSNUSD",
-      "display_name": "VSN/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-27T11:29:54.064Z",
-      "setup": "sma50",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "WBTCUSD",
-      "display_name": "WBTC/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-27T11:30:15.436Z",
       "setup": "sma50",
       "muted": [
         "15m"
