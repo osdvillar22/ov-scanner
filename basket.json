@@ -276,18 +276,6 @@
     },
     {
       "asset_class": "pse",
-      "ticker": "FGEN",
-      "display_name": "FGEN",
-      "higher_tf": "1D",
-      "direction": "BULLISH",
-      "added_at": "2026-09-26T13:25:06.905Z",
-      "setup": "sma50",
-      "muted": [
-        "1H"
-      ]
-    },
-    {
-      "asset_class": "pse",
       "ticker": "IMI",
       "display_name": "IMI",
       "higher_tf": "1D",
@@ -368,18 +356,6 @@
       "setup": "sma50",
       "muted": [
         "1H"
-      ]
-    },
-    {
-      "asset_class": "pse",
-      "ticker": "NRCP",
-      "display_name": "NRCP",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-26T13:34:40.662Z",
-      "setup": "sma50",
-      "muted": [
-        "15m"
       ]
     },
     {
