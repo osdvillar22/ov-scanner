@@ -2,17 +2,6 @@
   "picks": [
     {
       "asset_class": "crypto",
-      "ticker": "PLUMEUSD",
-      "display_name": "PLUMEUSD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T00:53:38.405Z",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "XXBTZUSD",
       "display_name": "BTC/USD",
       "higher_tf": "1D",
@@ -205,17 +194,6 @@
       "muted": [
         "1D",
         "4H"
-      ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "ONDOUSD",
-      "display_name": "ONDO/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T21:29:07.585Z",
-      "muted": [
-        "15m"
       ]
     },
     {
