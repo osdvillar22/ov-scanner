@@ -275,18 +275,6 @@
       ]
     },
     {
-      "asset_class": "crypto",
-      "ticker": "XETHZUSD",
-      "display_name": "ETH/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-26T13:01:48.611Z",
-      "setup": "sma50",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
       "asset_class": "pse",
       "ticker": "FGEN",
       "display_name": "FGEN",
@@ -401,30 +389,6 @@
       "higher_tf": "4H",
       "direction": "BULLISH",
       "added_at": "2026-09-26T13:35:57.502Z",
-      "setup": "sma50",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "DRVUSD",
-      "display_name": "DRV/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-27T11:28:45.764Z",
-      "setup": "sma50",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "PEPEUSD",
-      "display_name": "PEPE/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-09-27T11:29:11.590Z",
       "setup": "sma50",
       "muted": [
         "15m"
