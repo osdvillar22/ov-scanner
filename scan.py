@@ -47,6 +47,7 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 import config
@@ -186,17 +187,32 @@ def _entry_direction(row: pd.Series, higher_lsma: float | None) -> str | None:
 
 
 def _align_auto_lsma(df_htf: pd.DataFrame, df_auto: pd.DataFrame) -> pd.Series:
-    """Backward-align the next-higher timeframe's LSMA onto df_htf's index
-    — each htf bar only ever sees the most recently CLOSED auto-tf bar's
-    LSMA as of that time, never a future one (no lookahead)."""
+    """The next-higher timeframe's LSMA as it stood at the close of each
+    df_htf bar — no lookahead. Each htf bar falls inside one auto-tf bar
+    (e.g. a 1H candle inside a 4H candle); that auto bar's close at that
+    moment is the htf bar's close, so its LSMA then is the regression over
+    the 49 previous auto closes plus this close. LSMA is linear in its
+    last point: lsma = A[k] + B * close, with A[k] from the earlier closes.
+    On the auto bar's last htf bar (and on the live bar) this equals the
+    auto tf's own LSMA."""
+    length, offset = config.LSMA_LENGTH, config.LSMA_OFFSET
+    x = np.arange(length, dtype=float)
+    xbar = x.mean()
+    w = 1 / length + (x - xbar) * ((length - 1 - offset) - xbar) / ((x - xbar) ** 2).sum()
+    closes = df_auto["close"].to_numpy(dtype=float)
+    base = np.full(len(closes), np.nan)
+    if len(closes) >= length:
+        windows = np.lib.stride_tricks.sliding_window_view(closes, length - 1)
+        base[length - 1:] = windows[: len(closes) - length + 1] @ w[:-1]
+
     idx_htf = df_htf.index.tz_localize(None) if df_htf.index.tz is not None else df_htf.index
     idx_auto = df_auto.index.tz_localize(None) if df_auto.index.tz is not None else df_auto.index
     merged = pd.merge_asof(
-        pd.DataFrame({"t": idx_htf}).sort_values("t"),
-        pd.DataFrame({"t": idx_auto, "lsma_auto": df_auto["lsma"].values}).sort_values("t"),
+        pd.DataFrame({"t": idx_htf, "close": df_htf["close"].to_numpy(dtype=float)}).sort_values("t"),
+        pd.DataFrame({"t": idx_auto, "base": base}).sort_values("t"),
         on="t", direction="backward",
     )
-    return pd.Series(merged["lsma_auto"].values, index=df_htf.index)
+    return pd.Series((merged["base"] + w[-1] * merged["close"]).values, index=df_htf.index)
 
 
 def last_closed_index(df: pd.DataFrame, tf: str) -> int:
