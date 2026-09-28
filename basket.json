@@ -366,7 +366,10 @@
       "display_name": "GOLD",
       "higher_tf": "1H",
       "direction": "BEARISH",
-      "added_at": "2026-09-28T05:01:39.751Z"
+      "added_at": "2026-09-28T05:01:39.751Z",
+      "muted": [
+        "15m"
+      ]
     }
   ]
 }
