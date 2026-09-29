@@ -28,7 +28,7 @@ LOWER_TF_MAP = {
 # than either source gives). Both build 1W from daily candles, weeks
 # starting Monday like TradingView, so it costs no extra request.
 EXTRA_HIGHER_TIMEFRAMES = {"pse": ["1W"], "crypto": ["1W"]}
-# Warm-up floor per timeframe where MIN_WARMUP_BARS (250) can't be met —
+# Warm-up floor per timeframe where MIN_WARMUP_BARS (120) can't be met —
 # 800 daily bars make ~160 weekly ones, plenty for EMA20/RSI14.
 MIN_BARS_BY_TF = {"1W": 60}
 
@@ -134,11 +134,12 @@ LSMA_OFFSET = 3
 # see learnings.md: 5% flagged too early and cluttered the feed.
 MACD_CLOSENESS_PCT = 0.02
 
-# Minimum bars of history to fetch so every indicator is fully warmed up
-# before we trust its value. LSMA(50) needs 50+, MACD needs ~35 for the
-# signal line to stabilize — 250 gives generous headroom for both plus
-# some cushion for missing/holiday bars.
-MIN_WARMUP_BARS = 250
+# Minimum bars of history before a timeframe is scanned, so every
+# indicator has warmed up. LSMA(50) needs 50+, MACD ~35 for the signal
+# line to settle, EMA20 a few multiples of 20 — 120 covers them, and lets
+# newly active listings (e.g. PSE's SRDC) in sooner. Established assets
+# have far more, so this only decides when new ones start being scanned.
+MIN_WARMUP_BARS = 120
 
 # The AUTO_HIGHER_TF lookup only ever needs that timeframe's LSMA — not
 # RSI/MACD — so it doesn't need MIN_WARMUP_BARS' full headroom.
