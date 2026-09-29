@@ -33,7 +33,7 @@
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--font-mono); font-size: 12px; -webkit-font-smoothing: antialiased; }
   body { min-height: 100vh; }
   button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
-  button:focus-visible, .opt:focus-visible { outline: 1px solid var(--gold-bright); outline-offset: 1px; }
+  button:focus-visible { outline: 1px solid var(--gold-bright); outline-offset: 1px; }
   .is-hidden { display: none !important; }
   .bullish { color: var(--gain); } .bearish { color: var(--loss); }
 
@@ -46,15 +46,27 @@
   .meta strong { color: var(--ink); font-weight: 500; }
   .link-btn { color: var(--ink-dim); text-decoration: underline; text-underline-offset: 2px; }
 
-  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin-top: 10px; }
+  /* Filters: markets as tabs (the main choice), refinements as one quiet
+     line of chips underneath. */
+  .filters { margin-top: 10px; }
+  .mkt-tabs { display: flex; gap: 18px; border-bottom: 1px solid var(--hair); overflow-x: auto; scrollbar-width: none; }
+  .mkt-tabs::-webkit-scrollbar { display: none; }
+  .mkt { font-size: 12px; padding: 2px 0 6px; color: var(--ink-dim); white-space: nowrap; }
+  .mkt:hover { color: var(--ink); }
+  .mkt.on { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); }
+  .mkt.zero:not(.on) { color: var(--ink-faint); }
+  .mkt .n { color: var(--ink-faint); margin-left: 4px; font-size: 10.5px; }
+  .mkt.on .n { color: var(--ink-dim); }
+  .refine { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 8px; }
   .seg { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
-  .seg-label { font-size: 10.5px; color: var(--ink-faint); margin-right: 4px; }
+  .fsep { width: 1px; height: 12px; background: var(--border); }
+  #lcWrap { display: contents; }
   .opt { font-size: 11px; padding: 2px 7px; border-radius: 4px; color: var(--ink-dim); border: 1px solid transparent; }
   .opt:hover { color: var(--ink); }
   .opt.on { color: var(--ink); background: var(--surface-raised); border-color: var(--border); }
   .opt .n { color: var(--ink-faint); margin-left: 3px; }
   .opt.on .n { color: var(--ink-dim); }
-  .sub-opt { font-size: 11px; padding: 2px 7px; border-radius: 4px; border: 1px dashed var(--border); color: var(--ink-dim); margin-left: 6px; }
+  .sub-opt { font-size: 11px; padding: 2px 7px; border-radius: 4px; border: 1px dashed var(--border); color: var(--ink-dim); }
   .sub-opt.on { border-style: solid; border-color: var(--gold-bright); color: var(--gold-bright); }
 
   .settings-panel { margin-top: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-ui); font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
@@ -215,10 +227,15 @@
       <div class="settings-msg" id="tokenMsg"></div>
     </div>
     <div class="filters" id="filters">
-      <div class="seg" data-group="market"><span class="seg-label">market</span></div>
-      <div class="seg" data-group="tf"><span class="seg-label">tf</span></div>
-      <div class="seg" data-group="dir"><span class="seg-label">dir</span></div>
-      <div class="seg" data-group="setup"><span class="seg-label">setup</span></div>
+      <div class="mkt-tabs" id="marketTabs" aria-label="Market"></div>
+      <div class="refine">
+        <span id="lcWrap" class="is-hidden"><button class="sub-opt" type="button" id="largeCaps" aria-pressed="false">large caps<span class="n"></span></button><span class="fsep"></span></span>
+        <div class="seg" id="tfSeg" aria-label="Timeframe"></div>
+        <span class="fsep"></span>
+        <div class="seg" id="dirSeg" aria-label="Direction"></div>
+        <span class="fsep"></span>
+        <div class="seg" id="setupSeg" aria-label="Setup"></div>
+      </div>
     </div>
   </header>
 
@@ -773,45 +790,52 @@ function applyFilters() {
 function updateCounts() {
   const syms = Object.values(watchesBySym);
   const n = (over) => { const f = { ...F, ...over }; return syms.filter(byTf => marketMatch(Object.values(byTf)[0], f) && primaryWatch(byTf, f)).length; };
-  document.querySelectorAll('#filters .opt .n').forEach(el => {
+  document.querySelectorAll('#filters button[data-group] .n').forEach(el => {
     const { group, value } = el.parentElement.dataset;
-    el.textContent = n(group === 'market' ? { market: value, large: false } : { [group]: value });
+    const count = n(group === 'market' ? { market: value, large: false } : { [group]: value });
+    el.textContent = count;
+    if (group === 'market') el.parentElement.classList.toggle('zero', count === 0);
   });
   if (LARGE_CAP_MARKETS.includes(F.market)) document.querySelector('#largeCaps .n').textContent = n({ large: true });
 }
 
+// Direction and setup are toggles: tap one to show only it, tap it again
+// to show both. Market and timeframe always have exactly one choice.
+const TOGGLE_GROUPS = ['dir', 'setup'];
+
 function buildFilters(syms) {
   // Counts are filled in by updateCounts().
-  const opt = (group, value, label, counted = true) => `<button class="opt${F[group] === value ? ' on' : ''}" type="button" data-group="${group}" data-value="${value}">${label}${counted ? '<span class="n"></span>' : ''}</button>`;
+  const btn = (cls, group, value, label) => `<button class="${cls}" type="button" data-group="${group}" data-value="${value}">${label}<span class="n"></span></button>`;
+  document.getElementById('marketTabs').innerHTML = MARKETS.map(([v, l]) => btn('mkt', 'market', v, l)).join('');
+  document.getElementById('tfSeg').innerHTML = [['ALL', 'all tf'], ['1H', '1H'], ['4H', '4H'], ['1D', '1D'], ['1W', '1W'], ['ALIGNED', 'aligned']]
+    .map(([v, l]) => btn('opt', 'tf', v, l)).join('');
+  document.getElementById('dirSeg').innerHTML = [['BULLISH', '<span class="bullish">▲</span>'], ['BEARISH', '<span class="bearish">▼</span>']]
+    .map(([v, l]) => btn('opt', 'dir', v, l)).join('');
+  document.getElementById('setupSeg').innerHTML = [['trend', 'trend'], ['sma50', 'SMA 50']]
+    .map(([v, l]) => btn('opt', 'setup', v, l)).join('');
 
-  const market = document.querySelector('.seg[data-group="market"]');
-  market.insertAdjacentHTML('beforeend', MARKETS.map(([v, l]) => opt('market', v, l)).join('')
-    + `<button class="sub-opt is-hidden" type="button" id="largeCaps">large caps<span class="n"></span></button>`);
-
-  const tf = document.querySelector('.seg[data-group="tf"]');
-  tf.insertAdjacentHTML('beforeend', [['ALL', 'all'], ['1H', '1H'], ['4H', '4H'], ['1D', '1D'], ['1W', '1W'], ['ALIGNED', 'aligned']]
-    .map(([v, l]) => opt('tf', v, l)).join(''));
-
-  const dir = document.querySelector('.seg[data-group="dir"]');
-  dir.insertAdjacentHTML('beforeend', [['ALL', 'all'], ['BULLISH', '<span class="bullish">▲</span>'], ['BEARISH', '<span class="bearish">▼</span>']]
-    .map(([v, l]) => opt('dir', v, l, v !== 'ALL')).join(''));
-
-  const setup = document.querySelector('.seg[data-group="setup"]');
-  setup.insertAdjacentHTML('beforeend', [['ALL', 'all'], ['trend', 'trend'], ['sma50', 'SMA 50']]
-    .map(([v, l]) => opt('setup', v, l, v !== 'ALL')).join(''));
-
-  document.querySelectorAll('#filters .opt').forEach(b => b.addEventListener('click', () => {
-    F[b.dataset.group] = b.dataset.value;
-    if (b.dataset.group === 'market') F.large = false;
-    document.querySelectorAll(`#filters .opt[data-group="${b.dataset.group}"]`).forEach(x => x.classList.toggle('on', x === b));
+  const paint = () => {
+    document.querySelectorAll('#filters button[data-group]').forEach(b => {
+      const on = F[b.dataset.group] === b.dataset.value;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on);
+    });
     const lc = document.getElementById('largeCaps');
-    lc.classList.toggle('is-hidden', !LARGE_CAP_MARKETS.includes(F.market));
+    document.getElementById('lcWrap').classList.toggle('is-hidden', !LARGE_CAP_MARKETS.includes(F.market));
     lc.classList.toggle('on', F.large);
+    lc.setAttribute('aria-pressed', F.large);
+  };
+  paint();
+  document.querySelectorAll('#filters button[data-group]').forEach(b => b.addEventListener('click', () => {
+    const { group, value } = b.dataset;
+    F[group] = TOGGLE_GROUPS.includes(group) && F[group] === value ? 'ALL' : value;
+    if (group === 'market') F.large = false;
+    paint();
     applyFilters();
   }));
-  document.getElementById('largeCaps').addEventListener('click', (e) => {
+  document.getElementById('largeCaps').addEventListener('click', () => {
     F.large = !F.large;
-    e.currentTarget.classList.toggle('on', F.large);
+    paint();
     applyFilters();
   });
 }
