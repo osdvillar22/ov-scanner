@@ -208,17 +208,6 @@
       ]
     },
     {
-      "asset_class": "crypto",
-      "ticker": "SYNUSD",
-      "display_name": "SYN/USD",
-      "higher_tf": "1D",
-      "direction": "BULLISH",
-      "added_at": "2026-09-26T09:23:21.779Z",
-      "muted": [
-        "1H"
-      ]
-    },
-    {
       "asset_class": "pse",
       "ticker": "IMI",
       "display_name": "IMI",
