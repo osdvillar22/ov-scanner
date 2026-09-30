@@ -290,6 +290,14 @@
       "muted": [
         "1H"
       ]
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "LBC",
+      "display_name": "LBC",
+      "higher_tf": "1H",
+      "direction": "BULLISH",
+      "added_at": "2026-09-30T07:44:44.796Z"
     }
   ]
 }
