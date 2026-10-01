@@ -274,7 +274,10 @@
       "display_name": "AERO/USD",
       "higher_tf": "1D",
       "direction": "BULLISH",
-      "added_at": "2026-10-01T09:49:38.311Z"
+      "added_at": "2026-10-01T09:49:38.311Z",
+      "muted": [
+        "1H"
+      ]
     }
   ]
 }
