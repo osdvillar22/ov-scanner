@@ -134,6 +134,7 @@ def remove_picks(keys: set, reasons: dict) -> None:
             if put.status_code == 409:
                 continue  # someone else wrote in between — retry on the new version
             put.raise_for_status()
+            send_removal_alerts([p for p in picks if pick_key(p) in keys], reasons)
             return
         except Exception as exc:  # noqa: BLE001
             logger.error("Writing basket removals failed (attempt %d): %s", attempt + 1, exc)
@@ -318,6 +319,27 @@ def send_entry_alerts(alerts: list) -> bool:
     return ok
 
 
+def send_removal_alerts(picks: list, reasons: dict) -> None:
+    """One embed per pick the scanner took out of the basket (not ones the
+    user removed). Sent once: only after basket.json was actually changed."""
+    url = os.environ.get(config.DISCORD_ENTRY_WEBHOOK_ENV)
+    if not picks or not url:
+        return
+    sent_at = pd.Timestamp.now(tz="UTC").isoformat()
+    embeds = [{
+        "title": f"REMOVED · {p.get('display_name', p['ticker'])} {p['higher_tf']} "
+                 f"{'▲' if p['direction'] == config.DIRECTION_BULLISH else '▼'}{' · SMA50' if is_sma50(p) else ''}",
+        "color": 0x6B6858 if is_sma50(p) else 0xA8402C,
+        "description": f"{reasons.get(pick_key(p), 'watch ended')}\nTaken out of the basket",
+        "timestamp": sent_at,
+    } for p in picks]
+    for i in range(0, len(embeds), 10):
+        try:
+            requests.post(url, json={"embeds": embeds[i:i + 10]}, timeout=10).raise_for_status()
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Discord removal alert failed: %s", exc)
+
+
 def _alert_and_record(alerts: list, alerted: dict) -> None:
     """Send, and only on success remember the candles as alerted."""
     if alerts and send_entry_alerts(alerts):
@@ -374,7 +396,7 @@ def run_live() -> None:
         aligned = scan._align_auto_lsma(df_htf, df_auto) if auto_tf else None
         last_closed = scan.last_closed_index(df_htf, htf)
         if is_sma50(pick):
-            watch = scan.find_sma50_watch(df_htf, aligned, last_closed)
+            watch = scan.find_sma50_watch(df_htf, aligned, last_closed, life=scan.sma50_life(htf))
             reason = _sma50_gone_reason(watch, pick)
         else:
             watch = scan.find_phase_a_watch(df_htf, aligned, last_closed)
@@ -396,19 +418,19 @@ def run_live() -> None:
 
 def _sma50_gone_reason(watch: dict | None, pick: dict) -> str | None:
     if watch is None:
-        return f"SMA 50 watch ended ({config.SMA50_WATCH_CANDLES} candles since the touch)"
+        return f"{scan.sma50_life(pick['higher_tf'])} candles since the touch ended"
     if watch["direction"] != pick["direction"]:
-        return f"SMA 50 watch flipped to {watch['direction']}"
+        return f"SMA 50 watch flipped to {watch['direction'].lower()}"
     return None
 
 
 def _watch_gone_reason(watch: dict | None, pick: dict) -> str | None:
     if watch is None:
-        return "higher-tf watch dropped off (no trigger in the window)"
+        return f"no trigger left in the last {config.WATCH_WINDOW_CANDLES} candles"
     if watch["invalidated_at"] is not None:
-        return "higher-tf watch dropped off (closed past EMA20 after the last trigger)"
+        return f"closed {'below' if watch['direction'] == config.DIRECTION_BULLISH else 'above'} EMA20"
     if watch["direction"] != pick["direction"]:
-        return f"higher-tf watch flipped to {watch['direction']}"
+        return f"watch flipped to {watch['direction'].lower()}"
     return None
 
 
@@ -431,8 +453,8 @@ def run_hourly(state: dict) -> dict:
         watch = state.get(key)
         if watch is None or watch.get("direction") != pick["direction"]:
             remove.add(key)
-            gone = "SMA 50 watch ended" if is_sma50(pick) else "higher-tf watch dropped off"
-            reasons[key] = gone if watch is None else f"higher-tf watch flipped to {watch['direction']}"
+            gone = scan._removals.get(key) or ("SMA 50 watch ended" if is_sma50(pick) else "watch ended")
+            reasons[key] = gone if watch is None else f"watch flipped to {watch['direction'].lower()}"
             continue
         pick = {**pick, "display_name": watch.get("display_name", pick["display_name"]), "tag": watch.get("tag")}
         is_live = pick["asset_class"] in LIVE_CLASSES

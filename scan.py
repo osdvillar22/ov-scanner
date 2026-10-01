@@ -124,6 +124,32 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# Set by run(): every watch a run finds is stamped with the run's start, so
+# the dashboard can batch a whole scan together.
+_run_started: str | None = None
+# Watches removed this run: state key -> reason (see _drop, update_removed).
+_removals: dict[str, str] = {}
+
+# Key in state.json holding the recently removed watches (not a watch).
+REMOVED_KEY = "__removed__"
+
+
+def stamp() -> str:
+    return _run_started or now_iso()
+
+
+def _drop(state: dict, key: str, reason: str) -> None:
+    entry = state.pop(key)
+    logger.info("REMOVED: %s %s%s — %s", entry.get("display_name", entry["ticker"]), entry["higher_tf"],
+                " SMA 50" if entry.get("setup") == "sma50" else "", reason)
+    _removals[key] = reason
+
+
+def sma50_life(tf: str) -> int:
+    """Candles an SMA 50 watch lasts from its touch, on this timeframe."""
+    return config.SMA50_WATCH_CANDLES_BY_TF.get(tf, config.SMA50_WATCH_CANDLES)
+
+
 def fetch_and_compute(asset: dict, tf: str, min_bars: int = config.MIN_WARMUP_BARS) -> pd.DataFrame | None:
     """Fetch one (asset, timeframe) and run every indicator on it, or None
     if the fetch failed or came back too short to trust. `min_bars` is
@@ -294,7 +320,7 @@ def find_phase_a_watch(
 
 def find_sma50_watch(
     df_htf: pd.DataFrame, aligned_auto_lsma: pd.Series | None, last_closed: int,
-    window: int = config.WATCH_WINDOW_CANDLES,
+    window: int = config.WATCH_WINDOW_CANDLES, life: int = config.SMA50_WATCH_CANDLES,
 ) -> dict | None:
     """
     The SMA 50 pullback watch. Replays the trend watch's own life cycle over
@@ -303,14 +329,14 @@ def find_sma50_watch(
     looks from that removal candle (included) through the next
     SMA50_SEARCH_CANDLES for a candle reaching SMA 50: low within
     SMA50_TOUCH_ATR x ATR14 above it, or through it (bullish; mirrored for
-    bearish). The watch lasts SMA50_WATCH_CANDLES candles counted from that
-    touch candle — whether price then bounces or goes under SMA 50.
+    bearish). The watch lasts `life` candles (sma50_life of the tf) counted
+    from that touch candle — whether price then bounces or goes under SMA 50.
 
     The still-forming candle can be the touch: once its low has reached the
     level it can't un-reach it. Returns the live watch, or None.
     """
     n = len(df_htf)
-    search, life = config.SMA50_SEARCH_CANDLES, config.SMA50_WATCH_CANDLES
+    search = config.SMA50_SEARCH_CANDLES
     start = max(1, n - (window + search + life + 20))
     last_trig, direction, trig_idx, found = None, None, [], None
     for i in range(start, last_closed + 1):
@@ -445,19 +471,19 @@ def _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, 
     if (asset["asset_class"], htf) in config.SMA50_EXCLUDED:
         state.pop(key, None)
         return
-    watch = find_sma50_watch(df_htf, aligned_auto_lsma, last_closed)
+    life = sma50_life(htf)
+    watch = find_sma50_watch(df_htf, aligned_auto_lsma, last_closed, life=life)
     if watch and asset["asset_class"] in config.SMA50_BULLISH_ONLY and watch["direction"] != config.DIRECTION_BULLISH:
         watch = None
     entry = state.get(key)
     if watch is None:
         if entry is not None:
-            logger.info("REMOVED: %s %s SMA 50 — %d candles since the touch", asset["display_name"], htf, config.SMA50_WATCH_CANDLES)
-            del state[key]
+            _drop(state, key, f"{life} candles since the touch ended")
         return
     if entry is None or entry.get("touch_at") != watch["touch_at"].isoformat():
         entry = {
             "asset_class": asset["asset_class"], "ticker": asset["ticker"], "higher_tf": htf,
-            "setup": "sma50", "first_seen": now_iso(),
+            "setup": "sma50", "first_seen": stamp(),
         }
         state[key] = entry
         logger.info("NEW SMA 50 WATCH: %s %s (%s) touched %d candles after the EMA20 removal",
@@ -469,7 +495,7 @@ def _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, 
     entry["touch_gap"] = watch["touch_gap"]
     entry["candles_ago_most_recent"] = watch["candles_since_touch"]
     entry["candles_left"] = watch["candles_left"]
-    entry["life"] = config.SMA50_WATCH_CANDLES
+    entry["life"] = life
     entry["window"] = config.WATCH_WINDOW_CANDLES
     _fill_charts(entry, asset, htf, df_htf, ltf_cache, marks_by_tf)
 
@@ -481,12 +507,11 @@ def _scan_trend(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, 
     if watch is None or watch["invalidated_at"] is not None:
         if entry is not None:
             if watch is None:
-                reason = f"none of the last {config.WATCH_WINDOW_CANDLES} candles still qualify"
+                reason = f"no trigger left in the last {config.WATCH_WINDOW_CANDLES} candles"
             else:
                 side = "below" if watch["direction"] == config.DIRECTION_BULLISH else "above"
-                reason = f"candle at {watch['invalidated_at']} closed {side} EMA20 after the last trigger"
-            logger.info("REMOVED: %s %s — %s", asset["display_name"], htf, reason)
-            del state[key]
+                reason = f"closed {side} EMA20"
+            _drop(state, key, reason)
         return
 
     if entry is None:
@@ -497,7 +522,7 @@ def _scan_trend(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, 
             "higher_tf": htf,
             "setup": "trend",
             "auto_higher_tf": config.AUTO_HIGHER_TF.get(htf),
-            "first_seen": now_iso(),
+            "first_seen": stamp(),
         }
         state[key] = entry
         logger.info(
@@ -572,10 +597,32 @@ def scan_asset(asset: dict, state: dict) -> None:
 # Output
 # ---------------------------------------------------------------------------
 
-def write_output(state: dict, basket_status: dict) -> None:
+def update_removed(log: list, before: dict, state: dict) -> list:
+    """The recently removed watches: last runs' still within
+    REMOVED_SHOW_HOURS (and not back on watch), plus this run's. Name,
+    timeframe, direction and reason only — no charts."""
+    cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(hours=config.REMOVED_SHOW_HOURS)
+    log = [r for r in log if r["key"] not in state and r["key"] not in _removals
+           and pd.Timestamp(r["removed_at"]) >= cutoff]
+    for key, reason in _removals.items():
+        e = before.get(key)
+        if e is None or key in state:
+            continue
+        log.append({
+            "key": key,
+            **{k: e.get(k) for k in ("asset_class", "ticker", "display_name", "higher_tf", "setup",
+                                     "direction", "tag", "large_cap", "first_seen", "macd_state")},
+            "reason": reason, "removed_at": stamp(),
+        })
+    return log
+
+
+def write_output(state: dict, basket_status: dict, removed: list) -> None:
     Path(config.OUTPUT_FILE).write_text(json.dumps({
         "generated_at": now_iso(),
+        "run_started_at": _run_started,
         "assets": list(state.values()),
+        "removed": removed,
         "basket_status": basket_status,
     }, separators=(",", ":"), default=str))
     logger.info("Wrote %s with %d active entries.", config.OUTPUT_FILE, len(state))
@@ -595,14 +642,18 @@ def prune_unscanned(state: dict, universe: list) -> None:
     classes_present = {a["asset_class"] for a in universe}
     for key, entry in list(state.items()):
         if entry["asset_class"] in classes_present and (entry["asset_class"], entry["ticker"]) not in scanned:
-            logger.info("REMOVED: %s %s — no longer in the scanned universe", entry["display_name"], entry["higher_tf"])
-            del state[key]
+            _drop(state, key, "no longer scanned")
 
 
 def run() -> None:
     import basket  # imports scan itself — deferred to avoid a circular import
 
+    global _run_started
+    _run_started = now_iso()
+    _removals.clear()
     state = load_state()
+    removed = state.pop(REMOVED_KEY, [])
+    before = dict(state)
     universe = build_universe()
 
     logger.info("Phase A: higher-timeframe watch-trigger scan (%s)", ", ".join(config.HIGHER_TIMEFRAMES))
@@ -610,9 +661,10 @@ def run() -> None:
         scan_asset(asset, state)
 
     prune_unscanned(state, universe)
+    removed = update_removed(removed, before, state)
     basket_status = basket.run_hourly(state)
-    write_output(state, basket_status)
-    save_state(state)
+    write_output(state, basket_status, removed)
+    save_state({**state, REMOVED_KEY: removed})
 
 
 if __name__ == "__main__":

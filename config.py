@@ -64,9 +64,11 @@ WATCH_WINDOW_CANDLES = 25
 # the next SMA50_SEARCH_CANDLES that reaches SMA 50 — its low within
 # SMA50_TOUCH_ATR x ATR14 above it (bullish; mirrored for bearish), or
 # through it — starts an SMA 50 watch lasting SMA50_WATCH_CANDLES candles
-# counted from that touch candle. Its basket entries fire once per line.
+# (SMA50_WATCH_CANDLES_BY_TF where set) counted from that touch candle.
+# Its basket entries fire once per line.
 SMA50_SEARCH_CANDLES = 25
-SMA50_WATCH_CANDLES = 10
+SMA50_WATCH_CANDLES = 20
+SMA50_WATCH_CANDLES_BY_TF = {"1W": 10}   # 20 weeks would be most of half a year
 SMA50_TOUCH_ATR = 0.25
 # (asset class, timeframe) pairs without an SMA 50 watch — crypto only
 # uses it on 1H and 4H (1W alone made a third of all of them).
@@ -75,6 +77,10 @@ SMA50_EXCLUDED = {("crypto", "1D"), ("crypto", "1W")}
 # bearish trend watches stay — they feed the market-bias view.
 SMA50_BULLISH_ONLY = {"pse"}
 ATR_PERIOD = 14
+
+# A removed watch stays on the dashboard this long — faded, crossed out,
+# with the reason — before it disappears.
+REMOVED_SHOW_HOURS = 24
 
 # yfinance's native intraday intervals. Anything not in this dict (4H) has to
 # be resampled from 1H bars ourselves — see fetch.resample_to_4h().

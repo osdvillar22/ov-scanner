@@ -96,9 +96,20 @@
   .scroll { max-height: calc(100vh - 70px); overflow-y: auto; }
 
   /* ---- Watchlist rows: one line — name + RSI · timeframes · +/✓ ---- */
-  .grp { font-size: 10px; letter-spacing: 0.08em; color: var(--ink-dim); padding: 6px 10px 3px; background: var(--surface-raised); display: flex; justify-content: space-between; }
-  .grp .session { letter-spacing: 0; text-transform: none; }
-  .grp .session.open { color: var(--gain); }
+  /* Batches: one per scan, newest first; 2+ days old fold into "older". */
+  .grp { font-size: 10px; color: var(--ink-dim); padding: 6px 10px 3px; background: var(--surface-raised); display: flex; justify-content: space-between; gap: 8px; }
+  .grp .when { letter-spacing: 0.06em; }
+  .grp-block.latest .when { color: var(--gold-bright); }
+  .grp-fold { cursor: pointer; }
+  .grp-fold:hover { color: var(--ink); }
+  .grp-block.folded .row { display: none !important; }
+  #watchlist.searching .grp-block.folded .row { display: grid !important; }
+  #watchlist.searching .grp-block.folded .row[style*="none"] { display: none !important; }
+  .wl-sum { display: flex; justify-content: space-between; gap: 8px; padding: 5px 10px; font-size: 10.5px; color: var(--ink-faint); border-bottom: 1px solid var(--hair); }
+  .wl-sum .new { color: var(--gain); }
+  .wl-sum .rmb { color: var(--loss); text-decoration: underline dotted; text-underline-offset: 3px; }
+  .wl-sum .rmb.on { text-decoration: underline solid; font-weight: 600; }
+  .wl-sum .session.open { color: var(--gain); }
   .row { display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; align-items: center; gap: 8px; padding: 8px 10px 6px; border-bottom: 1px solid var(--hair); cursor: pointer; }
   .row:hover { background: var(--surface-raised); }
   .row.active { background: var(--surface-raised); box-shadow: inset 2px 0 0 var(--gold-bright); }
@@ -119,6 +130,15 @@
   .tfs .s50 { outline: 1px dashed var(--ink); outline-offset: 1px; border-radius: 2px; padding: 1px 2px; }
   /* In the basket: gold underline under that timeframe. */
   .tfs .in-basket { text-decoration: underline; text-decoration-color: var(--gold-bright); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  /* Gold dot: the watch that put the row in this batch. */
+  .tfs .nw::after { content: ''; position: absolute; top: -1px; right: -5px; width: 4px; height: 4px; border-radius: 50%; background: var(--gold-bright); }
+  /* Removed in the last 24 h: crossed out, reason underneath. */
+  .tfs .rm { color: var(--ink-faint); text-decoration: line-through; }
+  .row-why { grid-column: 1 / -1; font-size: 10.5px; color: var(--ink-dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-why .x { color: var(--loss); }
+  .row.gone { cursor: default; }
+  .row.gone .sym { color: var(--ink-dim); }
+  .row.gone .plus { visibility: hidden; }
   .plus { font-size: 14px; line-height: 1; color: var(--ink-faint); text-align: center; }
   .plus:hover { color: var(--gold-bright); }
   .plus.in { color: var(--gold-bright); }
@@ -261,7 +281,6 @@ const MARKETS = [
   ['metals', 'metals'], ['indices', 'indices'], ['energy', 'energy'],
 ];
 const GROUP_ORDER = ['pse', 'forex', 'metals', 'indices', 'energy', 'crypto'];
-const GROUP_LABELS = { pse: 'PSE', forex: 'FOREX', metals: 'METALS', indices: 'INDICES', energy: 'ENERGY', crypto: 'CRYPTO' };
 // Kraken's non-crypto pairs also count under their real market.
 const TAG_MARKET = { currency: 'forex', gold: 'metals', uranium: 'energy' };
 const marketsOf = (a) => new Set([a.asset_class, TAG_MARKET[a.tag]].filter(Boolean));
@@ -272,7 +291,7 @@ const tfsFor = (a) => a.asset_class === 'pse' || a.asset_class === 'crypto' ? ['
 const LARGE_CAP_MARKETS = ['pse', 'crypto'];
 const LOWER_TF_MAP = { '1H': ['15m', '5m'], '4H': ['1H', '15m'], '1D': ['4H', '1H'], '1W': ['1D', '4H'] };
 
-const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL', setup: 'ALL', q: '' };
+const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL', setup: 'ALL', q: '', removed: false };
 
 // PSE session (Mon-Fri 9:30-15:00 Manila). Doesn't know PSE holidays.
 function pseOpen() {
@@ -303,6 +322,9 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 
 let watchesBySym = {};     // symKey -> { '1H': watch, '4H:50': SMA 50 watch, ... }
 let assetsById = {};       // watch _id -> watch
+let removedBySym = {};     // symKey -> [removed watch, ...] (last 24 h, no charts)
+let runStarted = null;     // this scan's start — every watch it found carries it
+let olderFolded = true;
 // Aligned = on watch, same direction, on every tf the market has (1W too for PSE/crypto).
 const isAligned = (byTf) => { const tfs = tfsFor(Object.values(byTf)[0]); return tfs.every(tf => byTf[tf]) && new Set(tfs.map(tf => byTf[tf].direction)).size === 1; };
 
@@ -764,23 +786,36 @@ function paintRow(row) {
   plus.setAttribute('aria-label', plus.title);
 }
 
+// A removed watch passes the same filters (never "aligned" — it's gone).
+const removedMatch = (r) => marketMatch(r) && (F.tf === 'ALL' || F.tf === r.higher_tf)
+  && (F.dir === 'ALL' || r.direction === F.dir) && setupMatch(r);
+
 function applyFilters() {
-  let visible = 0;
+  let visible = 0, rowsShown = 0;
+  document.getElementById('watchlist').classList.toggle('searching', !!F.q);
   document.querySelectorAll('#watchlist .grp-block').forEach(block => {
-    let any = false;
+    let rows = 0, nNew = 0, nRm = 0;
     block.querySelectorAll('.row').forEach(row => {
       const byTf = watchesBySym[row.dataset.sym];
-      const w = marketMatch(Object.values(byTf)[0]) ? primaryWatch(byTf) : null;
-      row.style.display = w ? '' : 'none';
-      if (!w) return;
-      any = true; visible++;
-      row.dataset.slot = slotOf(w);
-      paintRow(row);
+      const w = !F.removed && byTf && marketMatch(Object.values(byTf)[0]) ? primaryWatch(byTf) : null;
+      const show = w || (removedBySym[row.dataset.sym] || []).some(removedMatch);
+      row.style.display = show ? '' : 'none';
+      if (!show) return;
+      rows++; if (w) visible++;
+      nNew += row.dataset.isNew === '1'; nRm += row.dataset.isRm === '1';
+      row.classList.toggle('gone', !w);
+      row.dataset.slot = w ? slotOf(w) : '';
+      if (w) paintRow(row);
+      else { row.dataset.id = ''; const rsi = row.querySelector('.rsi'); rsi.textContent = ''; rsi.className = 'rsi'; }
     });
-    block.style.display = any ? '' : 'none';
+    rowsShown += rows;
+    block.style.display = rows ? '' : 'none';
+    block.querySelector('.grp-n').textContent = block.dataset.older
+      ? `${rows} ${rows === 1 ? 'asset' : 'assets'}`
+      : [nNew && `${nNew} new`, nRm && `${nRm} removed`].filter(Boolean).join(' · ');
   });
   document.getElementById('wlCount').textContent = visible;
-  document.getElementById('wlEmpty').textContent = visible ? '' : (F.q ? `No match for "${F.q}".` : 'No assets match these filters.');
+  document.getElementById('wlEmpty').textContent = rowsShown ? '' : (F.q ? `No match for "${F.q}".` : 'No assets match these filters.');
   updateCounts();
   renderBasket();
 }
@@ -840,31 +875,96 @@ function buildFilters(syms) {
   });
 }
 
-function buildWatchlist(syms) {
-  const grouped = {};
-  syms.forEach(byTf => { const cls = Object.values(byTf)[0].asset_class; (grouped[cls] = grouped[cls] || []).push(byTf); });
-  const el = document.getElementById('watchlist');
-  el.innerHTML = GROUP_ORDER.filter(cls => grouped[cls]).map(cls => `
-    <div class="grp-block">
-      <div class="grp"><span>${GROUP_LABELS[cls] || cls.toUpperCase()}</span>${cls === 'pse' ? `<span class="session${pseOpen() ? ' open' : ''}">${pseOpen() ? 'open' : 'closed'}</span>` : ''}</div>
-      ${grouped[cls].map(byTf => {
-        const a = Object.values(byTf)[0];
-        const tfs = tfsFor(a).map(tf => {
-          const t = byTf[tf], s = byTf[`${tf}:50`], w = t || s, m = macdAttrs(a, tf);
-          const macd = (MACD_STATE[(a.macd_state || {})[tf]] || [])[1];
-          if (!w) return `<span class="off"${m}${macd ? ` title="${tf}: ${macd}"` : ''}>${tf}</span>`;
-          const title = `Open ${tf}${t && s ? ' (trend + SMA 50 watch)' : s ? ' SMA 50 watch' : ''}${macd ? ` · ${macd}` : ''}`;
-          return `<button type="button" class="${dirClass(w.direction)}${s ? ' s50' : ''}" data-tf="${tf}"${m} title="${title}">${tf}${dirArrow(w.direction)}</button>`;
-        }).join('');
-        const tag = a.tag && a.asset_class !== 'pse' ? `<span class="tag">${a.tag}</span>` : '';
-        return `
-        <div class="row" data-sym="${esc(symKey(a))}">
-          <div class="row-name"><span class="sym">${esc(a.display_name)}</span>${tag}<span class="rsi"></span></div>
+// Batches: each row sits under the scan of its newest event — a watch
+// found or a watch removed. A run stamps everything it finds with its
+// start; older watches were stamped as each asset was scanned, so times
+// within 40 minutes count as one scan.
+const SCAN_GAP_MS = 40 * 60e3, OLDER_MS = 48 * 3600e3, OLDER = Infinity;
+
+function batchLabel(ms) {
+  const d = new Date(ms), day = new Date(d).setHours(0, 0, 0, 0), today = new Date().setHours(0, 0, 0, 0);
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const date = day === today ? 'today' : day === today - 864e5 ? 'yesterday' : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return `${date} ${time}`;
+}
+
+function buildWatchlist() {
+  const keys = [...new Set([...Object.keys(watchesBySym), ...Object.keys(removedBySym)])];
+  const live = (k) => Object.values(watchesBySym[k] || {}), gone = (k) => removedBySym[k] || [];
+  const ms = (iso) => iso ? parseTime(iso).getTime() : 0;
+
+  const scans = [];          // newest first: { max, min } in ms
+  [...new Set(keys.flatMap(k => [...live(k).map(w => ms(w.first_seen)), ...gone(k).map(r => ms(r.removed_at))]))]
+    .sort((x, y) => y - x)
+    .forEach(t => { const s = scans.at(-1); if (s && s.max - t <= SCAN_GAP_MS) s.min = t; else scans.push({ max: t, min: t }); });
+  const cutoff = Date.now() - OLDER_MS;
+  const scanOf = (iso) => { const t = ms(iso), i = scans.findIndex(s => t >= s.min && t <= s.max); return i < 0 || scans[i].min < cutoff ? OLDER : i; };
+
+  const batches = new Map();
+  keys.forEach(k => {
+    const b = Math.min(...live(k).map(w => scanOf(w.first_seen)), ...gone(k).map(r => scanOf(r.removed_at)));
+    if (!batches.has(b)) batches.set(b, []);
+    batches.get(b).push(k);
+  });
+  const order = (k) => { const a = live(k)[0] || gone(k)[0]; return [GROUP_ORDER.indexOf(a.asset_class), a.display_name || a.ticker]; };
+  const byOrder = (x, y) => { const [p, q] = [order(x), order(y)]; return p[0] - q[0] || String(p[1]).localeCompare(String(q[1])); };
+
+  const row = (k, b) => {
+    const byTf = watchesBySym[k] || {}, rms = gone(k), a = live(k)[0] || rms[0];
+    const tfs = tfsFor(a).map(tf => {
+      const t = byTf[tf], s = byTf[`${tf}:50`], w = t || s, m = macdAttrs(a, tf);
+      const macd = (MACD_STATE[(a.macd_state || {})[tf]] || [])[1];
+      if (!w) {
+        const r = rms.find(r => r.higher_tf === tf);
+        if (r) return `<span class="rm"${m} title="${tf}${isS50(r) ? ' SMA 50' : ''} removed ${fmtTime(r.removed_at)} · ${esc(r.reason)}">${tf}${dirArrow(r.direction)}</span>`;
+        return `<span class="off"${m}${macd ? ` title="${tf}: ${macd}"` : ''}>${tf}</span>`;
+      }
+      const nw = b !== OLDER && [t, s].some(x => x && scanOf(x.first_seen) === b);
+      const title = `Open ${tf}${t && s ? ' (trend + SMA 50 watch)' : s ? ' SMA 50 watch' : ''}${nw ? ' · new this batch' : ''}${macd ? ` · ${macd}` : ''}`;
+      return `<button type="button" class="${dirClass(w.direction)}${s ? ' s50' : ''}${nw ? ' nw' : ''}" data-tf="${tf}"${m} title="${title}">${tf}${dirArrow(w.direction)}</button>`;
+    }).join('');
+    const tag = a.tag && a.asset_class !== 'pse' ? `<span class="tag">${a.tag}</span>` : '';
+    const why = rms.map(r => `${r.higher_tf}${isS50(r) ? ' SMA 50' : ''} <span class="x">✕</span> ${esc(r.reason)}${scanOf(r.removed_at) === b ? '' : ` · ${fmtTime(r.removed_at)}`}`).join(' · ');
+    const isNew = b !== OLDER && live(k).some(w => scanOf(w.first_seen) === b);
+    const isRm = rms.some(r => scanOf(r.removed_at) === b);
+    return `
+        <div class="row" data-sym="${esc(k)}" data-is-new="${isNew ? 1 : 0}" data-is-rm="${isRm ? 1 : 0}">
+          <div class="row-name"><span class="sym">${esc(a.display_name || a.ticker)}</span>${tag}<span class="rsi"></span></div>
           <div class="tfs">${tfs}</div>
           <button type="button" class="plus"></button>
+          ${why ? `<div class="row-why">${why}</div>` : ''}
         </div>`;
-      }).join('')}
-    </div>`).join('') + '<div class="empty" id="wlEmpty"></div>';
+  };
+
+  // This scan's changes, above the list. "removed" shows only removals.
+  const since = runStarted ? ms(runStarted) : null;
+  const nNew = since ? Object.values(assetsById).filter(w => ms(w.first_seen) >= since).length : 0;
+  const nRm = since ? Object.values(removedBySym).flat().filter(r => ms(r.removed_at) >= since).length : 0;
+  const nRmAll = Object.values(removedBySym).flat().length;
+  const sum = `
+    <div class="wl-sum">
+      <span title="Changes in the latest scan">${since ? `<span class="new">+${nNew} new</span> · ` : ''}${nRmAll ? `<button type="button" class="rmb${F.removed ? ' on' : ''}" title="Show only the watches removed in the last 24 hours">−${since ? nRm : nRmAll} removed</button>` : '<span>−0 removed</span>'}</span>
+      <span>PSE <span class="session${pseOpen() ? ' open' : ''}">${pseOpen() ? 'open' : 'closed'}</span></span>
+    </div>`;
+
+  const el = document.getElementById('watchlist');
+  el.innerHTML = sum + [...batches.keys()].sort((x, y) => x - y).map((b, i) => {
+    const older = b === OLDER;
+    return `
+    <div class="grp-block${i === 0 && !older ? ' latest' : ''}${older && olderFolded ? ' folded' : ''}"${older ? ' data-older="1"' : ''}>
+      <div class="grp${older ? ' grp-fold' : ''}"><span><span class="when">${older ? 'OLDER' : batchLabel(scans[b].min).toUpperCase()}</span> · <span class="grp-n"></span></span>${older ? `<span class="fold-ic">${olderFolded ? '▸' : '▾'}</span>` : ''}</div>
+      ${batches.get(b).sort(byOrder).map(k => row(k, b)).join('')}
+    </div>`;
+  }).join('') + '<div class="empty" id="wlEmpty"></div>';
+
+  const fold = el.querySelector('.grp-fold');
+  if (fold) fold.addEventListener('click', () => {
+    olderFolded = !olderFolded;
+    fold.parentElement.classList.toggle('folded', olderFolded);
+    fold.querySelector('.fold-ic').textContent = olderFolded ? '▸' : '▾';
+  });
+  const rmb = el.querySelector('.rmb');
+  if (rmb) rmb.addEventListener('click', () => { F.removed = !F.removed; rmb.classList.toggle('on', F.removed); applyFilters(); });
 
   el.querySelectorAll('.row').forEach(row => {
     row.addEventListener('click', () => selectAsset(row.dataset.id));
@@ -1040,6 +1140,9 @@ async function init() {
 
   const assets = data.assets || [];
   basketStatus = data.basket_status || {};
+  runStarted = data.run_started_at || null;
+  removedBySym = {};
+  (data.removed || []).forEach(r => (removedBySym[symKey(r)] = removedBySym[symKey(r)] || []).push(r));
   watchesBySym = {}; assetsById = {};
   assets.forEach(a => {
     a._id = `${symKey(a)}__${slotOf(a)}`;
@@ -1056,7 +1159,7 @@ async function init() {
     document.getElementById('detail').innerHTML = '<div class="empty">Nothing on watch right now — no asset meets the trigger condition this scan.</div>';
     return;
   }
-  buildWatchlist(syms);
+  buildWatchlist();
   applyFilters();
 
   fetchBasket()
@@ -1065,7 +1168,7 @@ async function init() {
 
   window.addEventListener('resize', () => activeCharts.forEach(({ chart, el }) => chart.applyOptions({ width: el.clientWidth })));
 
-  const first = document.querySelector('#watchlist .row:not([style*="none"])');
+  const first = [...document.querySelectorAll('#watchlist .row:not([style*="none"])')].find(r => r.dataset.id);
   if (first) selectAsset(first.dataset.id);
 }
 
