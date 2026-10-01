@@ -877,8 +877,10 @@ function buildFilters(syms) {
 
 // Batches: each row sits under the scan of its newest event — a watch
 // found or a watch removed. A run stamps everything it finds with its
-// start; older watches were stamped as each asset was scanned, so times
-// within 40 minutes count as one scan.
+// start, so each distinct stamp is its own scan (two runs can be minutes
+// apart). Watches from before run stamps existed were stamped as each
+// asset was scanned, so those times within 40 minutes count as one scan.
+const RUN_STAMPS_FROM = Date.parse('2026-10-01T03:46:00Z');
 const SCAN_GAP_MS = 40 * 60e3, OLDER_MS = 48 * 3600e3, OLDER = Infinity;
 
 function batchLabel(ms) {
@@ -896,7 +898,11 @@ function buildWatchlist() {
   const scans = [];          // newest first: { max, min } in ms
   [...new Set(keys.flatMap(k => [...live(k).map(w => ms(w.first_seen)), ...gone(k).map(r => ms(r.removed_at))]))]
     .sort((x, y) => y - x)
-    .forEach(t => { const s = scans.at(-1); if (s && s.max - t <= SCAN_GAP_MS) s.min = t; else scans.push({ max: t, min: t }); });
+    .forEach(t => {
+      const s = scans.at(-1);
+      if (s && t < RUN_STAMPS_FROM && s.max < RUN_STAMPS_FROM && s.max - t <= SCAN_GAP_MS) s.min = t;
+      else scans.push({ max: t, min: t });
+    });
   const cutoff = Date.now() - OLDER_MS;
   const scanOf = (iso) => { const t = ms(iso), i = scans.findIndex(s => t >= s.min && t <= s.max); return i < 0 || scans[i].min < cutoff ? OLDER : i; };
 
