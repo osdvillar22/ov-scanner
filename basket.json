@@ -65,17 +65,6 @@
       ]
     },
     {
-      "asset_class": "pse",
-      "ticker": "LPZ",
-      "display_name": "LPZ",
-      "higher_tf": "1W",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T09:02:18.350Z",
-      "muted": [
-        "4H"
-      ]
-    },
-    {
       "asset_class": "crypto",
       "ticker": "XLTCZUSD",
       "display_name": "LTC/USD",
