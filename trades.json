@@ -261,6 +261,31 @@
       "filled_at": "2026-10-02T04:00:00.000Z",
       "fill_end": "2026-10-02T08:00:00.000Z",
       "fill_tf": "4H"
+    },
+    {
+      "id": "muwk693ivo6v",
+      "asset_class": "crypto",
+      "ticker": "PEPEUSD",
+      "display_name": "PEPE/USD",
+      "tag": null,
+      "higher_tf": "1H",
+      "setup": "sma50",
+      "lines": [
+        "sma50",
+        "lsma"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "15m",
+      "entry": 0.00000435,
+      "cl": 0.00000426,
+      "tp": 0.00000444,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-06T10:51:21.870Z",
+      "missed": true,
+      "filled_at": "2026-10-06T09:00:00.000Z",
+      "fill_end": "2026-10-06T09:15:00.000Z",
+      "fill_tf": "15m"
     }
   ]
 }
