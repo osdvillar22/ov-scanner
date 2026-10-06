@@ -17,8 +17,10 @@
       "cl": 1.14,
       "tp": 1.26,
       "ratio": 1,
-      "status": "pending",
-      "created_at": "2026-10-06T08:16:16.950Z"
+      "status": "cancelled",
+      "created_at": "2026-10-06T08:16:16.950Z",
+      "cancelled_at": "2026-10-06T10:51:48.127Z",
+      "cancelled_from": "pending"
     },
     {
       "id": "muweoei6chid",
