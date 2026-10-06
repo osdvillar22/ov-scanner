@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OV FORWARD TEST</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314140F'/%3E%3Ccircle cx='10' cy='16' r='5.5' fill='none' stroke='%23E8CC66' stroke-width='3'/%3E%3Cpath d='M18.5 10.5l3.5 11 3.5-11' fill='none' stroke='%23E8CC66' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<link rel="stylesheet" href="ov.css">
+<style>
+  .nav { display: flex; gap: 14px; align-items: baseline; }
+  .nav a { color: var(--ink-dim); text-decoration: none; font-size: 12px; }
+  .nav a:hover { color: var(--ink); }
+  .nav a.on { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); padding-bottom: 2px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 10px; font-size: 11px; color: var(--ink-dim); }
+  .stats b { color: var(--ink); font-weight: 500; }
+  .up { color: var(--gain); } .down { color: var(--loss); }
+
+  /* Trade list: name + R, a progress bar (CL ← entry → TP), one sub line. */
+  .tr { padding: 8px 10px; border-bottom: 1px solid var(--hair); cursor: pointer; }
+  .tr:hover { background: var(--surface-raised); }
+  .tr.active { background: var(--surface-raised); box-shadow: inset 2px 0 0 var(--gold-bright); }
+  .tr-head { display: flex; justify-content: space-between; gap: 8px; }
+  .tr-sub { font-size: 10.5px; color: var(--ink-dim); margin-top: 3px; }
+  .prog { height: 4px; border-radius: 2px; background: var(--border); position: relative; margin-top: 6px; }
+  .prog .fill { position: absolute; top: 0; height: 4px; border-radius: 2px; }
+  .prog .at { position: absolute; top: -2px; width: 1px; height: 8px; background: var(--gold-bright); }
+  .brk { padding: 8px 10px; font-size: 10.5px; color: var(--ink-dim); }
+  .brk table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  .brk th { text-align: left; font-weight: 500; color: var(--ink-faint); letter-spacing: 0.06em; padding: 4px 0 2px; }
+  .brk td { padding: 1px 0; }
+  .brk td.n { text-align: right; }
+
+  .st { font-size: 11px; padding: 0 6px; border-radius: 3px; border: 1px solid var(--border); }
+  .st.open { color: var(--gold-bright); border-color: color-mix(in srgb, var(--gold-bright) 50%, var(--border)); }
+  .st.tp { color: var(--gain); } .st.cl { color: var(--loss); }
+  .d-levels { font-size: 11px; color: var(--ink-dim); margin-top: 4px; line-height: 1.6; }
+  .d-levels b { color: var(--ink); font-weight: 500; }
+</style>
+</head>
+<body>
+
+  <header class="page">
+    <div class="topbar">
+      <span class="nav"><span class="brand">OV <span>SCANNER</span></span><a href="dashboard.html">dashboard</a><a class="on" href="forward.html">forward test</a></span>
+      <span class="meta"><span id="meta">Loading…</span> · <button class="link-btn" id="basketSettingsBtn" type="button">token settings</button></span>
+    </div>
+    <div class="settings-panel is-hidden" id="basketSettings">
+      <div><strong>GitHub token.</strong> Planning and cancelling trades saves <code>trades.json</code> in your GitHub repo, with the same token as the basket. It's stored in this browser only.</div>
+      <div class="settings-row">
+        <input type="password" id="tokenInput" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
+        <button class="text-btn" id="tokenSave" type="button">Save token</button>
+        <button class="text-btn" id="tokenClear" type="button">Remove token</button>
+      </div>
+      <div class="settings-msg" id="tokenMsg"></div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="layout">
+    <div class="side-panel">
+      <div class="panel-tabs">
+        <button class="panel-tab active" data-view="open" type="button">open<span class="n" id="n-open"></span></button>
+        <button class="panel-tab" data-view="pending" type="button">pending<span class="n" id="n-pending"></span></button>
+        <button class="panel-tab" data-view="closed" type="button">closed<span class="n" id="n-closed"></span></button>
+      </div>
+      <div class="scroll" id="list"></div>
+    </div>
+    <div class="detail-panel" id="detail"><div class="empty">Loading trades…</div></div>
+  </div>
+
+<script src="ov.js"></script>
+<script>
+// ---------------------------------------------------------------------------
+// Forward test: trades planned on the dashboard (trades.json, read live from
+// GitHub) and their charts (trades_data.json, refreshed by the hourly scan).
+// trades.py moves them pending -> open -> tp / cl.
+// ---------------------------------------------------------------------------
+let trades = [], charts = {}, chartsAt = null, view = 'open', currentId = null;
+const VIEWS = { open: ['open'], pending: ['pending'], closed: ['tp', 'cl'] };
+const chartKey = (t) => `${t.asset_class}:${t.ticker}:${t.higher_tf}`;
+const tfsOf = (t) => [t.higher_tf, ...LOWER_TF_MAP[t.higher_tf]];
+const ratioOf = (t) => Math.abs(t.tp - t.entry) / Math.abs(t.entry - t.cl);
+
+// Latest close from the finest chart we have for the trade.
+function lastPrice(t) {
+  const c = charts[chartKey(t)] || {};
+  for (const tf of [...tfsOf(t)].reverse()) { const cc = toCandles(c[tf]); if (cc.length) return cc[cc.length - 1].close; }
+  return null;
+}
+
+function fmtDur(ms) {
+  const m = Math.max(0, Math.round(ms / 60e3)), h = Math.floor(m / 60), d = Math.floor(h / 24);
+  return d ? `${d}d ${h % 24}h` : h ? `${h}h ${m % 60}m` : `${m}m`;
+}
+const sideOf = (t) => tradeLong(t) ? '<span class="bullish">long</span>' : '<span class="bearish">short</span>';
+
+function renderStats() {
+  const closed = trades.filter(t => VIEWS.closed.includes(t.status));
+  const wins = closed.filter(t => t.status === 'tp').length, total = closed.reduce((s, t) => s + (t.result_r || 0), 0);
+  const n = (v) => trades.filter(t => VIEWS[v].includes(t.status)).length;
+  document.getElementById('stats').innerHTML = closed.length
+    ? `<span>closed <b>${closed.length}</b></span><span>win rate <b>${Math.round(wins / closed.length * 100)}%</b></span><span>avg <b class="${total >= 0 ? 'up' : 'down'}">${fmtR(total / closed.length)}</b></span><span>total <b class="${total >= 0 ? 'up' : 'down'}">${fmtR(total)}</b></span><span>open <b>${n('open')}</b></span><span>pending <b>${n('pending')}</b></span>`
+    : `<span>No closed trades yet · open <b>${n('open')}</b> · pending <b>${n('pending')}</b></span>`;
+  Object.keys(VIEWS).forEach(v => { document.getElementById(`n-${v}`).textContent = n(v); });
+}
+
+// Results grouped by market, pick timeframe, setup, entry line and the
+// chart the plan was made on.
+function breakdown(closed) {
+  if (!closed.length) return '';
+  const groups = [
+    ['MARKET', t => [...marketsOf(t)].pop()], ['PICK TF', t => t.higher_tf], ['SETUP', t => t.setup === 'sma50' ? 'SMA 50' : 'trend'],
+    ['ENTRY LINE', t => (t.lines || ['lsma']).map(l => l === 'lsma' ? 'LSMA' : 'SMA 50').join(' + ')], ['PLANNED ON', t => t.plan_tf],
+  ];
+  return `<div class="brk">${groups.map(([title, key]) => {
+    const by = {};
+    closed.forEach(t => { (by[key(t)] = by[key(t)] || []).push(t); });
+    return `<table><tr><th>${title}</th><th class="n">n</th><th class="n">win</th><th class="n">total</th></tr>${Object.entries(by).map(([k, ts]) => {
+      const w = ts.filter(t => t.status === 'tp').length, r = ts.reduce((s, t) => s + (t.result_r || 0), 0);
+      return `<tr><td>${esc(k)}</td><td class="n">${ts.length}</td><td class="n">${Math.round(w / ts.length * 100)}%</td><td class="n ${r >= 0 ? 'up' : 'down'}">${fmtR(r)}</td></tr>`;
+    }).join('')}</table>`;
+  }).join('')}</div>`;
+}
+
+function renderList() {
+  const el = document.getElementById('list');
+  const shown = trades.filter(t => VIEWS[view].includes(t.status))
+    .sort((a, b) => (b.closed_at || b.filled_at || b.created_at).localeCompare(a.closed_at || a.filled_at || a.created_at));
+  if (!shown.length) {
+    el.innerHTML = `<div class="empty">${{ open: 'No open trades. A pending plan opens when price reaches its entry.', pending: 'No pending plans. Plan one on the dashboard: open a basket pick and tap "plan trade".', closed: 'No closed trades yet.' }[view]}</div>`;
+    return;
+  }
+  el.innerHTML = shown.map(t => {
+    const name = `<b>${esc(t.display_name)}</b> <span class="d-sub" style="margin:0">${t.plan_tf}</span> ${sideOf(t)}`;
+    let right = '', sub = '', bar = '';
+    if (t.status === 'open') {
+      const p = lastPrice(t), r = p == null ? null : tradeR(t, p), ratio = ratioOf(t);
+      right = r == null ? '' : `<span class="${r >= 0 ? 'up' : 'down'}">${fmtR(r)}</span>`;
+      const x = (v) => Math.max(0, Math.min(100, (v + 1) / (1 + ratio) * 100)), x0 = x(0);
+      if (r != null) bar = `<div class="prog"><span class="fill" style="left:${Math.min(x0, x(r))}%;width:${Math.abs(x(r) - x0)}%;background:var(${r >= 0 ? '--gain' : '--loss'})"></span><span class="at" style="left:${x0}%"></span></div>`;
+      sub = `${t.setup === 'sma50' ? 'SMA 50' : 'trend'} · ${t.higher_tf} pick · ${fmtDur(Date.now() - parseTime(t.filled_at))} in trade`;
+    } else if (t.status === 'pending') {
+      const p = lastPrice(t);
+      right = p == null ? '' : `<span class="d-sub" style="margin:0">${Math.abs((t.entry - p) / p * 100).toFixed(2)}% away</span>`;
+      sub = `entry ${t.entry} · planned ${fmtTime(t.created_at)}`;
+    } else {
+      right = `<span class="${t.status === 'tp' ? 'up' : 'down'}">${t.status.toUpperCase()} ${fmtR(t.result_r)}</span>`;
+      sub = `${fmtTime(t.closed_at)}${t.note ? ` · ${esc(t.note)}` : ''}`;
+    }
+    return `<div class="tr${t.id === currentId ? ' active' : ''}" data-id="${t.id}"><div class="tr-head"><span>${name}</span>${right}</div>${bar}<div class="tr-sub">${sub}</div></div>`;
+  }).join('') + (view === 'closed' ? breakdown(shown) : '');
+  el.querySelectorAll('.tr').forEach(r => r.addEventListener('click', () => selectTrade(r.dataset.id)));
+}
+
+function selectTrade(id) {
+  const t = trades.find(x => x.id === id);
+  if (!t) return;
+  currentId = id;
+  document.querySelectorAll('#list .tr').forEach(r => r.classList.toggle('active', r.dataset.id === id));
+  teardownCharts();
+  const p = lastPrice(t), r = p == null ? null : tradeR(t, p);
+  const status = t.status === 'open' ? `open${r == null ? '' : ` ${fmtR(r)}`}` : t.status === 'pending' ? 'pending' : `${t.status.toUpperCase()} ${fmtR(t.result_r)}`;
+  const act = t.status === 'pending' ? 'cancel plan' : t.status === 'open' ? 'cancel trade' : '';
+  const pct = (v) => `${v >= t.entry ? '+' : '−'}${Math.abs((v - t.entry) / t.entry * 100).toFixed(2)}%`;
+  const tfs = tfsOf(t), c = charts[chartKey(t)] || {};
+  const detail = document.getElementById('detail');
+  detail.innerHTML = `
+    <div class="d-top" data-current-id="${id}">
+      <div><span class="d-name">${esc(t.display_name)}</span><span class="d-sub">${sideOf(t)} · planned on ${t.plan_tf} · ${t.setup === 'sma50' ? 'SMA 50' : 'trend'} ${t.higher_tf} ${dirArrow(t.pick_direction)} · entry on ${(t.lines || ['lsma']).map(l => l === 'lsma' ? 'LSMA' : 'SMA 50').join(' + ')}</span></div>
+      <div class="d-right"><span class="st ${t.status}">${status}</span>${act ? `<button class="text-btn" id="cancelBtn" type="button">${act}</button>` : ''}</div>
+    </div>
+    <div class="d-levels">entry <b>${t.entry}</b> · CL <b>${t.cl}</b> (${pct(t.cl)}) · TP <b>${t.tp}</b> (${pct(t.tp)}) · 1:${+ratioOf(t).toFixed(2)}${p == null ? '' : ` · now <b>${p}</b>`}<br>
+      planned ${fmtTime(t.created_at)}${t.filled_at ? ` · filled ${fmtTime(t.filled_at)} (${t.fill_tf})` : ''}${t.closed_at ? ` · closed ${fmtTime(t.closed_at)} (${t.exit_tf})` : ''}${t.note ? ` · ${esc(t.note)}` : ''}<span class="msg" id="cancelMsg"></span></div>
+    <div class="legend"><span class="ind-label">show</span>${indicatorToggles()}<span class="push">ctrl+scroll or pinch to zoom · drag to pan</span></div>
+    ${tfs.map((tf, i) => `
+      <div class="chart-head"><span class="chart-label">${tf}${i === 0 ? ' <span class="dim">trigger timeframe</span>' : ''}${tf === t.plan_tf ? ' <span class="dim">· planned here</span>' : ''}</span><button class="reset" id="fc-${i}-reset" type="button">reset zoom</button></div>
+      <div class="chart-box" id="fc-${i}"></div>
+      <div class="macd-box" id="fm-${i}"></div>`).join('')}`;
+  detail.querySelectorAll('.ind').forEach(b => b.addEventListener('click', () => setIndicator(b.dataset.key, !shown[b.dataset.key])));
+  if (!shown.macd) detail.querySelectorAll('.macd-box').forEach(el => el.classList.add('is-hidden'));
+  const forex = marketsOf(t).has('forex');
+  tfs.forEach((tf, i) => { const cc = toCandles(c[tf]); renderBlock(cc, `fc-${i}`, `fm-${i}`, i === 0 ? 25 : cc.length, { forex, trades: [t] }); });
+  const cancel = document.getElementById('cancelBtn');
+  if (cancel) cancel.addEventListener('click', () => cancelTrade(t));
+}
+
+async function cancelTrade(t) {
+  if (!requireToken()) return;
+  if (!confirm(`${t.status === 'open' ? 'Cancel this open trade? It won\'t count in the results.' : 'Cancel this plan?'}\n${t.display_name} · entry ${t.entry}`)) return;
+  const msg = document.getElementById('cancelMsg');
+  msg.textContent = ' · cancelling…';
+  try {
+    trades = await updateTrades(list => list.map(x => x.id === t.id && x.status === t.status
+      ? { ...x, status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_from: x.status } : x),
+      `Trades: cancel ${t.display_name} ${t.status}`);
+    currentId = null;
+    render();
+  } catch (err) { msg.textContent = ` · couldn't cancel: ${err.message}`; }
+}
+
+function render() {
+  renderStats();
+  renderList();
+  const keep = trades.find(t => t.id === currentId && VIEWS[view].includes(t.status));
+  const first = keep || trades.filter(t => VIEWS[view].includes(t.status))
+    .sort((a, b) => (b.closed_at || b.filled_at || b.created_at).localeCompare(a.closed_at || a.filled_at || a.created_at))[0];
+  if (first) selectTrade(first.id);
+  else { teardownCharts(); currentId = null; document.getElementById('detail').innerHTML = '<div class="empty">Pick a trade on the right.</div>'; }
+}
+
+async function load(initial) {
+  try { trades = await fetchTrades(); }
+  catch (err) { if (initial) document.getElementById('detail').innerHTML = `<div class="empty">Couldn't load trades.json (${esc(err.message)}).</div>`; return; }
+  if (initial) {
+    try {
+      const resp = await fetch('trades_data.json', { cache: 'no-cache' });
+      if (resp.ok) { const d = await resp.json(); charts = d.charts || {}; chartsAt = d.generated_at; }
+    } catch (e) {}
+    // Start on whichever tab has something.
+    view = ['open', 'pending', 'closed'].find(v => trades.some(t => VIEWS[v].includes(t.status))) || 'open';
+    document.querySelectorAll('.panel-tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));
+  }
+  document.getElementById('meta').innerHTML = `charts ${chartsAt ? `<strong>${fmtTime(chartsAt)}</strong>` : '—'} · status live`;
+  if (initial) render();
+  else { renderStats(); renderList(); }
+}
+
+wireBasketSettings();
+document.querySelectorAll('.panel-tab').forEach(tab => tab.addEventListener('click', () => {
+  view = tab.dataset.view;
+  document.querySelectorAll('.panel-tab').forEach(x => x.classList.toggle('active', x === tab));
+  render();
+}));
+window.addEventListener('resize', () => activeCharts.forEach(({ chart, el }) => chart.applyOptions({ width: el.clientWidth })));
+load(true);
+// Statuses change from the 5-minute and hourly checks — refresh the list.
+setInterval(() => { if (!document.hidden) load(false); }, 120e3);
+</script>
+</body>
+</html>

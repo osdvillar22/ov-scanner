@@ -9,43 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<link rel="stylesheet" href="ov.css">
 <style>
-  :root {
-    --bg: #F5F3EC; --surface: #FFFFFF; --surface-raised: #F3F1E9; --border: #DEDACD; --hair: #E9E6DC;
-    --ink: #1B1B16; --ink-dim: #6B6858; --ink-faint: #B8B4A2; --gain: #2F7A4F; --loss: #A8402C;
-    --gold: #9C7A17; --gold-bright: #B8921C; --blue: #3E6FA8; --violet: #7A5CB8;
-    --font-ui: 'IBM Plex Sans', -apple-system, sans-serif;
-    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #14140F; --surface: #1C1C15; --surface-raised: #24241B; --border: #34331F; --hair: #28271D;
-      --ink: #EFEBDD; --ink-dim: #9B9782; --ink-faint: #55533F; --gain: #5FB980; --loss: #E27055;
-      --gold: #D9B84A; --gold-bright: #E8CC66; --blue: #6FA8DC; --violet: #B39BE0;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #14140F; --surface: #1C1C15; --surface-raised: #24241B; --border: #34331F; --hair: #28271D;
-    --ink: #EFEBDD; --ink-dim: #9B9782; --ink-faint: #55533F; --gain: #5FB980; --loss: #E27055;
-    --gold: #D9B84A; --gold-bright: #E8CC66; --blue: #6FA8DC; --violet: #B39BE0;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--font-mono); font-size: 12px; -webkit-font-smoothing: antialiased; }
-  body { min-height: 100vh; }
-  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
-  button:focus-visible { outline: 1px solid var(--gold-bright); outline-offset: 1px; }
-  .is-hidden { display: none !important; }
-  .bullish { color: var(--gain); } .bearish { color: var(--loss); }
-
-  /* ---- Header: one line of title + scan info, one line of filters ---- */
-  header.page { max-width: 1240px; margin: 0 auto; padding: 14px 16px 6px; }
-  .topbar { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  .brand { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; }
-  .brand span { color: var(--gold-bright); }
-  .meta { font-size: 11px; color: var(--ink-dim); }
-  .meta strong { color: var(--ink); font-weight: 500; }
-  .link-btn { color: var(--ink-dim); text-decoration: underline; text-underline-offset: 2px; }
-
   /* Filters: markets as tabs (the main choice), refinements as one quiet
      line of chips underneath. */
   .filters { margin-top: 10px; }
@@ -68,32 +33,6 @@
   .opt.on .n { color: var(--ink-dim); }
   .sub-opt { font-size: 11px; padding: 2px 7px; border-radius: 4px; border: 1px dashed var(--border); color: var(--ink-dim); }
   .sub-opt.on { border-style: solid; border-color: var(--gold-bright); color: var(--gold-bright); }
-
-  .settings-panel { margin-top: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-ui); font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
-  .settings-panel strong { color: var(--ink); }
-  .settings-panel code { font-family: var(--font-mono); background: var(--surface-raised); padding: 1px 5px; border-radius: 2px; }
-  .settings-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
-  .settings-row input { flex: 1; min-width: 200px; font-family: var(--font-mono); font-size: 12px; padding: 5px 8px; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: 4px; }
-  .settings-msg { font-family: var(--font-mono); font-size: 11px; margin-top: 6px; min-height: 1em; }
-  .text-btn { font-size: 11px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 4px; color: var(--ink-dim); }
-  .text-btn:hover { color: var(--ink); border-color: var(--ink-dim); }
-
-  /* ---- Layout: charts left, watchlist/basket right (sticky) ---- */
-  .layout { max-width: 1240px; margin: 0 auto; padding: 8px 16px 48px; display: flex; gap: 12px; align-items: flex-start; }
-  .detail-panel { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
-  .side-panel { order: 2; position: sticky; top: 10px; width: 272px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-  .panel-tabs { display: flex; border-bottom: 1px solid var(--border); }
-  .panel-tab { flex: 1; font-size: 11px; color: var(--ink-dim); padding: 8px 6px; }
-  .panel-tab.active { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); }
-  .panel-tab .n { color: var(--ink-faint); margin-left: 3px; }
-  .search { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--hair); color: var(--ink-faint); }
-  .search input { flex: 1; min-width: 0; font: inherit; font-size: 11px; color: var(--ink); background: none; border: 0; outline: 0; padding: 2px 0; }
-  .search input::placeholder { color: var(--ink-faint); }
-  .search:focus-within { color: var(--gold-bright); }
-  .search input::-webkit-search-cancel-button { display: none; }
-  .search-clear { font-size: 13px; line-height: 1; color: var(--ink-dim); padding: 0 2px; }
-  .search-clear:hover { color: var(--ink); }
-  .scroll { max-height: calc(100vh - 70px); overflow-y: auto; }
 
   /* ---- Watchlist rows: one line — name + RSI · timeframes · +/✓ ---- */
   /* Batches: one per scan, newest first; 2+ days old fold into "older". */
@@ -155,6 +94,15 @@
   .bk-x:hover { color: var(--loss); }
   .bk-sub { font-size: 10.5px; color: var(--ink-dim); margin-top: 2px; }
   .s50-tag { outline: 1px dashed var(--ink); outline-offset: 1px; border-radius: 2px; padding: 0 3px; color: var(--ink); }
+  /* Trade planning on the charts (see the Trade plan section). */
+  .plan-btn { color: var(--gold-bright); }
+  .plan-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 6px; padding: 6px 8px; font-size: 11px; color: var(--ink-dim); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 4px; }
+  .plan-bar b { color: var(--ink); font-weight: 500; }
+  .plan-bar select { font: inherit; font-size: 11px; color: var(--ink); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px; }
+  .plan-bar .go { color: var(--gain); border-color: var(--gain); }
+  .plan-bar .push { margin-left: auto; display: flex; gap: 6px; }
+  .trade-note { font-size: 11px; color: var(--ink-dim); }
+  .trade-note a { color: var(--gold-bright); }
   .bk-lines { display: flex; align-items: center; gap: 5px; margin-top: 5px; font-size: 10.5px; color: var(--ink-dim); }
   .ln-chip { font-size: 10.5px; padding: 0 5px; border-radius: 3px; border: 1px solid var(--border); color: var(--ink-faint); }
   .ln-chip[aria-pressed="true"] { border-color: color-mix(in srgb, var(--gold-bright) 60%, var(--border)); color: var(--gold-bright); }
@@ -175,65 +123,8 @@
   .bk-gone { font-size: 10.5px; color: var(--loss); margin-top: 3px; }
   .bk-msg { font-size: 10.5px; color: var(--loss); }
   .bk-msg:empty { display: none; }
-  .empty:empty { display: none; }
-  .empty { padding: 14px 12px; font-family: var(--font-ui); font-size: 12px; color: var(--ink-dim); line-height: 1.5; }
   .hint { padding: 7px 10px; font-size: 10.5px; color: var(--ink-faint); }
 
-  /* ---- Asset header: one line + one summary line ---- */
-  .d-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-  .d-name { font-size: 15px; font-weight: 600; }
-  .d-sub { font-size: 11px; color: var(--ink-dim); margin-left: 6px; font-weight: 400; }
-  .d-right { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  .tf-sw { font-size: 12px; padding: 1px 6px; border-radius: 4px; border: 1px solid transparent; }
-  .tf-sw.off { color: var(--ink-faint); cursor: default; }
-  .tf-sw.current { font-weight: 700; background: var(--surface-raised); border-color: var(--border); }
-  .d-summary { font-size: 11px; color: var(--ink-dim); margin-top: 3px; }
-  .tf-sw.s50 { outline: 1px dashed var(--ink); outline-offset: -2px; }
-  .setup-sw { margin-left: 8px; }
-  .setup-sw button { color: var(--ink-dim); padding: 0 4px; }
-  .setup-sw button.current { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
-  .d-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 11px; }
-  .bk-btn { color: var(--gold-bright); }
-  .bk-btn.in { color: var(--ink-dim); }
-  .bk-btn:disabled { opacity: 0.5; cursor: wait; }
-  .msg { color: var(--ink-dim); }
-
-  .legend { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 10px; color: var(--ink-dim); margin: 10px 0 4px; }
-  .legend { gap: 4px 6px; }
-  .ind-label { color: var(--ink-faint); margin-right: 2px; }
-  .ind { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; padding: 1px 7px; border-radius: 4px; border: 1px solid var(--border); color: var(--ink); }
-  .ind:hover { border-color: var(--ink-dim); }
-  .ind.off { color: var(--ink-faint); border-style: dashed; }
-  .ind-sw { display: inline-block; width: 10px; height: 0; border-top: 2px solid; }
-  .ind.off .ind-sw { opacity: 0.3; }
-  .legend .push { margin-left: auto; color: var(--ink-faint); }
-  .chart-head { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 4px; }
-  .chart-label { font-size: 11px; font-weight: 600; }
-  .chart-label .dim { color: var(--ink-dim); font-weight: 400; }
-  .reset { font-size: 10px; color: var(--ink-faint); }
-  .reset:hover { color: var(--ink); }
-  .chart-box { width: 100%; height: 420px; position: relative; }
-  .macd-box { width: 100%; height: 96px; margin-top: 2px; }
-  .chart-placeholder { width: 100%; height: 160px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--ink-dim); background: var(--surface-raised); border: 1px dashed var(--border); border-radius: 4px; }
-  .price-line { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0; margin-top: 4px; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
-  .price-line .up { color: var(--gain); } .price-line .down { color: var(--loss); }
-  .section { font-size: 10px; letter-spacing: 0.08em; color: var(--ink-dim); margin: 14px 0 2px; display: flex; gap: 12px; flex-wrap: wrap; }
-  .section .cy { letter-spacing: 0; }
-
-  .load-error { max-width: 1240px; margin: 40px auto; padding: 16px; font-family: var(--font-ui); color: var(--ink-dim); font-size: 12.5px; line-height: 1.6; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
-  .load-error code { font-family: var(--font-mono); background: var(--surface-raised); padding: 1px 5px; border-radius: 2px; }
-
-  @media (max-width: 860px) {
-    header.page { padding: 12px 12px 4px; }
-    .layout { flex-direction: column; padding: 8px 12px 32px; }
-    .side-panel { width: 100%; order: 0; position: static; }
-    .scroll { max-height: 300px; }
-    .detail-panel { padding: 10px; }
-    .chart-box { height: 320px; }
-    .macd-box { height: 80px; }
-    .legend .push { display: none; }  /* ctrl+scroll hint — pinch is obvious on a phone */
-  }
-  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 </style>
 </head>
 <body>
@@ -241,7 +132,7 @@
   <header class="page">
     <div class="topbar">
       <span class="brand">OV <span>SCANNER</span></span>
-      <span class="meta"><span id="scanMeta">Loading…</span> · <button class="link-btn" id="basketSettingsBtn" type="button">basket settings</button></span>
+      <span class="meta"><span id="scanMeta">Loading…</span> · <a class="link-btn" href="forward.html">forward test</a> · <button class="link-btn" id="basketSettingsBtn" type="button">basket settings</button></span>
     </div>
     <div class="settings-panel is-hidden" id="basketSettings">
       <div><strong>Basket access.</strong> Adding and removing basket picks saves <code>basket.json</code> in your GitHub repo, which needs a token with access to this repo only. It's stored in this browser only — each device needs it once.</div>
@@ -280,6 +171,7 @@
     <div class="detail-panel" id="detail"></div>
   </div>
 
+<script src="ov.js"></script>
 <script>
 // ---------------------------------------------------------------------------
 // Markets, timeframes, filters
@@ -289,15 +181,12 @@ const MARKETS = [
   ['metals', 'metals'], ['indices', 'indices'], ['energy', 'energy'],
 ];
 const GROUP_ORDER = ['pse', 'forex', 'metals', 'indices', 'energy', 'crypto'];
-// Kraken's non-crypto pairs also count under their real market.
-const TAG_MARKET = { currency: 'forex', gold: 'metals', uranium: 'energy' };
-const marketsOf = (a) => new Set([a.asset_class, TAG_MARKET[a.tag]].filter(Boolean));
+// Kraken's non-crypto pairs also count under their real market (TAG_MARKET, ov.js).
 
 const TF_ORDER = ['1H', '4H', '1D'];          // markets without a weekly watch
 const tfsFor = (a) => a.asset_class === 'pse' || a.asset_class === 'crypto' ? ['1H', '4H', '1D', '1W'] : TF_ORDER;
 // Markets with a large-caps sub-filter (PSE = the PSEi 30).
 const LARGE_CAP_MARKETS = ['pse', 'crypto'];
-const LOWER_TF_MAP = { '1H': ['15m', '5m'], '4H': ['1H', '15m'], '1D': ['4H', '1H'], '1W': ['1D', '4H'] };
 
 const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL', setup: 'ALL', q: '' };
 
@@ -308,14 +197,10 @@ function pseOpen() {
   return m.getDay() >= 1 && m.getDay() <= 5 && hm >= 570 && hm < 900;
 }
 
-const dirClass = (d) => (d || '').toLowerCase();
-const dirArrow = (d) => d === 'BULLISH' ? '▲' : '▼';
 const symKey = (a) => `${a.asset_class}__${a.ticker}`;
 // A tf can hold two watches: the trend watch ('4H') and the SMA 50 watch
 // ('4H:50'). Picks and watches share keys with scan.py / basket.py.
-const isS50 = (w) => w.setup === 'sma50';
 const slotOf = (w) => isS50(w) ? `${w.higher_tf}:50` : w.higher_tf;
-const pickKey = (p) => `${p.asset_class}:${p.ticker}:${p.higher_tf}${isS50(p) ? ':sma50' : ''}`;
 const setupMatch = (w, f = F) => f.setup === 'ALL' || (isS50(w) ? 'sma50' : 'trend') === f.setup;
 // MACD/LSMA state at scan time, per tf: side of the LSMA sets green/red,
 // a MACD against it fades the colour.
@@ -326,7 +211,6 @@ const MACD_STATE = {
   r: ['color-mix(in srgb, var(--loss) 45%, var(--bg))', 'MACD green · price below LSMA'],
 };
 const macdAttrs = (a, tf) => { const s = MACD_STATE[(a.macd_state || {})[tf]]; return s ? ` style="--m:${s[0]}" data-macd="${s[1]}"` : ''; };
-const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 let watchesBySym = {};     // symKey -> { '1H': watch, '4H:50': SMA 50 watch, ... }
 let assetsById = {};       // watch _id -> watch
@@ -346,228 +230,14 @@ function marketMatch(a, f = F) {
   return !(LARGE_CAP_MARKETS.includes(f.market) && f.large) || !!a.large_cap;
 }
 
-// scan.py ships candles as {fields, rows}; expand back to objects. Plain
-// arrays are the older layout, still accepted.
-function toCandles(c) {
-  if (!c) return [];
-  if (Array.isArray(c)) return c;
-  return c.rows.map(r => Object.fromEntries(c.fields.map((f, i) => [f, r[i]])));
-}
-// Crypto and PSE times come without a timezone but are UTC — read them as
-// UTC, not as the browser's local time (which put every marker 8h early).
-const parseTime = (iso) => new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}Z`);
-const toUnixTime = (iso) => iso ? Math.floor(parseTime(iso).getTime() / 1000) : null;
-
-// ---------------------------------------------------------------------------
-// Charts
-// ---------------------------------------------------------------------------
-let activeCharts = [];     // { chart, el } so resizes match the right element
-let indicatorSeries = [];  // { key, series } — every indicator line on screen
-function teardownCharts() {
-  activeCharts.forEach(c => { try { c.chart.remove(); } catch (e) {} });
-  activeCharts = []; indicatorSeries = [];
-}
-
-// Chart indicators the user can switch on/off (legend toggles). The choice
-// applies to every chart and is remembered per browser.
-const LINE_STYLE = (window.LightweightCharts && LightweightCharts.LineStyle) || { Solid: 0, Dotted: 1, Dashed: 2 };
-const INDICATORS = [
-  { key: 'ema10', label: 'EMA10', color: () => '#D9A441', style: LINE_STYLE.Solid, width: 1 },
-  { key: 'ema20', label: 'EMA20', color: () => cssVar('--violet'), style: LINE_STYLE.Solid, width: 1 },
-  { key: 'lsma', label: 'LSMA 50,3', color: () => cssVar('--blue'), style: LINE_STYLE.Dotted, width: 2 },
-  { key: 'sma50', label: 'SMA 50', color: () => cssVar('--ink'), style: LINE_STYLE.Dashed, width: 1 },
-  { key: 'macd', label: 'MACD' },
-];
-const IND_KEY = 'ovs-indicators';
-const shown = (() => {
-  const all = Object.fromEntries(INDICATORS.map(i => [i.key, true]));
-  try { return { ...all, ...JSON.parse(localStorage.getItem(IND_KEY) || '{}') }; } catch (e) { return all; }
-})();
-
-function setIndicator(key, on) {
-  shown[key] = on;
-  try { localStorage.setItem(IND_KEY, JSON.stringify(shown)); } catch (e) {}
-  indicatorSeries.filter(s => s.key === key).forEach(s => s.series.applyOptions({ visible: on }));
-  if (key === 'macd') {
-    document.querySelectorAll('.macd-box').forEach(el => el.classList.toggle('is-hidden', !on));
-    // A pane created while hidden has zero width and height — size it now
-    // that it's visible.
-    if (on) activeCharts.forEach(({ chart, el }) => chart.resize(el.clientWidth, el.clientHeight));
-  }
-  document.querySelectorAll(`.ind[data-key="${key}"]`).forEach(b => { b.classList.toggle('off', !on); b.setAttribute('aria-pressed', on); });
-}
-
-function indicatorToggles() {
-  return INDICATORS.map(i => {
-    const sw = i.key === 'macd'
-      ? `<span class="ind-sw" style="border-color:var(--gain)"></span>`
-      : `<span class="ind-sw" style="border-color:${i.color()};border-top-style:${i.style === LINE_STYLE.Dotted ? 'dotted' : i.style === LINE_STYLE.Dashed ? 'dashed' : 'solid'}"></span>`;
-    return `<button class="ind${shown[i.key] ? '' : ' off'}" type="button" data-key="${i.key}" aria-pressed="${shown[i.key]}" title="Show or hide ${i.label}">${sw}${i.label}</button>`;
-  }).join('');
-}
-
-const css = getComputedStyle(document.documentElement);
-const cssVar = (name) => css.getPropertyValue(name).trim();
-const RIGHT_GAP = 4;       // empty bars after the latest candle, off the price axis
-const AXIS_WIDTH = 54;
-
-const chartTheme = {
-  layout: { background: { type: 'solid', color: 'transparent' }, textColor: cssVar('--ink-dim'), fontFamily: "'IBM Plex Mono', monospace", fontSize: 9 },
-  grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-  rightPriceScale: { borderColor: cssVar('--border'), scaleMargins: { top: 0.1, bottom: 0.14 }, minimumWidth: AXIS_WIDTH },
-  timeScale: { borderColor: cssVar('--border'), timeVisible: false, secondsVisible: false, fixLeftEdge: true, rightOffset: RIGHT_GAP },
-  crosshair: { mode: 0 },
-  // Drag to pan, pinch / drag the price axis to scale. The plain mouse
-  // wheel is left to the page — Ctrl+wheel zooms (attachCtrlWheelZoom).
-  handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-  handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true },
-};
-const followerInteraction = { handleScroll: false, handleScale: false };
-
-function attachCtrlWheelZoom(chart, el, lastIndex) {
-  const ts = chart.timeScale();
-  // A new range only applies on the next paint, so fast wheel events
-  // (trackpad pinch) build on the last range asked for, not a stale one.
-  let pending = null;
-  ts.subscribeVisibleLogicalRangeChange(() => { pending = null; });
-  el.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return;
-    e.preventDefault();
-    const range = pending || ts.getVisibleLogicalRange();
-    if (!range) return;
-    const x = e.clientX - el.getBoundingClientRect().left;
-    const anchor = ts.coordinateToLogical(x) ?? (range.from + range.to) / 2;
-    const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
-    const factor = Math.exp(Math.max(-100, Math.min(100, dy)) * 0.002);
-    const from = Math.max(0, anchor - (anchor - range.from) * factor);
-    const to = Math.min(lastIndex + RIGHT_GAP, anchor + (range.to - anchor) * factor);
-    if (to - from < 5) return;
-    pending = { from, to };
-    ts.setVisibleLogicalRange(pending);
-  }, { passive: false });
-}
-
-function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
-  const chartEl = document.getElementById(chartElId);
-  const macdEl = document.getElementById(macdElId);
-  if (!candles || candles.length === 0) {
-    chartEl.outerHTML = `<div class="chart-placeholder" id="${chartElId}">No chart data yet — waiting for the next scan</div>`;
-    macdEl.style.display = 'none';
-    return;
-  }
-
-  const chart = LightweightCharts.createChart(chartEl, { ...chartTheme, width: chartEl.clientWidth, height: chartEl.clientHeight });
-  activeCharts.push({ chart, el: chartEl });
-  const candleSeries = chart.addCandlestickSeries({ upColor: cssVar('--gain'), downColor: cssVar('--loss'), borderVisible: false, wickUpColor: cssVar('--gain'), wickDownColor: cssVar('--loss'), priceLineVisible: false, lastValueVisible: false });
-  candleSeries.setData(candles);
-  // Axis decimals sized to the price: ~3 significant digits (5 for forex,
-  // to keep pips), at least 2 decimals — 3.60, 0.0977, 1.3235. Custom
-  // formatter: the library's own mangles >8 decimals (sub-cent crypto).
-  const refPrice = Math.abs(candles[candles.length - 1].close) || 1;
-  const sig = opts.forex ? 4 : 2;
-  const precision = Math.min(12, Math.max(2, Math.ceil(-Math.log10(refPrice)) + sig));
-  candleSeries.applyOptions({ priceFormat: { type: 'custom', minMove: Math.pow(10, -precision), formatter: p => p.toFixed(precision) } });
-
-  INDICATORS.filter(i => i.key !== 'macd').forEach(i => {
-    const s = chart.addLineSeries({ color: i.color(), lineWidth: i.width, lineStyle: i.style, priceLineVisible: false, lastValueVisible: false, visible: shown[i.key] });
-    s.setData(candles.map(c => ({ time: c.time, value: c[i.key] })).filter(p => p.value != null));
-    indicatorSeries.push({ key: i.key, series: s });
-  });
-
-  const from = Math.max(0, candles.length - visibleCount);
-  const home = { from, to: candles.length - 1 + RIGHT_GAP };
-  chart.timeScale().setVisibleLogicalRange(home);
-  attachCtrlWheelZoom(chart, chartEl, candles.length - 1);
-  const resetBtn = document.getElementById(`${chartElId}-reset`);
-  if (resetBtn) resetBtn.addEventListener('click', () => {
-    chart.priceScale('right').applyOptions({ autoScale: true });
-    chart.timeScale().setVisibleLogicalRange(home);
-  });
-
-  const ink = cssVar('--ink');
-  const inChart = new Set(candles.map(c => c.time));
-  const allMarks = [];
-  if (opts.triggers && ((opts.triggers.marks && opts.triggers.marks.length) || (opts.triggers.times && opts.triggers.times.length))) {
-    // Every qualifying candle in the window, in neutral ink so it never
-    // blends into a green or red candle; only the latest gets a label.
-    // An SMA 50 watch adds its removal candle and its touch candle.
-    const isBuy = opts.triggers.direction === 'BULLISH';
-    // Every qualifying candle on the chart ([time, RSI, ±1] from scan.py),
-    // labelled with its RSI. Older data without them: the window's triggers.
-    const marks = opts.triggers.marks
-      ? opts.triggers.marks.map(([t, rsi, d]) => ({
-          time: t, position: d > 0 ? 'belowBar' : 'aboveBar', color: ink,
-          shape: d > 0 ? 'arrowUp' : 'arrowDown', text: rsi.toFixed(1),
-        }))
-      : opts.triggers.times.map(toUnixTime).filter(t => t != null).map(t => ({
-          time: t, position: isBuy ? 'belowBar' : 'aboveBar', color: ink, shape: isBuy ? 'arrowUp' : 'arrowDown',
-        }));
-    const s = opts.triggers.s50;
-    if (s) {
-      const side = isBuy ? 'aboveBar' : 'belowBar';
-      marks.push({ time: toUnixTime(s.removed_at), position: side, color: cssVar('--ink-dim'), shape: 'square', size: 0.6, text: 'EMA20' });
-      marks.push({ time: toUnixTime(s.touch_at), position: isBuy ? 'belowBar' : 'aboveBar', color: cssVar('--gold-bright'), shape: 'circle', text: 'SMA 50' });
-    }
-    allMarks.push(...marks);
-  }
-  if (opts.cycles && opts.cycles.events && opts.cycles.events.length) {
-    // Basket pick on a lower tf: every step of every entry cycle. Pullback
-    // and armed are small dots; entries are white (ink) arrows.
-    const bull = opts.cycles.direction === 'BULLISH';
-    const pbSide = bull ? 'belowBar' : 'aboveBar';
-    const style = {
-      pullback: { position: pbSide, color: cssVar('--gold-bright'), shape: 'circle', size: 0.5 },
-      armed: { position: pbSide, color: cssVar('--violet'), shape: 'circle', size: 0.5 },
-      entry: { position: bull ? 'belowBar' : 'aboveBar', color: ink, shape: bull ? 'arrowUp' : 'arrowDown' },
-    };
-    // Entries are labelled so they don't read as trigger arrows (which
-    // carry an RSI): ENTRY, or for SMA 50 picks the line crossed (S / L).
-    const label = (e) => e.type !== 'entry' ? '' : opts.cycles.s50 ? (e.line === 'sma50' ? 'S' : 'L') : 'ENTRY';
-    allMarks.push(...opts.cycles.events
-      .map(e => ({ time: toUnixTime(e.time), ...style[e.type], text: label(e) }))
-      .filter(m => m.position));
-  }
-  // One setMarkers call: a lower-tf chart can have both trigger arrows
-  // (when it's also a higher tf) and a basket pick's entry cycle.
-  if (allMarks.length) candleSeries.setMarkers(allMarks.filter(m => inChart.has(m.time)).sort((a, b) => a.time - b.time));
-
-  const macdChart = LightweightCharts.createChart(macdEl, { ...chartTheme, ...followerInteraction, width: macdEl.clientWidth, height: macdEl.clientHeight, rightPriceScale: { borderVisible: false, textColor: 'transparent', minimumWidth: AXIS_WIDTH }, timeScale: { visible: false, rightOffset: RIGHT_GAP } });
-  activeCharts.push({ chart: macdChart, el: macdEl });
-  macdChart.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false })
-    .setData(candles.filter(c => c.macd_hist != null).map(c => ({ time: c.time, value: c.macd_hist, color: c.macd_hist >= 0 ? 'rgba(79,169,114,0.55)' : 'rgba(168,64,44,0.55)' })));
-  macdChart.addLineSeries({ color: '#D9A441', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
-    .setData(candles.map(c => ({ time: c.time, value: c.macd })).filter(p => p.value != null));
-  macdChart.addLineSeries({ color: '#6FA8DC', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
-    .setData(candles.map(c => ({ time: c.time, value: c.macd_signal })).filter(p => p.value != null));
-  macdChart.timeScale().setVisibleLogicalRange(home);
-  chart.timeScale().subscribeVisibleLogicalRangeChange(range => { if (range) macdChart.timeScale().setVisibleLogicalRange(range); });
-}
-
 // ---------------------------------------------------------------------------
 // Basket — hand-picked (asset, higher tf) setups in the repo's basket.json.
 // Read via the GitHub API; written with a fine-grained token kept only in
 // this browser. The workflows read the same file.
 // ---------------------------------------------------------------------------
-const REPO = location.hostname.endsWith('.github.io')
-  ? `${location.hostname.split('.')[0]}/${location.pathname.split('/')[1]}`
-  : 'osdvillar22/ov-scanner';
-const BASKET_API = `https://api.github.com/repos/${REPO}/contents/basket.json`;
-const TOKEN_KEY = 'ovs-github-token';
-const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } };
-const setToken = (t) => { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (e) {} };
-
 let basketPicks = [];      // as last read from GitHub
 let basketStatus = {};     // per-pick lower-tf status from the last hourly scan
 let repaintBasketButton = () => {};
-
-function ghHeaders() {
-  const h = { Accept: 'application/vnd.github+json' };
-  const t = getToken();
-  if (t) h.Authorization = `Bearer ${t}`;
-  return h;
-}
-const b64decode = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g, '')), c => c.charCodeAt(0)));
-const b64encode = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
 
 async function fetchBasket() {
   const resp = await fetch(BASKET_API, { headers: ghHeaders(), cache: 'no-store' });
@@ -598,14 +268,6 @@ async function updateBasket(mutate, message) {
 }
 
 const inBasket = (key) => basketPicks.some(p => pickKey(p) === key);
-
-function requireToken() {
-  if (getToken()) return true;
-  document.getElementById('basketSettings').classList.remove('is-hidden');
-  document.getElementById('tokenMsg').textContent = 'Add your GitHub token here first to change the basket.';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  return false;
-}
 
 // The one add/remove path for the header button, rows and basket list.
 async function toggleBasket(pick) {
@@ -650,13 +312,6 @@ function refreshBasketViews() {
   renderBasket();
   repaintBasketButton();
   document.querySelectorAll('#watchlist .row').forEach(paintRow);
-}
-
-// "4:38 PM" today, "Sep 23 4:38 PM" otherwise.
-function fmtTime(iso) {
-  const d = parseTime(iso), today = new Date().toDateString() === d.toDateString();
-  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  return today ? time : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
 }
 
 const STATE_TEXT = {
@@ -765,22 +420,6 @@ function renderBasket() {
   const open = document.querySelector('#detail [data-current-id]');
   const openId = open && open.dataset.currentId;
   el.querySelectorAll('.bk').forEach(c => c.classList.toggle('active', !!openId && c.dataset.id === openId));
-}
-
-function wireBasketSettings() {
-  const panel = document.getElementById('basketSettings'), input = document.getElementById('tokenInput'), msg = document.getElementById('tokenMsg');
-  const showState = () => { msg.textContent = getToken() ? 'A token is saved in this browser.' : 'No token saved — the basket is read-only here.'; };
-  document.getElementById('basketSettingsBtn').addEventListener('click', () => { panel.classList.toggle('is-hidden'); showState(); });
-  document.getElementById('tokenClear').addEventListener('click', () => { setToken(''); input.value = ''; showState(); });
-  document.getElementById('tokenSave').addEventListener('click', async () => {
-    const t = input.value.trim();
-    if (!t) { msg.textContent = 'Paste a token first.'; return; }
-    msg.textContent = 'Checking…';
-    // Confirms the token is valid; write access shows on the first save.
-    const resp = await fetch('https://api.github.com/user', { headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${t}` }, cache: 'no-store' });
-    if (!resp.ok) { msg.textContent = `GitHub rejected that token (${resp.status}).`; return; }
-    setToken(t); input.value = ''; msg.textContent = 'Saved. Add a pick to confirm it can write to the repo.';
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1070,6 +709,7 @@ function selectAsset(id) {
   });
   document.querySelectorAll('#basketList .bk').forEach(c => c.classList.toggle('active', c.dataset.id === id));
   teardownCharts();
+  plan = null; planCharts = [];
 
   const direction = entry.direction, dc = dirClass(direction);
   const siblings = watchesBySym[symKey(entry)] || {};
@@ -1101,7 +741,8 @@ function selectAsset(id) {
       <div class="d-right">${tfSwitch}</div>
     </div>
     <div class="d-summary">${summary}${setupSw}</div>
-    <div class="d-actions"><button class="bk-btn" id="basketBtn" type="button"></button><span class="msg" id="basketMsg"></span></div>
+    <div class="d-actions"><button class="bk-btn" id="basketBtn" type="button"></button><button class="plan-btn is-hidden" id="planBtn" type="button" title="Click the entry, then the cut loss, on any chart below">plan trade</button><span class="msg" id="basketMsg"></span>${tradeNote(entry)}</div>
+    <div class="plan-bar is-hidden" id="planBar"></div>
 
     <div class="legend">
       <span class="ind-label">show</span>${indicatorToggles()}
@@ -1126,8 +767,9 @@ function selectAsset(id) {
 
   const forex = marketsOf(entry).has('forex');
   const candles = toCandles(entry.candles);
-  renderBlock(candles, 'detail-chart', 'detail-macd', entry.window || 25,
-    { forex, triggers: { marks: entry.marks, times: entry.trigger_times || [], direction, s50: s50 ? entry : null } });
+  const trades = tradesFor(entry);
+  addPlanChart(entry.higher_tf, renderBlock(candles, 'detail-chart', 'detail-macd', entry.window || 25,
+    { forex, trades, triggers: { marks: entry.marks, times: entry.trigger_times || [], direction, s50: s50 ? entry : null } }));
   if (candles.length > 1) {
     const last = candles[candles.length - 1].close, first = candles[0].close;
     const pct = (last - first) / first * 100;
@@ -1138,20 +780,163 @@ function selectAsset(id) {
   }
   lowerTfs.forEach((ltf, li) => {
     const c = toCandles(entry.lower_tf_candles[ltf]);
-    renderBlock(c, `detail-mini-${li}`, `detail-minimacd-${li}`, c.length,
-      { forex, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50: !!cycleStatus[ltf].lines } : null,
-        triggers: (entry.lower_tf_marks || {})[ltf] ? { marks: entry.lower_tf_marks[ltf], times: [], direction } : null });
+    addPlanChart(ltf, renderBlock(c, `detail-mini-${li}`, `detail-minimacd-${li}`, c.length,
+      { forex, trades, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50: !!cycleStatus[ltf].lines } : null,
+        triggers: (entry.lower_tf_marks || {})[ltf] ? { marks: entry.lower_tf_marks[ltf], times: [], direction } : null }));
   });
+}
+
+// ---------------------------------------------------------------------------
+// Trade plan — for a basket pick: click the entry, then the cut loss, on
+// any of its three charts; the target follows the ratio (1:1 default).
+// Every line can then be dragged; dragging the target sets a custom ratio.
+// Saved to trades.json — scanned for the fill, then TP / CL (trades.py),
+// and followed on forward.html.
+// ---------------------------------------------------------------------------
+let tradesList = [];         // trades.json, as last read
+let plan = null;             // { pick, step: 'entry'|'cl'|'adjust', entry, cl, tp, ratio, custom, tf, precision }
+let planCharts = [];         // [{ tf, chart, series, el, precision, lines }]
+const RATIOS = [1, 1.5, 2, 3];
+
+const tradesFor = (a) => tradesList.filter(t => t.asset_class === a.asset_class && t.ticker === a.ticker && ['pending', 'open'].includes(t.status));
+function tradeNote(a) {
+  const n = tradesFor(a).length;
+  return n ? `<span class="trade-note">· ${n} trade ${n === 1 ? 'plan' : 'plans'} on the charts · <a href="forward.html">forward test</a></span>` : '';
+}
+
+function addPlanChart(tf, h) {
+  if (!h) return;
+  const pc = { tf, ...h, lines: null };
+  planCharts.push(pc);
+  h.chart.subscribeClick(p => onPlanClick(pc, p));
+  wirePlanDrag(pc);
+}
+
+const planSnap = (price) => snapPrice(price, plan.pick.asset_class, plan.precision);
+const planTp = () => planSnap(plan.entry + plan.ratio * (plan.entry - plan.cl));
+
+function onPlanClick(pc, p) {
+  if (!plan || plan.step === 'adjust' || !p || !p.point) return;
+  const raw = pc.series.coordinateToPrice(p.point.y);
+  if (raw == null) return;
+  if (plan.step === 'entry') {
+    Object.assign(plan, { tf: pc.tf, precision: pc.precision });
+    plan.entry = planSnap(raw); plan.step = 'cl';
+  } else {
+    const cl = planSnap(raw);
+    if (cl === plan.entry) return;
+    plan.cl = cl; plan.tp = planTp(); plan.step = 'adjust';
+  }
+  drawPlan(); paintPlanBar();
+}
+
+function drawPlan() {
+  planCharts.forEach(pc => { pc.lines = tradeLines(pc.series, plan ? { entry: plan.entry, cl: plan.cl, tp: plan.tp } : {}, pc.lines); });
+}
+function clearPlan() {
+  planCharts.forEach(pc => { Object.values(pc.lines || {}).forEach(l => pc.series.removePriceLine(l)); pc.lines = null; });
+  plan = null; paintPlanBar();
+}
+
+// Drag a line (within a few px of it) once the plan has all three.
+function wirePlanDrag(pc) {
+  const el = pc.el, yOf = (e) => e.clientY - el.getBoundingClientRect().top;
+  const near = (y) => {
+    if (!plan || plan.step !== 'adjust') return null;
+    let best = null, gap = 7;
+    ['tp', 'entry', 'cl'].forEach(k => { const c = pc.series.priceToCoordinate(plan[k]); if (c != null && Math.abs(c - y) < gap) { gap = Math.abs(c - y); best = k; } });
+    return best;
+  };
+  let drag = null;
+  el.addEventListener('pointerdown', (e) => {
+    const k = near(yOf(e)); if (!k) return;
+    drag = k; e.preventDefault(); e.stopPropagation();
+    el.setPointerCapture(e.pointerId);
+    pc.chart.applyOptions({ handleScroll: false, handleScale: false });
+  }, true);
+  el.addEventListener('pointermove', (e) => {
+    if (!drag) { el.style.cursor = near(yOf(e)) ? 'ns-resize' : ''; return; }
+    e.stopPropagation();
+    const p = pc.series.coordinateToPrice(yOf(e));
+    if (p != null) movePlan(drag, planSnap(p));
+  }, true);
+  const end = () => { if (!drag) return; drag = null; pc.chart.applyOptions({ handleScroll: chartTheme.handleScroll, handleScale: chartTheme.handleScale }); };
+  el.addEventListener('pointerup', end, true);
+  el.addEventListener('pointercancel', end, true);
+  ['mousedown', 'touchstart'].forEach(ev => el.addEventListener(ev, (e) => { if (drag) e.stopPropagation(); }, true));
+}
+
+function movePlan(k, price) {
+  const long = plan.entry > plan.cl;
+  if (k === 'tp') {
+    if (long ? price <= plan.entry : price >= plan.entry) return;
+    plan.tp = price; plan.ratio = Math.abs(price - plan.entry) / Math.abs(plan.entry - plan.cl); plan.custom = true;
+  } else {
+    const next = { ...plan, [k]: price };
+    if (next.entry === next.cl) return;
+    plan[k] = price; plan.tp = planTp();
+  }
+  drawPlan(); paintPlanBar();
+}
+
+function paintPlanBar() {
+  const bar = document.getElementById('planBar');
+  if (!bar) return;
+  bar.classList.toggle('is-hidden', !plan);
+  if (!plan) return;
+  const pct = (v) => `${v >= plan.entry ? '+' : '−'}${Math.abs((v - plan.entry) / plan.entry * 100).toFixed(2)}%`;
+  const px = (v) => plan.pick.asset_class === 'pse' ? String(v) : v.toFixed(plan.precision);
+  const cancel = '<button class="text-btn" type="button" data-act="cancel">cancel</button>';
+  if (plan.step === 'entry') bar.innerHTML = `<span><b>① click the entry</b> on any chart</span><span class="push">${cancel}</span>`;
+  else if (plan.step === 'cl') bar.innerHTML = `<span>entry <b>${px(plan.entry)}</b> · <b>② click the cut loss</b></span><span class="push">${cancel}</span>`;
+  else {
+    const long = plan.entry > plan.cl, opts = RATIOS.map(r => `<option value="${r}"${!plan.custom && r === plan.ratio ? ' selected' : ''}>1:${r}</option>`).join('');
+    bar.innerHTML = `<span><b class="${long ? 'bullish' : 'bearish'}">${long ? 'long' : 'short'}</b> on ${plan.tf} · entry <b>${px(plan.entry)}</b> · CL <b>${px(plan.cl)}</b> (${pct(plan.cl)}) · TP <b>${px(plan.tp)}</b> (${pct(plan.tp)})</span>
+      <span>ratio <select data-act="ratio">${plan.custom ? `<option selected>1:${plan.ratio.toFixed(2)}</option>` : ''}${opts}</select></span>
+      <span>drag a line to adjust · fills when price reaches the entry</span>
+      <span class="push">${cancel}<button class="text-btn go" type="button" data-act="save">save plan</button></span><span class="msg" id="planMsg"></span>`;
+  }
+  bar.querySelector('[data-act="cancel"]').addEventListener('click', clearPlan);
+  const ratio = bar.querySelector('[data-act="ratio"]');
+  if (ratio) ratio.addEventListener('change', () => { const r = parseFloat(ratio.value); if (!RATIOS.includes(r)) return; plan.ratio = r; plan.custom = false; plan.tp = planTp(); drawPlan(); paintPlanBar(); });
+  const save = bar.querySelector('[data-act="save"]');
+  if (save) save.addEventListener('click', savePlan);
+}
+
+async function savePlan() {
+  if (!requireToken()) return;
+  const msg = document.getElementById('planMsg'), p = plan.pick, long = plan.entry > plan.cl;
+  const pick = basketPicks.find(b => pickKey(b) === pickKey(p)) || p;
+  const trade = {
+    id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    asset_class: p.asset_class, ticker: p.ticker, display_name: p.display_name, tag: p.tag || null,
+    higher_tf: p.higher_tf, setup: isS50(p) ? 'sma50' : 'trend', lines: linesOf(pick), pick_direction: p.direction,
+    plan_tf: plan.tf, entry: plan.entry, cl: plan.cl, tp: plan.tp, ratio: +plan.ratio.toFixed(2),
+    status: 'pending', created_at: new Date().toISOString(),
+  };
+  msg.textContent = 'saving…';
+  try {
+    tradesList = await updateTrades(list => list.concat([trade]), `Trades: plan ${p.display_name} ${long ? 'long' : 'short'} on ${plan.tf}`);
+    plan = null;
+    selectAsset(p._id);   // redraw with the saved plan's lines
+  } catch (err) { msg.textContent = `Couldn't save: ${err.message}`; }
 }
 
 function wireBasketButton(entry) {
   const btn = document.getElementById('basketBtn'), msg = document.getElementById('basketMsg');
   const key = pickKey(entry);
+  const planBtn = document.getElementById('planBtn');
   const paint = () => {
     btn.classList.toggle('in', inBasket(key));
     const label = `${entry.higher_tf}${isS50(entry) ? ' SMA 50' : ''}`;
     btn.textContent = inBasket(key) ? `✓ in basket (${label}) · remove` : `+ add ${label} to basket`;
+    planBtn.classList.toggle('is-hidden', !inBasket(key));
   };
+  planBtn.addEventListener('click', () => {
+    clearPlan();
+    plan = { pick: entry, step: 'entry', ratio: 1, custom: false };
+    paintPlanBar();
+  });
   paint();
   repaintBasketButton = paint;
   btn.addEventListener('click', async () => {
@@ -1235,6 +1020,13 @@ async function init() {
   buildWatchlist();
   applyFilters();
 
+  fetchTrades()
+    .then(list => {
+      tradesList = list;
+      const open = document.querySelector('#detail [data-current-id]');
+      if (open && tradesFor(assetsById[open.dataset.currentId] || {}).length && !plan) selectAsset(open.dataset.currentId);
+    })
+    .catch(() => {});
   fetchBasket()
     .then(({ picks }) => { basketPicks = picks; refreshBasketViews(); })
     .catch(err => { document.getElementById('basketList').innerHTML = `<div class="empty">Couldn't load the basket (${esc(err.message)}).</div>`; });

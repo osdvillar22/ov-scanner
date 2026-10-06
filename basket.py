@@ -430,6 +430,13 @@ def run_live() -> None:
     live_keys = {pick_key(p) for p in load_basket() if p["asset_class"] in LIVE_CLASSES}
     save_alerted(config.BASKET_ALERTS_LIVE_FILE, alerted, live_keys - remove)
 
+    # Forward-test trades on the same cadence (crypto; PSE in session).
+    import trades
+    try:
+        trades.check(LIVE_CLASSES, pse_open=pse_session_open(now))
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Trade check failed: %s", exc)
+
 
 def _sma50_gone_reason(watch: dict | None, pick: dict) -> str | None:
     if watch is None:

@@ -664,7 +664,19 @@ def run() -> None:
     removed = update_removed(removed, before, state)
     basket_status = basket.run_hourly(state)
     write_output(state, basket_status, removed)
+    run_trades()
     save_state({**state, REMOVED_KEY: removed})
+
+
+def run_trades() -> None:
+    """Forward-test trades: check all of them, then their charts. Never
+    allowed to fail the scan."""
+    import trades  # imports scan itself
+    for step in (trades.check, trades.write_charts):
+        try:
+            step()
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Trades: %s failed: %s", step.__name__, exc)
 
 
 if __name__ == "__main__":

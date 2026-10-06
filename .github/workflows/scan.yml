@@ -83,8 +83,8 @@ jobs:
       - name: Prepare Pages site
         run: |
           mkdir -p _site
-          cp dashboard.html _site/
-          cp data.json _site/
+          cp dashboard.html forward.html ov.js ov.css data.json _site/
+          [ -f trades_data.json ] && cp trades_data.json _site/ || true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

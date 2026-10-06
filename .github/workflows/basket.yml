@@ -41,11 +41,15 @@ jobs:
           m = datetime.now(ZoneInfo("Asia/Manila"))
           pse_open = m.weekday() < 5 and "09:30" <= m.strftime("%H:%M") <= "15:30"
           picks = json.load(open("basket.json"))["picks"]
+          try:
+              picks += [t for t in json.load(open("trades.json"))["trades"] if t.get("status") in ("pending", "open")]
+          except FileNotFoundError:
+              pass
           sys.exit(0 if any(p["asset_class"] == "crypto" or (p["asset_class"] == "pse" and pse_open) for p in picks) else 1)
           '; then
             echo "has_crypto=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No crypto picks, and no PSE picks during the PSE session — nothing to check."
+            echo "No crypto picks or trades, and none on PSE during the PSE session — nothing to check."
           fi
 
       - name: Set up Python
