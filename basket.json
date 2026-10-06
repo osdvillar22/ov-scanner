@@ -61,14 +61,6 @@
     },
     {
       "asset_class": "pse",
-      "ticker": "ORE",
-      "display_name": "ORE",
-      "higher_tf": "1W",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T09:17:52.448Z"
-    },
-    {
-      "asset_class": "pse",
       "ticker": "NRCP",
       "display_name": "NRCP",
       "higher_tf": "1W",
