@@ -187,6 +187,30 @@
       "created_at": "2026-10-06T10:07:24.558Z",
       "cancelled_at": "2026-10-06T10:42:47.553Z",
       "cancelled_from": "pending"
+    },
+    {
+      "id": "muwjwk3zdxuc",
+      "asset_class": "crypto",
+      "ticker": "ENAUSD",
+      "display_name": "ENA/USD",
+      "tag": null,
+      "higher_tf": "1D",
+      "setup": "trend",
+      "lines": [
+        "sma50"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "4H",
+      "entry": 0.26,
+      "cl": 0.226,
+      "tp": 0.294,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-06T10:43:49.583Z",
+      "missed": true,
+      "filled_at": "2026-10-05T08:00:00.000Z",
+      "fill_end": "2026-10-05T12:00:00.000Z",
+      "fill_tf": "4H"
     }
   ]
 }
