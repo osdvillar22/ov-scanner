@@ -39,6 +39,26 @@
       "ratio": 1,
       "status": "pending",
       "created_at": "2026-10-06T08:17:30.990Z"
+    },
+    {
+      "id": "muwepjp2chyz",
+      "asset_class": "crypto",
+      "ticker": "QNTUSD",
+      "display_name": "QNT/USD",
+      "tag": null,
+      "higher_tf": "1W",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "4H",
+      "entry": 269.93,
+      "cl": 238.02,
+      "tp": 301.84,
+      "ratio": 1,
+      "status": "pending",
+      "created_at": "2026-10-06T08:18:24.374Z"
     }
   ]
 }
