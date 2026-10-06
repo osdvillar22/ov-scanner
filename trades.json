@@ -312,6 +312,30 @@
       "filled_at": "2026-10-06T05:00:00.000Z",
       "fill_end": "2026-10-06T05:15:00.000Z",
       "fill_tf": "15m"
+    },
+    {
+      "id": "muwk9alxbhw2",
+      "asset_class": "crypto",
+      "ticker": "NILUSD",
+      "display_name": "NIL/USD",
+      "tag": null,
+      "higher_tf": "1D",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "4H",
+      "entry": 0.09,
+      "cl": 0.076,
+      "tp": 0.104,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-06T10:53:43.797Z",
+      "missed": true,
+      "filled_at": "2026-10-04T12:00:00.000Z",
+      "fill_end": "2026-10-04T16:00:00.000Z",
+      "fill_tf": "4H"
     }
   ]
 }
