@@ -165,6 +165,26 @@
       "ratio": 1,
       "status": "pending",
       "created_at": "2026-10-06T09:51:41.416Z"
+    },
+    {
+      "id": "muwilq4uv9jo",
+      "asset_class": "crypto",
+      "ticker": "ENAUSD",
+      "display_name": "ENA/USD",
+      "tag": null,
+      "higher_tf": "1D",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "4H",
+      "entry": 0.258,
+      "cl": 0.227,
+      "tp": 0.289,
+      "ratio": 1,
+      "status": "pending",
+      "created_at": "2026-10-06T10:07:24.558Z"
     }
   ]
 }
