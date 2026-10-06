@@ -141,8 +141,10 @@
       "cl": 0.262,
       "tp": 0.278,
       "ratio": 1,
-      "status": "pending",
-      "created_at": "2026-10-06T09:43:07.914Z"
+      "status": "cancelled",
+      "created_at": "2026-10-06T09:43:07.914Z",
+      "cancelled_at": "2026-10-06T09:43:52.750Z",
+      "cancelled_from": "pending"
     }
   ]
 }
