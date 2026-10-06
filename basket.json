@@ -224,18 +224,6 @@
     },
     {
       "asset_class": "pse",
-      "ticker": "CHP",
-      "display_name": "CHP",
-      "higher_tf": "1D",
-      "direction": "BULLISH",
-      "added_at": "2026-09-26T13:33:57.957Z",
-      "setup": "sma50",
-      "muted": [
-        "1H"
-      ]
-    },
-    {
-      "asset_class": "pse",
       "ticker": "PAL",
       "display_name": "PAL",
       "higher_tf": "4H",
