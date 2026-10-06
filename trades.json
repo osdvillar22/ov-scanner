@@ -213,6 +213,30 @@
       "filled_at": "2026-10-05T08:00:00.000Z",
       "fill_end": "2026-10-05T12:00:00.000Z",
       "fill_tf": "4H"
+    },
+    {
+      "id": "muwk0msul2td",
+      "asset_class": "pse",
+      "ticker": "AT",
+      "display_name": "AT",
+      "tag": "PSE",
+      "higher_tf": "1D",
+      "setup": "sma50",
+      "lines": [
+        "sma50"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "1H",
+      "entry": 19.22,
+      "cl": 17.16,
+      "tp": 21.3,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-06T10:46:59.695Z",
+      "missed": true,
+      "filled_at": "2026-10-05T05:30:00.000Z",
+      "fill_end": "2026-10-05T06:30:00.000Z",
+      "fill_tf": "1H"
     }
   ]
 }
