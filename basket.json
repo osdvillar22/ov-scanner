@@ -24,17 +24,6 @@
     },
     {
       "asset_class": "pse",
-      "ticker": "PNB",
-      "display_name": "PNB",
-      "higher_tf": "1W",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T08:54:18.605Z",
-      "muted": [
-        "1D"
-      ]
-    },
-    {
-      "asset_class": "pse",
       "ticker": "DHI",
       "display_name": "DHI",
       "higher_tf": "1D",
