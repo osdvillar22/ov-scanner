@@ -39,6 +39,7 @@
   .st.tp { color: var(--gain); } .st.cl { color: var(--loss); }
   .d-levels { font-size: 11px; color: var(--ink-dim); margin-top: 4px; line-height: 1.6; }
   .d-levels b { color: var(--ink); font-weight: 500; }
+  .miss { font-size: 10px; color: var(--gold-bright); border: 1px dashed color-mix(in srgb, var(--gold-bright) 60%, var(--border)); border-radius: 3px; padding: 0 4px; }
 </style>
 </head>
 <body>
@@ -115,6 +116,7 @@ function breakdown(closed) {
   const groups = [
     ['MARKET', t => [...marketsOf(t)].pop()], ['PICK TF', t => t.higher_tf], ['SETUP', t => t.setup === 'sma50' ? 'SMA 50' : 'trend'],
     ['ENTRY LINE', t => (t.lines || ['lsma']).map(l => l === 'lsma' ? 'LSMA' : 'SMA 50').join(' + ')], ['PLANNED ON', t => t.plan_tf],
+    ['ENTRY TYPE', t => t.missed ? 'missed entry' : 'live plan'],
   ];
   return `<div class="brk">${groups.map(([title, key]) => {
     const by = {};
@@ -135,7 +137,7 @@ function renderList() {
     return;
   }
   el.innerHTML = shown.map(t => {
-    const name = `<b>${esc(t.display_name)}</b> <span class="d-sub" style="margin:0">${t.plan_tf}</span> ${sideOf(t)}`;
+    const name = `<b>${esc(t.display_name)}</b> <span class="d-sub" style="margin:0">${t.plan_tf}</span> ${sideOf(t)}${t.missed ? ' <span class="miss">missed</span>' : ''}`;
     let right = '', sub = '', bar = '';
     if (t.status === 'open') {
       const p = lastPrice(t), r = p == null ? null : tradeR(t, p), ratio = ratioOf(t);
@@ -170,11 +172,11 @@ function selectTrade(id) {
   const detail = document.getElementById('detail');
   detail.innerHTML = `
     <div class="d-top" data-current-id="${id}">
-      <div><span class="d-name">${esc(t.display_name)}</span><span class="d-sub">${sideOf(t)} · planned on ${t.plan_tf} · ${t.setup === 'sma50' ? 'SMA 50' : 'trend'} ${t.higher_tf} ${dirArrow(t.pick_direction)} · entry on ${(t.lines || ['lsma']).map(l => l === 'lsma' ? 'LSMA' : 'SMA 50').join(' + ')}</span></div>
+      <div><span class="d-name">${esc(t.display_name)}</span><span class="d-sub">${sideOf(t)}${t.missed ? ' · <span class="miss">missed entry</span>' : ''} · planned on ${t.plan_tf} · ${t.setup === 'sma50' ? 'SMA 50' : 'trend'} ${t.higher_tf} ${dirArrow(t.pick_direction)} · entry on ${(t.lines || ['lsma']).map(l => l === 'lsma' ? 'LSMA' : 'SMA 50').join(' + ')}</span></div>
       <div class="d-right"><span class="st ${t.status}">${status}</span>${act ? `<button class="text-btn" id="cancelBtn" type="button">${act}</button>` : ''}</div>
     </div>
     <div class="d-levels">entry <b>${t.entry}</b> · CL <b>${t.cl}</b> (${pct(t.cl)}) · TP <b>${t.tp}</b> (${pct(t.tp)}) · 1:${+ratioOf(t).toFixed(2)}${p == null ? '' : ` · now <b>${p}</b>`}<br>
-      planned ${fmtTime(t.created_at)}${t.filled_at ? ` · filled ${fmtTime(t.filled_at)} (${t.fill_tf})` : ''}${t.closed_at ? ` · closed ${fmtTime(t.closed_at)} (${t.exit_tf})` : ''}${t.note ? ` · ${esc(t.note)}` : ''}<span class="msg" id="cancelMsg"></span></div>
+      planned ${fmtTime(t.created_at)}${t.filled_at ? ` · ${t.missed ? 'entry candle' : 'filled'} ${fmtTime(t.filled_at)} (${t.fill_tf})` : ''}${t.closed_at ? ` · closed ${fmtTime(t.closed_at)} (${t.exit_tf})` : ''}${t.note ? ` · ${esc(t.note)}` : ''}<span class="msg" id="cancelMsg"></span></div>
     <div class="legend"><span class="ind-label">show</span>${indicatorToggles()}<span class="push">ctrl+scroll or pinch to zoom · drag to pan</span></div>
     ${tfs.map((tf, i) => `
       <div class="chart-head"><span class="chart-label">${tf}${i === 0 ? ' <span class="dim">trigger timeframe</span>' : ''}${tf === t.plan_tf ? ' <span class="dim">· planned here</span>' : ''}</span><button class="reset" id="fc-${i}-reset" type="button">reset zoom</button></div>

@@ -16,6 +16,11 @@ first. When even that candle touched both, it counts as CL — and a candle
 that fills the entry can close it at CL, never at TP (the order inside it
 is unknown).
 
+A "missed entry" is saved already open, filled at the past candle the
+entry was clicked on (its range included the entry); from there it's
+checked like any open trade, so a TP / CL hit before it was saved closes
+it on the next check.
+
 Nothing is stored between runs except the transitions: every run replays
 the candles since the plan was made (or since the fill), so missed runs
 can't leave a trade in a wrong state. Transitions are written back with
@@ -201,7 +206,7 @@ def send_alerts(applied: list) -> None:
     embeds = []
     for a in applied:
         side = "long" if is_long(a) else "short"
-        name = f"{a['display_name']} {side} · {a['plan_tf']}"
+        name = f"{a['display_name']} {side} · {a['plan_tf']}{' · missed entry' if a.get('missed') else ''}"
         levels = f"entry `{scan._sig(a['entry'])}` · CL `{scan._sig(a['cl'])}` · TP `{scan._sig(a['tp'])}`"
         if a["status"] == "open":
             embeds.append({"title": f"FILLED · {name}", "color": 0xB8921C,

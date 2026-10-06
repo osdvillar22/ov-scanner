@@ -794,7 +794,11 @@ function selectAsset(id) {
 // and followed on forward.html.
 // ---------------------------------------------------------------------------
 let tradesList = [];         // trades.json, as last read
-let plan = null;             // { pick, step: 'entry'|'cl'|'adjust', entry, cl, tp, ratio, custom, tf, precision }
+// plan.from: where the entry was clicked, when that's on a past candle.
+// The first candle from there whose range includes the entry is a missed
+// entry — the plan saves already filled there (unless switched to a
+// pending plan). Clicks right of the last candle make a pending plan.
+let plan = null;             // { pick, step: 'entry'|'cl'|'adjust', entry, cl, tp, ratio, custom, tf, precision, candles, from, asPending }
 let planCharts = [];         // [{ tf, chart, series, el, precision, lines }]
 const RATIOS = [1, 1.5, 2, 3];
 
@@ -808,11 +812,18 @@ function addPlanChart(tf, h) {
   if (!h) return;
   const pc = { tf, ...h, lines: null };
   planCharts.push(pc);
-  h.chart.subscribeClick(p => onPlanClick(pc, p));
+  // Plain DOM clicks: the chart's own click event drops a quick second
+  // click (entry, then cut loss) as part of a double-click.
+  h.el.addEventListener('click', (e) => {
+    const r = h.el.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    onPlanClick(pc, { point: { x, y }, time: h.chart.timeScale().coordinateToTime(x) });
+  });
   wirePlanDrag(pc);
 }
 
 const planSnap = (price) => snapPrice(price, plan.pick.asset_class, plan.precision);
+const missedFill = () => plan && plan.from != null ? plan.candles.slice(plan.from).find(c => c.low <= plan.entry && plan.entry <= c.high) || null : null;
+const missedCandle = () => plan && !plan.asPending ? missedFill() : null;
 const planTp = () => planSnap(plan.entry + plan.ratio * (plan.entry - plan.cl));
 
 function onPlanClick(pc, p) {
@@ -820,7 +831,8 @@ function onPlanClick(pc, p) {
   const raw = pc.series.coordinateToPrice(p.point.y);
   if (raw == null) return;
   if (plan.step === 'entry') {
-    Object.assign(plan, { tf: pc.tf, precision: pc.precision });
+    const from = (pc.candles || []).findIndex(c => c.time === p.time);
+    Object.assign(plan, { tf: pc.tf, precision: pc.precision, candles: pc.candles || [], from: from < 0 ? null : from, asPending: false });
     plan.entry = planSnap(raw); plan.step = 'cl';
   } else {
     const cl = planSnap(raw);
@@ -893,7 +905,9 @@ function paintPlanBar() {
     const long = plan.entry > plan.cl, opts = RATIOS.map(r => `<option value="${r}"${!plan.custom && r === plan.ratio ? ' selected' : ''}>1:${r}</option>`).join('');
     bar.innerHTML = `<span><b class="${long ? 'bullish' : 'bearish'}">${long ? 'long' : 'short'}</b> on ${plan.tf} · entry <b>${px(plan.entry)}</b> · CL <b>${px(plan.cl)}</b> (${pct(plan.cl)}) · TP <b>${px(plan.tp)}</b> (${pct(plan.tp)})</span>
       <span>ratio <select data-act="ratio">${plan.custom ? `<option selected>1:${plan.ratio.toFixed(2)}</option>` : ''}${opts}</select></span>
-      <span>drag a line to adjust · fills when price reaches the entry</span>
+      <span>${missedCandle()
+        ? `<b style="color:var(--gold-bright)">missed entry</b> · filled on the ${plan.tf} candle ${fmtTime(new Date(missedCandle().time * 1000).toISOString())} · <button class="link-btn" type="button" data-act="pending">make it a pending plan</button>`
+        : `fills when price reaches the entry${plan.asPending && missedFill() ? ` · <button class="link-btn" type="button" data-act="pending">use the missed entry</button>` : ''}`} · drag a line to adjust</span>
       <span class="push">${cancel}<button class="text-btn go" type="button" data-act="save">save plan</button></span><span class="msg" id="planMsg"></span>`;
   }
   bar.querySelector('[data-act="cancel"]').addEventListener('click', clearPlan);
@@ -901,11 +915,13 @@ function paintPlanBar() {
   if (ratio) ratio.addEventListener('change', () => { const r = parseFloat(ratio.value); if (!RATIOS.includes(r)) return; plan.ratio = r; plan.custom = false; plan.tp = planTp(); drawPlan(); paintPlanBar(); });
   const save = bar.querySelector('[data-act="save"]');
   if (save) save.addEventListener('click', savePlan);
+  const asPending = bar.querySelector('[data-act="pending"]');
+  if (asPending) asPending.addEventListener('click', () => { plan.asPending = !plan.asPending; paintPlanBar(); });
 }
 
 async function savePlan() {
   if (!requireToken()) return;
-  const msg = document.getElementById('planMsg'), p = plan.pick, long = plan.entry > plan.cl;
+  const msg = document.getElementById('planMsg'), p = plan.pick, long = plan.entry > plan.cl, missed = missedCandle();
   const pick = basketPicks.find(b => pickKey(b) === pickKey(p)) || p;
   const trade = {
     id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
@@ -913,10 +929,15 @@ async function savePlan() {
     higher_tf: p.higher_tf, setup: isS50(p) ? 'sma50' : 'trend', lines: linesOf(pick), pick_direction: p.direction,
     plan_tf: plan.tf, entry: plan.entry, cl: plan.cl, tp: plan.tp, ratio: +plan.ratio.toFixed(2),
     status: 'pending', created_at: new Date().toISOString(),
+    ...(missed ? {
+      status: 'open', missed: true,
+      filled_at: new Date(missed.time * 1000).toISOString(),
+      fill_end: new Date((missed.time + TF_MINUTES[plan.tf] * 60) * 1000).toISOString(), fill_tf: plan.tf,
+    } : {}),
   };
   msg.textContent = 'saving…';
   try {
-    tradesList = await updateTrades(list => list.concat([trade]), `Trades: plan ${p.display_name} ${long ? 'long' : 'short'} on ${plan.tf}`);
+    tradesList = await updateTrades(list => list.concat([trade]), `Trades: ${missed ? 'missed entry' : 'plan'} ${p.display_name} ${long ? 'long' : 'short'} on ${plan.tf}`);
     plan = null;
     selectAsset(p._id);   // redraw with the saved plan's lines
   } catch (err) { msg.textContent = `Couldn't save: ${err.message}`; }

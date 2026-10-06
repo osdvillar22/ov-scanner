@@ -217,7 +217,7 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
     .setData(candles.map(c => ({ time: c.time, value: c.macd_signal })).filter(p => p.value != null));
   macdChart.timeScale().setVisibleLogicalRange(home);
   chart.timeScale().subscribeVisibleLogicalRangeChange(range => { if (range) macdChart.timeScale().setVisibleLogicalRange(range); });
-  return { chart, series: candleSeries, el: chartEl, precision };
+  return { chart, series: candleSeries, el: chartEl, precision, candles };
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +225,7 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
 // Long when the cut loss is below the entry. Prices snap to the PSE tick
 // table for PSE, else to the chart's decimals.
 // ---------------------------------------------------------------------------
+const TF_MINUTES = { '5m': 5, '15m': 15, '1H': 60, '4H': 240, '1D': 1440, '1W': 10080 };
 const tradeLong = (t) => t.entry > t.cl;
 // Where `price` sits in R: 0 at entry, -1 at the cut loss, +ratio at the target.
 const tradeR = (t, price) => (price - t.entry) / Math.abs(t.entry - t.cl) * (tradeLong(t) ? 1 : -1);
