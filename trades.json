@@ -19,6 +19,26 @@
       "ratio": 1,
       "status": "pending",
       "created_at": "2026-10-06T08:16:16.950Z"
+    },
+    {
+      "id": "muweoei6chid",
+      "asset_class": "crypto",
+      "ticker": "ONDOUSD",
+      "display_name": "ONDO/USD",
+      "tag": null,
+      "higher_tf": "1D",
+      "setup": "trend",
+      "lines": [
+        "sma50"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "4H",
+      "entry": 0.511,
+      "cl": 0.47,
+      "tp": 0.552,
+      "ratio": 1,
+      "status": "pending",
+      "created_at": "2026-10-06T08:17:30.990Z"
     }
   ]
 }
