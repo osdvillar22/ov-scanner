@@ -237,6 +237,30 @@
       "filled_at": "2026-10-05T05:30:00.000Z",
       "fill_end": "2026-10-05T06:30:00.000Z",
       "fill_tf": "1H"
+    },
+    {
+      "id": "muwk2zdqbeul",
+      "asset_class": "crypto",
+      "ticker": "XXBTZUSD",
+      "display_name": "BTC/USD",
+      "tag": null,
+      "higher_tf": "1D",
+      "setup": "trend",
+      "lines": [
+        "sma50"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "4H",
+      "entry": 85723.74,
+      "cl": 82519.83,
+      "tp": 88927.65,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-06T10:48:49.310Z",
+      "missed": true,
+      "filled_at": "2026-10-02T04:00:00.000Z",
+      "fill_end": "2026-10-02T08:00:00.000Z",
+      "fill_tf": "4H"
     }
   ]
 }
