@@ -176,6 +176,9 @@
       "setup": "sma50",
       "muted": [
         "1H"
+      ],
+      "lines": [
+        "sma50"
       ]
     },
     {
