@@ -65,7 +65,11 @@
       "display_name": "NRCP",
       "higher_tf": "1W",
       "direction": "BULLISH",
-      "added_at": "2026-09-25T09:21:37.434Z"
+      "added_at": "2026-09-25T09:21:37.434Z",
+      "lines": [
+        "lsma",
+        "sma50"
+      ]
     },
     {
       "asset_class": "pse",
