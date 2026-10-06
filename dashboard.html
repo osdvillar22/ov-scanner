@@ -155,6 +155,11 @@
   .bk-x:hover { color: var(--loss); }
   .bk-sub { font-size: 10.5px; color: var(--ink-dim); margin-top: 2px; }
   .s50-tag { outline: 1px dashed var(--ink); outline-offset: 1px; border-radius: 2px; padding: 0 3px; color: var(--ink); }
+  .bk-lines { display: flex; align-items: center; gap: 5px; margin-top: 5px; font-size: 10.5px; color: var(--ink-dim); }
+  .ln-chip { font-size: 10.5px; padding: 0 5px; border-radius: 3px; border: 1px solid var(--border); color: var(--ink-faint); }
+  .ln-chip[aria-pressed="true"] { border-color: color-mix(in srgb, var(--gold-bright) 60%, var(--border)); color: var(--gold-bright); }
+  .ln-chip:disabled { opacity: 0.5; cursor: wait; }
+  .grp-dir .bullish, .grp-dir .bearish { margin-left: 4px; }
   .bk-ltfs { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 5px 6px; align-items: center; margin-top: 6px; font-size: 11px; }
   .bk-ltfs .k { color: var(--ink); }
   .bk-ltfs .off { color: var(--ink-faint); }
@@ -627,6 +632,20 @@ async function toggleMute(pick, ltf) {
   refreshBasketViews();
 }
 
+// Entry lines per pick (LSMA, SMA 50 or both); at least one stays on.
+const PICK_LINES = [['lsma', 'LSMA'], ['sma50', 'SMA 50']];
+const linesOf = (p) => { const l = PICK_LINES.map(([k]) => k).filter(k => (p.lines || []).includes(k)); return l.length ? l : isS50(p) ? ['sma50', 'lsma'] : ['lsma']; };
+
+async function toggleLine(pick, line) {
+  const key = pickKey(pick), lines = new Set(linesOf(pick));
+  lines.has(line) ? lines.delete(line) : lines.add(line);
+  if (!lines.size) return;
+  const list = PICK_LINES.map(([k]) => k).filter(k => lines.has(k));
+  await updateBasket(picks => picks.map(p => pickKey(p) === key ? { ...p, lines: list } : p),
+    `Basket: ${pick.display_name} ${pick.higher_tf}${isS50(pick) ? ' SMA 50' : ''} entry on ${list.map(k => k === 'lsma' ? 'LSMA' : 'SMA 50').join(' + ')}`);
+  refreshBasketViews();
+}
+
 function refreshBasketViews() {
   renderBasket();
   repaintBasketButton();
@@ -681,19 +700,24 @@ function renderBasket() {
     } else {
       // One row per lower tf: its latest activity only (full history is on
       // the lower-tf charts), and a switch for its alerts.
-      body = `<div class="bk-ltfs">${LOWER_TF_MAP[p.higher_tf].map(ltf => {
+      const lines = linesOf(p), multi = lines.length > 1 || lines[0] !== 'lsma';
+      const linesRow = `<div class="bk-lines"><span>entry on</span>${PICK_LINES.map(([k, l]) =>
+        `<button type="button" class="ln-chip" data-line="${k}" aria-pressed="${lines.includes(k)}" title="${lines.includes(k) ? (lines.length > 1 ? `Stop entries on the ${l}` : 'At least one line stays on') : `Also enter on the ${l}`}">${l}</button>`).join('')}</div>`;
+      body = linesRow + `<div class="bk-ltfs">${LOWER_TF_MAP[p.higher_tf].map(ltf => {
         const s = st && st[ltf], on = !muted.has(ltf);
         let status = '<span class="st-pending" title="Status appears after the next hourly scan">pending</span>';
-        if (s && s.lines) {
-          // SMA 50 pick: each line fires once — L = LSMA, S = SMA 50.
-          status = ['lsma', 'sma50'].map(line => {
-            const x = s.lines[line]; if (!x) return '';
-            const k = line === 'lsma' ? 'L' : 'S';
-            return x.state === 'done' && x.last_entry
-              ? `<span class="st-done" title="Entry on the ${line === 'lsma' ? 'LSMA' : 'SMA 50'}">${k} ✓ ${fmtTime(x.last_entry)}</span>`
+        if (s && multi) {
+          // One status per chosen line — L = LSMA, S = SMA 50. SMA 50 picks
+          // fire once per line; trend picks re-arm after each entry.
+          status = ['lsma', 'sma50'].filter(line => lines.includes(line)).map(line => {
+            const x = (s.lines || {})[line], k = line === 'lsma' ? 'L' : 'S';
+            if (!x) return `<span class="st-pending" title="Status appears after the next check">${k} pending</span>`;
+            const entered = x.last_entry && (x.state === 'done' || (!s50 && x.state === 'waiting'));
+            return entered
+              ? `<span class="st-done" title="Latest entry on the ${line === 'lsma' ? 'LSMA' : 'SMA 50'}">${k} ✓ ${fmtTime(x.last_entry)}</span>`
               : `<span class="st-${x.state}" title="${esc((STATE_TEXT[x.state] || [x.state, ''])[1])}">${k} ${(STATE_TEXT[x.state] || [x.state])[0]}</span>`;
-          }).filter(Boolean).join(' <span class="st-pending">·</span> ');
-        } else if (s) {
+          }).join(' <span class="st-pending">·</span> ');
+        } else if (s && !s.lines) {
           const last = (s.events || []).at(-1);
           if (s.state === 'waiting' && last && last.type === 'entry') status = `<span class="st-entry" title="Latest entry — waiting for the next pullback">✓ ${fmtTime(last.time)}</span>`;
           else { const [text, tip] = STATE_TEXT[s.state] || [s.state, '']; status = `<span class="st-${s.state}" title="${esc(tip)}">${text}</span>`; }
@@ -724,6 +748,13 @@ function renderBasket() {
       e.currentTarget.disabled = true; say('removing…');
       try { await toggleBasket(pick); } catch (err) { say(`Couldn't remove: ${err.message}`); }
     });
+    card.querySelectorAll('.ln-chip').forEach(b => b.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (linesOf(pick).length === 1 && linesOf(pick)[0] === b.dataset.line) { say('At least one entry line stays on.'); return; }
+      if (!requireToken()) return;
+      b.disabled = true;
+      try { await toggleLine(pick, b.dataset.line); } catch (err) { say(`Couldn't save: ${err.message}`); b.disabled = false; }
+    }));
     card.querySelectorAll('.tgl').forEach(sw => sw.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!requireToken()) return;
@@ -797,19 +828,22 @@ function applyFilters() {
   let visible = 0;
   document.getElementById('watchlist').classList.toggle('searching', !!F.q);
   document.querySelectorAll('#watchlist .grp-block').forEach(block => {
-    let rows = 0, nNew = 0;
+    let rows = 0, nNew = 0, up = 0, down = 0;
     block.querySelectorAll('.row').forEach(row => {
       const byTf = watchesBySym[row.dataset.sym];
       const w = marketMatch(Object.values(byTf)[0]) ? primaryWatch(byTf) : null;
       row.style.display = w ? '' : 'none';
       if (!w) return;
       rows++; nNew += row.dataset.isNew === '1';
+      up += row.dataset.newDir === 'BULLISH'; down += row.dataset.newDir === 'BEARISH';
       row.dataset.slot = slotOf(w);
       paintRow(row);
     });
     visible += rows;
     block.style.display = rows ? '' : 'none';
     block.querySelector('.grp-n').textContent = block.dataset.older ? `${rows} ${rows === 1 ? 'asset' : 'assets'}` : `${nNew} new`;
+    const dir = block.querySelector('.grp-dir');
+    if (dir) dir.innerHTML = `<span class="bullish">▲${up}</span><span class="bearish">▼${down}</span>`;
   });
   document.getElementById('wlCount').textContent = visible;
   document.getElementById('wlEmpty').textContent = visible ? '' : (F.q ? `No match for "${F.q}".` : 'No assets match these filters.');
@@ -964,9 +998,11 @@ function buildWatchlist() {
       return `<button type="button" class="${dirClass(w.direction)}${s ? ' s50' : ''}${nw ? ' nw' : ''}" data-tf="${tf}"${m} title="${title}">${tf}${dirArrow(w.direction)}</button>`;
     }).join('');
     const tag = a.tag && a.asset_class !== 'pse' ? `<span class="tag">${a.tag}</span>` : '';
-    const isNew = b !== OLDER && live(k).some(w => scanOf(w.first_seen) === b);
+    // The new watch that put the row here (most recent trigger if several).
+    const fresh = b === OLDER ? [] : live(k).filter(w => scanOf(w.first_seen) === b).sort((x, y) => x.candles_ago_most_recent - y.candles_ago_most_recent);
+    const isNew = fresh.length > 0;
     return `
-        <div class="row" data-sym="${esc(k)}" data-is-new="${isNew ? 1 : 0}">
+        <div class="row" data-sym="${esc(k)}" data-is-new="${isNew ? 1 : 0}" data-new-dir="${isNew ? fresh[0].direction : ''}">
           <div class="row-name"><span class="sym">${esc(a.display_name || a.ticker)}</span>${tag}<span class="rsi"></span></div>
           <div class="tfs">${tfs}</div>
           <button type="button" class="plus"></button>
@@ -988,7 +1024,7 @@ function buildWatchlist() {
     const older = b === OLDER;
     return `
     <div class="grp-block${i === 0 && !older ? ' latest' : ''}${older && olderFolded ? ' folded' : ''}"${older ? ' data-older="1"' : ''}>
-      <div class="grp${older ? ' grp-fold' : ''}"><span><span class="when">${older ? 'OLDER' : batchLabel(scanList[b].min).toUpperCase()}</span> · <span class="grp-n"></span></span>${older ? `<span class="fold-ic">${olderFolded ? '▸' : '▾'}</span>` : ''}</div>
+      <div class="grp${older ? ' grp-fold' : ''}"><span><span class="when">${older ? 'OLDER' : batchLabel(scanList[b].min).toUpperCase()}</span> · <span class="grp-n"></span></span>${older ? `<span class="fold-ic">${olderFolded ? '▸' : '▾'}</span>` : '<span class="grp-dir"></span>'}</div>
       ${batches.get(b).sort(byOrder).map(k => row(k, b)).join('')}
     </div>`;
   }).join('') + '<div class="empty" id="wlEmpty"></div>';
@@ -1076,7 +1112,7 @@ function selectAsset(id) {
     <div class="macd-box" id="detail-macd"></div>
     <div class="price-line"><span id="detail-price">—</span><span id="detail-pct">—</span></div>
 
-    <div class="section"><span>LOWER TIMEFRAMES</span>${cycleStatus ? `<span class="cy"><span style="color:var(--gold-bright)">●</span> pulled back &nbsp;<span style="color:var(--violet)">●</span> armed &nbsp;<span>${dirArrow(direction)}</span> entry${s50 ? ' (S = SMA 50, L = LSMA · first cross of each only)' : ''}</span>` : ''}</div>
+    <div class="section"><span>LOWER TIMEFRAMES</span>${cycleStatus ? `<span class="cy"><span style="color:var(--gold-bright)">●</span> pulled back &nbsp;<span style="color:var(--violet)">●</span> armed &nbsp;<span>${dirArrow(direction)}</span> entry${Object.values(cycleStatus).some(c => c && c.lines) ? ` (S = SMA 50, L = LSMA${s50 ? ' · first cross of each only' : ''})` : ''}</span>` : ''}</div>
     ${lowerTfs.map((ltf, li) => `
       <div class="chart-head"><span class="chart-label">${ltf}</span><button class="reset" id="detail-mini-${li}-reset" type="button">reset zoom</button></div>
       <div class="chart-box" id="detail-mini-${li}"></div>
@@ -1103,7 +1139,7 @@ function selectAsset(id) {
   lowerTfs.forEach((ltf, li) => {
     const c = toCandles(entry.lower_tf_candles[ltf]);
     renderBlock(c, `detail-mini-${li}`, `detail-minimacd-${li}`, c.length,
-      { forex, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50 } : null,
+      { forex, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50: !!cycleStatus[ltf].lines } : null,
         triggers: (entry.lower_tf_marks || {})[ltf] ? { marks: entry.lower_tf_marks[ltf], times: [], direction } : null });
   });
 }

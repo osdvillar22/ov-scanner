@@ -26,6 +26,10 @@ pullback -> MACD -> break steps, run separately on the lower tf's SMA 50 and
 its LSMA, from the higher-tf touch candle on — and each line fires only
 once per pick. A candle crossing both lines sends one alert naming both.
 
+Each pick's entry lines can be chosen on the dashboard (pick["lines"]:
+"lsma", "sma50" or both). A trend pick with SMA 50 on runs the same
+re-arming cycle on it as on its LSMA; an SMA 50 pick stays once per line.
+
 A pick is removed from basket.json by the user, or automatically once its
 higher-timeframe watch is gone (dropped off the watchlist, flipped
 direction, or an SMA 50 watch's candles ran out) — deleted rather than
@@ -74,14 +78,25 @@ def pick_key(pick: dict) -> str:
     return f"{base}:sma50" if is_sma50(pick) else base
 
 
-# The lines each setup's entries break, and each line's alert-history key.
+# The lines each setup's entries break by default, and each line's
+# alert-history key.
 TREND_LINES = ("lsma",)
 SMA50_LINES = ("sma50", "lsma")
 LINE_LABEL = {"lsma": "LSMA", "sma50": "SMA 50"}
 
 
+def lines_for(pick: dict) -> tuple:
+    """The entry lines the user chose for this pick, else the setup's default."""
+    chosen = tuple(l for l in SMA50_LINES if l in (pick.get("lines") or []))
+    return chosen or (SMA50_LINES if is_sma50(pick) else TREND_LINES)
+
+
 def dedupe_key(pick: dict, ltf: str, line: str) -> str:
-    return f"{pick_key(pick)}|{ltf}|{line}" if is_sma50(pick) else f"{pick_key(pick)}|{ltf}"
+    # A trend pick's LSMA keeps its original key (history from before lines
+    # were selectable stays valid).
+    if not is_sma50(pick) and line == "lsma":
+        return f"{pick_key(pick)}|{ltf}"
+    return f"{pick_key(pick)}|{ltf}|{line}"
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +253,7 @@ def check_pick(pick: dict, alerted: dict, now: pd.Timestamp, since: str | None =
     # card and chart markers keep updating), just never alerted.
     muted = set(pick.get("muted") or [])
     sma50 = is_sma50(pick)
-    lines = SMA50_LINES if sma50 else TREND_LINES
+    lines = lines_for(pick)
     since_ts = _utc(pd.Timestamp(since)) if (sma50 and since) else None
     status, alerts = {}, []
 
@@ -264,7 +279,7 @@ def check_pick(pick: dict, alerted: dict, now: pd.Timestamp, since: str | None =
                                                   "time": e["time"], "extreme": e["extreme"], "lines": []})
                 a["lines"].append({"line": line, "level": e["lsma"]})
         alerts += fresh.values()
-        if sma50:
+        if sma50 or lines != TREND_LINES:
             status[ltf] = {"lines": per_line, "events": sorted(events, key=lambda e: e["time"])}
         else:
             status[ltf] = {**per_line["lsma"], "events": events}
