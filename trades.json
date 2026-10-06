@@ -288,12 +288,17 @@
       "cl": 4.26e-06,
       "tp": 4.44e-06,
       "ratio": 1,
-      "status": "open",
+      "status": "cl",
       "created_at": "2026-10-06T10:51:21.870Z",
       "missed": true,
       "filled_at": "2026-10-06T09:00:00.000Z",
       "fill_end": "2026-10-06T09:15:00.000Z",
-      "fill_tf": "15m"
+      "fill_tf": "15m",
+      "closed_at": "2026-10-06T19:25:00+00:00",
+      "exit_tf": "5m",
+      "exit": 4.26e-06,
+      "result_r": -1.0,
+      "note": null
     },
     {
       "id": "muwk80psau7p",
