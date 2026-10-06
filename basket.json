@@ -79,7 +79,11 @@
       "display_name": "MARC",
       "higher_tf": "1W",
       "direction": "BULLISH",
-      "added_at": "2026-09-25T09:24:36.595Z"
+      "added_at": "2026-09-25T09:24:36.595Z",
+      "lines": [
+        "lsma",
+        "sma50"
+      ]
     },
     {
       "asset_class": "pse",
