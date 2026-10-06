@@ -336,7 +336,11 @@
       "display_name": "GLMR/USD",
       "higher_tf": "1D",
       "direction": "BULLISH",
-      "added_at": "2026-10-06T23:39:06.667Z"
+      "added_at": "2026-10-06T23:39:06.667Z",
+      "lines": [
+        "lsma",
+        "sma50"
+      ]
     }
   ]
 }
