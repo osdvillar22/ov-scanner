@@ -292,6 +292,9 @@
       "setup": "sma50",
       "muted": [
         "4H"
+      ],
+      "lines": [
+        "sma50"
       ]
     }
   ]
