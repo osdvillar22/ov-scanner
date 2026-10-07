@@ -12,3 +12,4 @@ data.json
 # Basket entry-alert dedupe — Actions cache, not git (basket.json IS committed).
 basket_alerts_*.json
 trades_data.json
+crypto.json

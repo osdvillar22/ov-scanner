@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OV CRYPTO</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314140F'/%3E%3Ccircle cx='10' cy='16' r='5.5' fill='none' stroke='%23E8CC66' stroke-width='3'/%3E%3Cpath d='M18.5 10.5l3.5 11 3.5-11' fill='none' stroke='%23E8CC66' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ov.css">
+<style>
+  .nav { display: flex; gap: 14px; align-items: baseline; }
+  .nav a { color: var(--ink-dim); text-decoration: none; font-size: 12px; }
+  .nav a:hover { color: var(--ink); }
+  .nav a.on { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); padding-bottom: 2px; }
+  .up { color: var(--gain); } .down { color: var(--loss); }
+  main { max-width: 1240px; margin: 0 auto; padding: 8px 16px 48px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+  .summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 22px; margin: 4px 0 12px; font-size: 11.5px; color: var(--ink-dim); }
+  .summary b { color: var(--ink); font-weight: 500; }
+  .big { font-size: 22px; font-weight: 600; }
+  .switch { margin-left: auto; display: flex; gap: 10px; }
+  .switch button { color: var(--ink-faint); font-size: 11px; }
+  .switch button.on { color: var(--ink); text-decoration: underline; text-decoration-color: var(--gold-bright); text-underline-offset: 3px; }
+  .switch .fsep { width: 1px; height: 12px; background: var(--border); align-self: center; }
+
+  /* Category board: name · bar around zero · % · up/down · watches · intraday line */
+  .row { display: grid; grid-template-columns: 128px minmax(0, 1fr) 64px 70px 74px 100px; gap: 10px; align-items: center; padding: 6px 2px; border-bottom: 1px solid var(--hair); font-size: 11.5px; }
+  .row.h { color: var(--ink-faint); font-size: 10px; letter-spacing: 0.06em; padding-top: 0; }
+  .row.cat { cursor: pointer; }
+  .row.cat:hover { background: var(--surface-raised); }
+  .row.all { font-weight: 600; }
+  .r { text-align: right; }
+  .name a { color: var(--gold-bright); text-decoration: none; margin-left: 4px; }
+  .name .chev { color: var(--ink-faint); display: inline-block; width: 10px; }
+  .bar { position: relative; height: 10px; }
+  .bar .mid { position: absolute; left: 50%; top: -3px; width: 1px; height: 16px; background: var(--ink-faint); }
+  .bar .fill { position: absolute; top: 0; height: 10px; border-radius: 2px; }
+  .spark { width: 100px; height: 22px; display: block; }
+  .coins { padding: 4px 0 8px 22px; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 2px 18px; font-size: 11px; }
+  .coin { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+  .coin .w { color: var(--ink-dim); font-size: 10.5px; }
+  .note { font-size: 10.5px; color: var(--ink-faint); margin-top: 8px; }
+  h2 { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; color: var(--ink-dim); margin: 18px 0 6px; }
+  .hm { overflow-x: auto; }
+  .hm table { border-collapse: separate; border-spacing: 3px; font-size: 10.5px; min-width: 640px; width: 100%; }
+  .hm th { color: var(--ink-faint); font-weight: 400; padding: 2px; }
+  .hm td { text-align: center; padding: 4px 2px; border-radius: 3px; color: var(--ink); }
+  .hm td.k { text-align: left; color: var(--ink-dim); white-space: nowrap; }
+  @media (max-width: 760px) {
+    .row { grid-template-columns: 100px minmax(0, 1fr) 58px 60px; }
+    .row > :nth-child(5), .row > :nth-child(6) { display: none; }
+    .switch { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+  <header class="page">
+    <div class="topbar">
+      <span class="nav"><span class="brand">OV <span>SCANNER</span></span><a href="dashboard.html">dashboard</a><a href="forward.html">forward test</a><a class="on" href="crypto.html">crypto</a></span>
+      <span class="meta" id="meta">Loading…</span>
+    </div>
+  </header>
+  <main>
+    <div class="summary" id="summary"></div>
+    <div class="panel"><div id="board"><div class="empty">Loading…</div></div>
+      <div class="note">Day starts 8:00 AM Manila (00:00 UTC, Kraken's daily candle) · tap a category for its coins · ↗ opens the dashboard filtered to it · updates with each hourly scan</div></div>
+    <h2>LAST 14 DAYS · DAILY MOVE PER CATEGORY</h2>
+    <div class="panel hm" id="history"></div>
+  </main>
+<script src="ov.js"></script>
+<script>
+let D = null;
+const S = { weight: 'vw', set: 'all', open: new Set() };
+try { Object.assign(S, JSON.parse(localStorage.getItem('ovs-crypto') || '{}'), { open: new Set() }); } catch (e) {}
+const save = () => { try { localStorage.setItem('ovs-crypto', JSON.stringify({ weight: S.weight, set: S.set })); } catch (e) {} };
+const pct = (v) => v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}%`;
+const cls = (v) => v > 0 ? 'up' : v < 0 ? 'down' : '';
+
+function spark(vals) {
+  if (!vals || vals.length < 2) return '<svg class="spark"></svg>';
+  const lo = Math.min(0, ...vals), hi = Math.max(0, ...vals), span = hi - lo || 1;
+  const y = (v) => 20 - (v - lo) / span * 18, x = (i) => i / (vals.length - 1) * 98 + 1;
+  const last = vals[vals.length - 1];
+  return `<svg class="spark" viewBox="0 0 100 22" preserveAspectRatio="none"><line x1="0" x2="100" y1="${y(0)}" y2="${y(0)}" stroke="var(--border)" stroke-width="1"/><polyline fill="none" stroke="var(--${last >= 0 ? 'gain' : 'loss'})" stroke-width="1.4" vector-effect="non-scaling-stroke" points="${vals.map((v, i) => `${x(i)},${y(v)}`).join(' ')}"/></svg>`;
+}
+
+function render() {
+  const set = D.sets[S.set] || D.sets.all, today = set.today, all = today.ALL || {};
+  const v = (s) => s ? s[S.weight] : null;
+  document.getElementById('meta').innerHTML = `as of <strong>${fmtTime(D.generated_at)}</strong> · day started ${fmtTime(D.day_start)}`;
+  document.getElementById('summary').innerHTML = `
+    <span>crypto today <span class="big ${cls(v(all))}">${pct(v(all))}</span></span>
+    ${Object.entries(D.ref || {}).map(([k, x]) => `<span>${k} <b class="${cls(x)}">${pct(x)}</b></span>`).join('')}
+    <span>up <b class="up">${all.up ?? 0}</b> · down <b class="down">${all.down ?? 0}</b> of ${all.n ?? 0}</span>
+    <span>watches <b class="up">▲${all.bull ?? 0}</b> <b class="down">▼${all.bear ?? 0}</b></span>
+    <span class="switch">
+      <button type="button" data-w="vw" class="${S.weight === 'vw' ? 'on' : ''}" title="Each coin weighted by its previous day's USD volume">volume-weighted</button>
+      <button type="button" data-w="med" class="${S.weight === 'med' ? 'on' : ''}" title="The middle coin's move">median coin</button>
+      <span class="fsep"></span>
+      <button type="button" data-s="all" class="${S.set === 'all' ? 'on' : ''}">all coins</button>
+      <button type="button" data-s="large" class="${S.set === 'large' ? 'on' : ''}"${D.sets.large ? '' : ' disabled'}>large caps</button>
+    </span>`;
+  document.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => { S.weight = b.dataset.w; save(); render(); }));
+  document.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => { S.set = b.dataset.s; save(); render(); }));
+
+  const cats = D.categories.filter(c => today[c]).sort((a, b) => v(today[b]) - v(today[a]));
+  const maxAbs = Math.max(1, ...cats.map(c => Math.abs(v(today[c]))), Math.abs(v(all)) || 0);
+  const coinsOf = (c) => D.coins.filter(x => x.c === c && (S.set === 'all' || x.l) && x.chg != null).sort((a, b) => b.chg - a.chg);
+  const row = (key, label, isAll) => {
+    const s = today[key], m = v(s), w = Math.min(50, Math.abs(m) / maxAbs * 50), open = S.open.has(key);
+    const series = ((set.intraday.series[key] || {})[S.weight]) || [];
+    return `<div class="row ${isAll ? 'all' : 'cat'}" data-cat="${isAll ? '' : esc(key)}">
+      <span class="name">${isAll ? '' : `<span class="chev">${open ? '▾' : '▸'}</span>`}${esc(label)}${isAll ? '' : `<a href="dashboard.html?market=crypto&cat=${encodeURIComponent(key)}" title="Open the dashboard filtered to ${esc(key)}">↗</a>`}</span>
+      <span class="bar"><span class="mid"></span><span class="fill" style="${m >= 0 ? 'left' : 'right'}:50%;width:${w}%;background:var(--${m >= 0 ? 'gain' : 'loss'})"></span></span>
+      <span class="r ${cls(m)}">${pct(m)}</span>
+      <span class="r"><span class="up">${s.up}</span>/<span class="down">${s.down}</span></span>
+      <span class="r"><span class="up">▲${s.bull || 0}</span> <span class="down">▼${s.bear || 0}</span></span>
+      ${spark(series)}
+    </div>${open ? `<div class="coins">${coinsOf(key).map(x => `<div class="coin"><span>${esc(x.n.split('/')[0])} ${x.w.length ? `<span class="w">${x.w.map(([tf, d, st]) => `<span class="${d === 'BULLISH' ? 'up' : 'down'}">${tf}${dirArrow(d)}${st === 'sma50' ? '·50' : ''}</span>`).join(' ')}</span>` : ''}</span><span class="${cls(x.chg)}">${pct(x.chg)}</span></div>`).join('')}</div>` : ''}`;
+  };
+  document.getElementById('board').innerHTML = `
+    <div class="row h"><span>CATEGORY</span><span style="text-align:center">TODAY</span><span class="r">MOVE</span><span class="r">UP/DOWN</span><span class="r">WATCHES</span><span>INTRADAY</span></div>
+    ${row('ALL', 'all crypto', true)}${cats.map(c => row(c, c, false)).join('')}`;
+  document.querySelectorAll('.row.cat').forEach(r => r.addEventListener('click', (e) => {
+    if (e.target.closest('a')) return;
+    const k = r.dataset.cat; S.open.has(k) ? S.open.delete(k) : S.open.add(k); render();
+  }));
+
+  // History heatmap: completed days plus today (last column).
+  const days = set.days;
+  const cell = (s) => {
+    if (!s) return '<td style="color:var(--ink-faint)">—</td>';
+    const m = v(s), a = Math.min(1, Math.abs(m) / 8);
+    return `<td style="background:color-mix(in srgb, var(--${m >= 0 ? 'gain' : 'loss'}) ${Math.round(12 + a * 58)}%, transparent)" title="${pct(m)} · ${s.up} up / ${s.down} down">${m > 0 ? '+' : ''}${m.toFixed(1)}</td>`;
+  };
+  const label = (d) => { const t = new Date(`${d}T00:00:00Z`); return d === days[days.length - 1].date ? 'today' : t.toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' }); };
+  document.getElementById('history').innerHTML = `<table><tr><th></th>${days.map(d => `<th>${label(d.date)}</th>`).join('')}</tr>
+    ${[['ALL', 'all crypto'], ...D.categories.map(c => [c, c])].map(([k, l]) => `<tr><td class="k">${esc(l)}</td>${days.map(d => cell(d[k])).join('')}</tr>`).join('')}</table>`;
+}
+
+fetch('crypto.json', { cache: 'no-cache' })
+  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+  .then(d => { D = d; render(); })
+  .catch(err => { document.getElementById('board').innerHTML = `<div class="empty">Couldn't load crypto.json (${esc(err.message)}) — it's written by the hourly scan.</div>`; });
+</script>
+</body>
+</html>

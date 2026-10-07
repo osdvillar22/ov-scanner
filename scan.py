@@ -51,6 +51,7 @@ import numpy as np
 import pandas as pd
 
 import config
+import crypto_board
 import fetch
 import indicators
 
@@ -95,7 +96,8 @@ def build_universe() -> list[dict]:
 
     for p in fetch.get_kraken_usd_pairs():
         universe.append({"asset_class": "crypto", "ticker": p["pair"], "display_name": p["display_name"], "tag": p["tag"],
-                         "large_cap": p["display_name"].split("/")[0] in config.CRYPTO_LARGE_CAPS})
+                         "large_cap": p["display_name"].split("/")[0] in config.CRYPTO_LARGE_CAPS,
+                         "category": None if p["tag"] else crypto_board.category_of(p["display_name"])})
 
     logger.info("Universe built: %d assets", len(universe))
     return universe
@@ -425,6 +427,7 @@ def _fill_charts(entry: dict, asset: dict, htf: str, df_htf: pd.DataFrame, ltf_c
     entry["display_name"] = asset["display_name"]
     entry["tag"] = asset.get("tag")
     entry["large_cap"] = bool(asset.get("large_cap"))
+    entry["category"] = asset.get("category")
     entry["last_rsi"] = round(float(df_htf.iloc[-1]["rsi"]), 2)
     marks_by_tf = marks_by_tf or {}
     entry["candles"] = serialize_candles(df_htf)
@@ -571,6 +574,10 @@ def scan_asset(asset: dict, state: dict) -> None:
     for tf in auto_tfs:
         tf_data[tf] = fetch_and_compute(asset, tf, min_bars=config.LSMA_WARMUP_BARS)
 
+    # Crypto category board (crypto.html): today's moves from these candles.
+    if asset["asset_class"] == "crypto" and not asset.get("tag"):
+        crypto_board.record(asset, tf_data.get("1H"), tf_data.get("1D"))
+
     # Lower-tf charts reuse a frame already fetched here (e.g. 1H for 4H).
     ltf_cache = {tf: df for tf, df in tf_data.items() if tf in htfs and df is not None}
     # Trigger arrows of every higher tf, for its own chart and for lower-tf
@@ -611,7 +618,7 @@ def update_removed(log: list, before: dict, state: dict) -> list:
         log.append({
             "key": key,
             **{k: e.get(k) for k in ("asset_class", "ticker", "display_name", "higher_tf", "setup",
-                                     "direction", "tag", "large_cap", "first_seen", "macd_state")},
+                                     "direction", "tag", "large_cap", "category", "first_seen", "macd_state")},
             "reason": reason, "removed_at": stamp(),
         })
     return log
@@ -664,6 +671,10 @@ def run() -> None:
     removed = update_removed(removed, before, state)
     basket_status = basket.run_hourly(state)
     write_output(state, basket_status, removed)
+    try:
+        crypto_board.build(state)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Crypto board failed: %s", exc)
     run_trades()
     save_state({**state, REMOVED_KEY: removed})
 

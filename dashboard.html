@@ -25,7 +25,10 @@
   .refine { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 8px; }
   .seg { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
   .fsep { width: 1px; height: 12px; background: var(--border); }
-  #lcWrap { display: contents; }
+  #lcWrap, #catWrap { display: contents; }
+  .cat-sel { font: inherit; font-size: 11px; color: var(--ink-dim); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px; }
+  .cat-sel.on { color: var(--gold-bright); border-color: var(--gold-bright); }
+  .cat-tag { font-size: 10.5px; color: var(--gold-bright); border: 1px solid color-mix(in srgb, var(--gold-bright) 50%, var(--border)); border-radius: 3px; padding: 0 5px; margin-left: 6px; text-decoration: none; }
   .opt { font-size: 11px; padding: 2px 7px; border-radius: 4px; color: var(--ink-dim); border: 1px solid transparent; }
   .opt:hover { color: var(--ink); }
   .opt.on { color: var(--ink); background: var(--surface-raised); border-color: var(--border); }
@@ -132,7 +135,7 @@
   <header class="page">
     <div class="topbar">
       <span class="brand">OV <span>SCANNER</span></span>
-      <span class="meta"><span id="scanMeta">Loading…</span> · <a class="link-btn" href="forward.html">forward test</a> · <button class="link-btn" id="basketSettingsBtn" type="button">basket settings</button></span>
+      <span class="meta"><span id="scanMeta">Loading…</span> · <a class="link-btn" href="forward.html">forward test</a> · <a class="link-btn" href="crypto.html">crypto</a> · <button class="link-btn" id="basketSettingsBtn" type="button">basket settings</button></span>
     </div>
     <div class="settings-panel is-hidden" id="basketSettings">
       <div><strong>Basket access.</strong> Adding and removing basket picks saves <code>basket.json</code> in your GitHub repo, which needs a token with access to this repo only. It's stored in this browser only — each device needs it once.</div>
@@ -147,6 +150,7 @@
       <div class="mkt-tabs" id="marketTabs" aria-label="Market"></div>
       <div class="refine">
         <span id="lcWrap" class="is-hidden"><button class="sub-opt" type="button" id="largeCaps" aria-pressed="false">large caps<span class="n"></span></button><span class="fsep"></span></span>
+        <span id="catWrap" class="is-hidden"><select class="cat-sel" id="catSel" aria-label="Crypto category"></select><span class="fsep"></span></span>
         <div class="seg" id="tfSeg" aria-label="Timeframe"></div>
         <span class="fsep"></span>
         <div class="seg" id="dirSeg" aria-label="Direction"></div>
@@ -188,7 +192,10 @@ const tfsFor = (a) => a.asset_class === 'pse' || a.asset_class === 'crypto' ? ['
 // Markets with a large-caps sub-filter (PSE = the PSEi 30).
 const LARGE_CAP_MARKETS = ['pse', 'crypto'];
 
-const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL', setup: 'ALL', q: '' };
+const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL', setup: 'ALL', q: '', cat: 'ALL' };
+// Crypto categories (crypto_categories.json via scan.py), in the picker's order.
+const CAT_ORDER = ['Meme', 'AI', 'Gaming', 'Privacy', 'Exchange', 'L2', 'Oracles/Infra', 'L1', 'RWA', 'DeFi', 'Payments', 'Other'];
+let cryptoBoard = null;      // crypto.json — today's move per category
 
 // PSE session (Mon-Fri 9:30-15:00 Manila). Doesn't know PSE holidays.
 function pseOpen() {
@@ -227,6 +234,7 @@ function marketMatch(a, f = F) {
   if (f.q && !`${a.ticker} ${a.display_name || ''}`.toLowerCase().includes(f.q)) return false;
   if (f.market === 'all') return true;
   if (!marketsOf(a).has(f.market)) return false;
+  if (f.market === 'crypto' && f.cat !== 'ALL' && a.category !== f.cat) return false;
   return !(LARGE_CAP_MARKETS.includes(f.market) && f.large) || !!a.large_cap;
 }
 
@@ -533,11 +541,12 @@ function updateCounts() {
   const n = (over) => { const f = { ...F, ...over }; return syms.filter(byTf => marketMatch(Object.values(byTf)[0], f) && primaryWatch(byTf, f)).length; };
   document.querySelectorAll('#filters button[data-group] .n').forEach(el => {
     const { group, value } = el.parentElement.dataset;
-    const count = n(group === 'market' ? { market: value, large: false } : { [group]: value });
+    const count = n(group === 'market' ? { market: value, large: false, cat: 'ALL' } : { [group]: value });
     el.textContent = count;
     if (group === 'market') el.parentElement.classList.toggle('zero', count === 0);
   });
   if (LARGE_CAP_MARKETS.includes(F.market)) document.querySelector('#largeCaps .n').textContent = n({ large: true });
+  if (F.market === 'crypto') document.querySelectorAll('#catSel option').forEach(o => { o.textContent = `${o.value === 'ALL' ? 'all categories' : o.value} ${n({ cat: o.value })}`; });
 }
 
 // Direction and setup are toggles: tap one to show only it, tap it again
@@ -555,6 +564,10 @@ function buildFilters(syms) {
   document.getElementById('setupSeg').innerHTML = [['trend', 'trend'], ['sma50', 'SMA 50']]
     .map(([v, l]) => btn('opt', 'setup', v, l)).join('');
 
+  const present = new Set(syms.map(byTf => Object.values(byTf)[0].category).filter(Boolean));
+  const catSel = document.getElementById('catSel');
+  catSel.innerHTML = ['ALL', ...CAT_ORDER.filter(c => present.has(c) || c === F.cat)].map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  catSel.addEventListener('change', () => { F.cat = catSel.value; paint(); applyFilters(); });
   const paint = () => {
     document.querySelectorAll('#filters button[data-group]').forEach(b => {
       const on = F[b.dataset.group] === b.dataset.value;
@@ -563,6 +576,9 @@ function buildFilters(syms) {
     });
     const lc = document.getElementById('largeCaps');
     document.getElementById('lcWrap').classList.toggle('is-hidden', !LARGE_CAP_MARKETS.includes(F.market));
+    document.getElementById('catWrap').classList.toggle('is-hidden', F.market !== 'crypto');
+    const cs = document.getElementById('catSel');
+    cs.value = F.cat; cs.classList.toggle('on', F.cat !== 'ALL');
     lc.classList.toggle('on', F.large);
     lc.setAttribute('aria-pressed', F.large);
   };
@@ -570,7 +586,7 @@ function buildFilters(syms) {
   document.querySelectorAll('#filters button[data-group]').forEach(b => b.addEventListener('click', () => {
     const { group, value } = b.dataset;
     F[group] = TOGGLE_GROUPS.includes(group) && F[group] === value ? 'ALL' : value;
-    if (group === 'market') F.large = false;
+    if (group === 'market') { F.large = false; F.cat = 'ALL'; }
     paint();
     applyFilters();
   }));
@@ -728,6 +744,14 @@ function selectAsset(id) {
         `<button type="button" data-id="${w._id}" class="${w === entry ? 'current' : ''}">${l}</button>`).join('')}</span>`
     : '';
   const sub = entry.asset_class === 'pse' ? 'PSE' : (entry.tag || (entry.ticker !== entry.display_name ? entry.ticker : ''));
+  // Crypto: the coin's category, and how that category is doing today.
+  const cat = entry.asset_class === 'crypto' && entry.category;
+  const catToday = (() => {
+    const t = cat && cryptoBoard && cryptoBoard.sets.all.today, s = t && t[cat];
+    if (!s) return '';
+    const ranked = cryptoBoard.categories.filter(c => t[c]).sort((a, b) => t[b].vw - t[a].vw);
+    return ` · ${esc(cat)} today <span class="${s.vw >= 0 ? 'bullish' : 'bearish'}">${s.vw >= 0 ? '+' : '−'}${Math.abs(s.vw).toFixed(2)}%</span> (rank ${ranked.indexOf(cat) + 1} of ${ranked.length})`;
+  })();
   const ago = entry.candles_ago_most_recent;
   const noLsma = entry.higher_tf === '1W';
   const summary = s50
@@ -737,10 +761,10 @@ function selectAsset(id) {
   const detail = document.getElementById('detail');
   detail.innerHTML = `
     <div class="d-top" data-current-id="${id}">
-      <div><span class="d-name">${esc(entry.display_name)}</span>${sub ? `<span class="d-sub">${esc(sub)}</span>` : ''} <span class="rsi ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
+      <div><span class="d-name">${esc(entry.display_name)}</span>${sub ? `<span class="d-sub">${esc(sub)}</span>` : ''}${cat ? `<a class="cat-tag" href="crypto.html" title="Category — see how it's moving today">${esc(cat)}</a>` : ''} <span class="rsi ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
       <div class="d-right">${tfSwitch}</div>
     </div>
-    <div class="d-summary">${summary}${setupSw}</div>
+    <div class="d-summary">${summary}${catToday}${setupSw}</div>
     <div class="d-actions"><button class="bk-btn" id="basketBtn" type="button"></button><button class="plan-btn is-hidden" id="planBtn" type="button" title="Click the entry, then the cut loss, on any chart below">plan trade</button><span class="msg" id="basketMsg"></span>${tradeNote(entry)}</div>
     <div class="plan-bar is-hidden" id="planBar"></div>
 
@@ -1033,6 +1057,15 @@ async function init() {
   const scanTime = data.generated_at ? new Date(data.generated_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
   document.getElementById('scanMeta').innerHTML = `scan <strong>${scanTime}</strong> · <strong>${syms.length}</strong> on watch`;
 
+  // Links in from crypto.html: dashboard.html?market=crypto&cat=AI
+  const qs = new URLSearchParams(location.search);
+  if (MARKETS.some(([v]) => v === qs.get('market'))) F.market = qs.get('market');
+  if (F.market === 'crypto' && qs.get('cat')) F.cat = qs.get('cat');
+  fetch('crypto.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(d => {
+    cryptoBoard = d;
+    const open = document.querySelector('#detail [data-current-id]');
+    if (d && open && !plan) selectAsset(open.dataset.currentId);
+  }).catch(() => {});
   buildFilters(syms);
   if (!assets.length) {
     document.getElementById('detail').innerHTML = '<div class="empty">Nothing on watch right now — no asset meets the trigger condition this scan.</div>';
