@@ -307,6 +307,15 @@
       "higher_tf": "1W",
       "direction": "BULLISH",
       "added_at": "2026-10-06T23:43:13.426Z"
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "LBC",
+      "display_name": "LBC",
+      "higher_tf": "1D",
+      "direction": "BULLISH",
+      "added_at": "2026-10-07T05:00:46.936Z",
+      "setup": "sma50"
     }
   ]
 }
