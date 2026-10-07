@@ -39,11 +39,16 @@
       "cl": 0.47,
       "tp": 0.552,
       "ratio": 1,
-      "status": "open",
+      "status": "cl",
       "created_at": "2026-10-06T08:17:30.990Z",
       "filled_at": "2026-10-06T15:35:00+00:00",
       "fill_end": "2026-10-06T15:40:00+00:00",
-      "fill_tf": "5m"
+      "fill_tf": "5m",
+      "closed_at": "2026-10-07T02:00:00+00:00",
+      "exit_tf": "5m",
+      "exit": 0.47,
+      "result_r": -1.0,
+      "note": null
     },
     {
       "id": "muwepjp2chyz",
@@ -222,12 +227,17 @@
       "cl": 0.226,
       "tp": 0.294,
       "ratio": 1,
-      "status": "open",
+      "status": "cl",
       "created_at": "2026-10-06T10:43:49.583Z",
       "missed": true,
       "filled_at": "2026-10-05T08:00:00.000Z",
       "fill_end": "2026-10-05T12:00:00.000Z",
-      "fill_tf": "4H"
+      "fill_tf": "4H",
+      "closed_at": "2026-10-07T02:00:00+00:00",
+      "exit_tf": "5m",
+      "exit": 0.226,
+      "result_r": -1.0,
+      "note": null
     },
     {
       "id": "muwk0msul2td",
@@ -382,12 +392,17 @@
       "cl": 0.727,
       "tp": 0.891,
       "ratio": 1,
-      "status": "open",
+      "status": "cl",
       "created_at": "2026-10-06T23:43:28.876Z",
       "missed": true,
       "filled_at": "2026-10-04T12:00:00.000Z",
       "fill_end": "2026-10-04T16:00:00.000Z",
-      "fill_tf": "4H"
+      "fill_tf": "4H",
+      "closed_at": "2026-10-07T02:00:00+00:00",
+      "exit_tf": "5m",
+      "exit": 0.727,
+      "result_r": -1.0,
+      "note": null
     }
   ]
 }
