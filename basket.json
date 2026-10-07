@@ -253,17 +253,6 @@
       ]
     },
     {
-      "asset_class": "crypto",
-      "ticker": "FILUSD",
-      "display_name": "FIL/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-06T05:02:22.959Z",
-      "muted": [
-        "1H"
-      ]
-    },
-    {
       "asset_class": "pse",
       "ticker": "AT",
       "display_name": "AT",
@@ -277,14 +266,6 @@
       "lines": [
         "sma50"
       ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "ADAUSD",
-      "display_name": "ADA/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-06T09:41:56.184Z"
     },
     {
       "asset_class": "crypto",
