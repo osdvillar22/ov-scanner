@@ -71,8 +71,10 @@ SMA50_WATCH_CANDLES = 20
 SMA50_WATCH_CANDLES_BY_TF = {"1W": 10}   # 20 weeks would be most of half a year
 SMA50_TOUCH_ATR = 0.25
 # (asset class, timeframe) pairs without an SMA 50 watch — crypto only
-# uses it on 1H and 4H (1W alone made a third of all of them).
+# uses it on 4H (1W alone made a third of all of them).
 SMA50_EXCLUDED = {("crypto", "1D"), ("crypto", "1W")}
+# Timeframes with an SMA 50 watch at all (no 1H, any market).
+SMA50_TIMEFRAMES = {"4H", "1D", "1W"}
 # Asset classes with bullish SMA 50 watches only (PSE: long-only). Their
 # bearish trend watches stay — they feed the market-bias view.
 SMA50_BULLISH_ONLY = {"pse"}

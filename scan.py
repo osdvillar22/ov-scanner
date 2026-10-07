@@ -468,7 +468,7 @@ def scan_higher_timeframe(
 
 
 def _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache, marks_by_tf) -> None:
-    if (asset["asset_class"], htf) in config.SMA50_EXCLUDED:
+    if htf not in config.SMA50_TIMEFRAMES or (asset["asset_class"], htf) in config.SMA50_EXCLUDED:
         state.pop(key, None)
         return
     life = sma50_life(htf)
