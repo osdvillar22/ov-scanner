@@ -295,7 +295,6 @@
       "direction": "BEARISH",
       "added_at": "2026-10-08T01:29:55.311Z",
       "lines": [
-        "lsma",
         "sma50"
       ]
     }
