@@ -261,12 +261,17 @@
       "cl": 17.16,
       "tp": 21.3,
       "ratio": 1,
-      "status": "open",
+      "status": "cl",
       "created_at": "2026-10-06T10:46:59.695Z",
       "missed": true,
       "filled_at": "2026-10-05T05:30:00.000Z",
       "fill_end": "2026-10-05T06:30:00.000Z",
-      "fill_tf": "1H"
+      "fill_tf": "1H",
+      "closed_at": "2026-10-08T02:55:00+00:00",
+      "exit_tf": "5m",
+      "exit": 17.16,
+      "result_r": -1.0,
+      "note": null
     },
     {
       "id": "muwk2zdqbeul",
