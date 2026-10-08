@@ -286,6 +286,14 @@
       "higher_tf": "1W",
       "direction": "BULLISH",
       "added_at": "2026-10-07T05:04:54.178Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "CPOOLUSD",
+      "display_name": "CPOOL/USD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-08T01:29:55.311Z"
     }
   ]
 }
