@@ -434,8 +434,12 @@
       "cl": 7.59,
       "tp": 11.52,
       "ratio": 1,
-      "status": "pending",
-      "created_at": "2026-10-07T05:01:10.619Z"
+      "status": "open",
+      "created_at": "2026-10-07T05:01:10.619Z",
+      "filled_at": "2026-10-08T02:40:00+00:00",
+      "fill_end": "2026-10-08T02:45:00+00:00",
+      "fill_tf": "5m",
+      "fill_note": "gapped through the entry (9.49 \u2192 10.0)"
     }
   ]
 }
