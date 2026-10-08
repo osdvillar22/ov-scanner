@@ -300,6 +300,14 @@
       "muted": [
         "1H"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "LCXUSD",
+      "display_name": "LCX/USD",
+      "higher_tf": "1W",
+      "direction": "BULLISH",
+      "added_at": "2026-10-08T21:17:36.944Z"
     }
   ]
 }
