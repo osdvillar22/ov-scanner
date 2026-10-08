@@ -5,8 +5,10 @@ The dashboard writes trades.json (via the GitHub API): one trade = a basket
 pick plus an entry, cut loss (CL) and target (TP) clicked on its chart.
 Long when the CL is below the entry, short when above.
 
-  pending -> open    a candle's range reaches the entry (a wick is enough,
-                     either direction — no expiry; the user cancels plans)
+  pending -> open    price reaches the entry: a candle's range includes it
+                     (a wick is enough), or price gaps through it between
+                     two candles (e.g. 9.49 then 10.00 past 9.55) — no
+                     expiry; the user cancels plans
   open    -> tp / cl a candle's high/low touches the TP or the CL
 
 Checked on the finest timeframe that still covers the trade's time span
@@ -79,40 +81,52 @@ def candle_stream(asset: dict, start: pd.Timestamp) -> list:
     """(open, end, high, low, tf) for every candle opening at or after
     `start`, on the finest timeframe covering each stretch: the recent part
     from 5m, anything older than the 5m history from the next timeframe
-    that reaches back that far. Includes the still-forming candle."""
-    stream, covered_from = [], None
+    that reaches back that far. Includes the still-forming candle.
+    Rows are (open, end, high, low, close, tf). Also returns the last close
+    before `start` (None if unknown), so a gap right after it counts."""
+    stream, covered_from, prev_close = [], None, None
     for tf in TF_CHAIN:
         df = fetch.fetch_ohlc(asset["asset_class"], asset["ticker"], tf)
         if df is None or df.empty:
             continue
         bar = pd.Timedelta(minutes=config.TIMEFRAME_MINUTES[tf])
-        rows = []
-        for t, h, l in zip(df.index, df["high"].to_numpy(dtype=float), df["low"].to_numpy(dtype=float)):
+        rows, before = [], None
+        for t, h, l, c in zip(df.index, df["high"].to_numpy(dtype=float), df["low"].to_numpy(dtype=float), df["close"].to_numpy(dtype=float)):
             t = _utc(t)
-            if t < start or (covered_from is not None and t + bar > covered_from):
+            if t < start:
+                before = c
                 continue
-            rows.append((t, t + bar, h, l, tf))
+            if covered_from is not None and t + bar > covered_from:
+                continue
+            rows.append((t, t + bar, h, l, c, tf))
         stream = rows + stream
         first = _utc(df.index[0])
         if first <= start:
+            prev_close = before
             break
         covered_from = first if covered_from is None else min(covered_from, first)
-    return stream
+    return stream, prev_close
 
 
-def evaluate(t: dict, stream: list) -> dict | None:
+def evaluate(t: dict, stream: list, prev_close: float | None = None) -> dict | None:
     """Replay a pending/open trade over its candles. Returns the fields to
     change (with "status"), or None if nothing happened."""
     long, entry, cl, tp = is_long(t), t["entry"], t["cl"], t["tp"]
     status = t["status"]
     fill_end = _utc(t["fill_end"]) if t.get("fill_end") else None
     out = {}
-    for start, end, high, low, tf in stream:
+    for start, end, high, low, close, tf in stream:
+        prev, prev_close = prev_close, close
         if status == "pending":
-            if not (low <= entry <= high):
+            # The path from the last close into this candle counts too —
+            # a gap over the entry fills it.
+            lo, hi = (low, high) if prev is None else (min(low, prev), max(high, prev))
+            if not (lo <= entry <= hi):
                 continue
             status, fill_end = "open", end
             out.update(status="open", filled_at=start.isoformat(), fill_end=end.isoformat(), fill_tf=tf)
+            if not (low <= entry <= high):
+                out["fill_note"] = f"gapped through the entry ({scan._sig(prev)} → {scan._sig(low if prev < entry else high)})"
             if (low <= cl) if long else (high >= cl):
                 out.update(_close(t, "cl", start, tf, f"filled and hit CL in the same {tf} candle"))
                 return out
@@ -146,7 +160,7 @@ def check(classes: set | None = None, pse_open: bool = True) -> None:
         start = _utc(t["filled_at"] if t["status"] == "open" else t["created_at"])
         asset = {k: t[k] for k in ("asset_class", "ticker", "display_name")}
         try:
-            change = evaluate(t, candle_stream(asset, start))
+            change = evaluate(t, *candle_stream(asset, start))
         except Exception as exc:  # noqa: BLE001
             logger.error("Trade %s (%s) check failed: %s", t["id"], t["display_name"], exc)
             continue
@@ -210,7 +224,8 @@ def send_alerts(applied: list) -> None:
         levels = f"entry `{scan._sig(a['entry'])}` · CL `{scan._sig(a['cl'])}` · TP `{scan._sig(a['tp'])}`"
         if a["status"] == "open":
             embeds.append({"title": f"FILLED · {name}", "color": 0xB8921C,
-                           "description": f"{levels}\nFilled on the {a['fill_tf']} candle <t:{int(_utc(a['filled_at']).timestamp())}:t>",
+                           "description": f"{levels}\nFilled on the {a['fill_tf']} candle <t:{int(_utc(a['filled_at']).timestamp())}:t>"
+                                          + (f" — {a['fill_note']}" if a.get("fill_note") else ""),
                            "timestamp": sent_at})
         else:
             tp = a["status"] == "tp"

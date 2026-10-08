@@ -8,7 +8,8 @@ scan already fetched for each coin:
   - today's move: close / today's open - 1 (the day starts 00:00 UTC =
     8:00 AM Manila, Kraken's daily candle);
   - per category and for all crypto: the volume-weighted move (weight =
-    the coin's previous-day USD volume, so bigger coins move it more),
+    the coin's median daily USD volume over the WEIGHT_DAYS before, so
+    bigger coins move it more but one day's spike can't take over),
     the median coin's move, and how many coins are up / down;
   - the same through the day, hour by hour (the intraday lines), and for
     the last HISTORY_DAYS days (the history heatmap);
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 CATS_FILE = "crypto_categories.json"
 OUT_FILE = "crypto.json"
 HISTORY_DAYS = 14
+WEIGHT_DAYS = 14
 OTHER = "Other"
 
 _cats: dict | None = None
@@ -62,7 +64,7 @@ def record(asset: dict, df_1h: pd.DataFrame | None, df_1d: pd.DataFrame | None) 
     scan.scan_asset for every untagged crypto coin)."""
     if df_1d is None or len(df_1d) < 3:
         return
-    daily = df_1d[["open", "close", "volume"]].iloc[-(HISTORY_DAYS + 2):].copy()
+    daily = df_1d[["open", "close", "volume"]].iloc[-(HISTORY_DAYS + WEIGHT_DAYS + 1):].copy()
     daily.index = _utc_index(daily)
     hourly = None
     if df_1h is not None and len(df_1h):
@@ -111,8 +113,8 @@ def _board(coins: list, watches: dict) -> dict:
         row = daily.iloc[i]
         if not row["open"]:
             return None
-        prev = daily.iloc[i - 1] if i > 0 else row
-        return (row["close"] / row["open"] - 1, float(prev["close"] * prev["volume"]))
+        before = daily.iloc[max(0, i - WEIGHT_DAYS):i] if i > 0 else daily.iloc[:1]
+        return (row["close"] / row["open"] - 1, float((before["close"] * before["volume"]).median()))
 
     history = [{"date": d.strftime("%Y-%m-%d"), **_group(coins, lambda c, d=d: day_move(c, d))} for d in days]
 

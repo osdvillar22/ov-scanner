@@ -96,7 +96,7 @@ function render() {
     <span>up <b class="up">${all.up ?? 0}</b> · down <b class="down">${all.down ?? 0}</b> of ${all.n ?? 0}</span>
     <span>watches <b class="up">▲${all.bull ?? 0}</b> <b class="down">▼${all.bear ?? 0}</b></span>
     <span class="switch">
-      <button type="button" data-w="vw" class="${S.weight === 'vw' ? 'on' : ''}" title="Each coin weighted by its previous day's USD volume">volume-weighted</button>
+      <button type="button" data-w="vw" class="${S.weight === 'vw' ? 'on' : ''}" title="Each coin weighted by its median daily USD volume over the past 14 days">volume-weighted</button>
       <button type="button" data-w="med" class="${S.weight === 'med' ? 'on' : ''}" title="The middle coin's move">median coin</button>
       <span class="fsep"></span>
       <button type="button" data-s="all" class="${S.set === 'all' ? 'on' : ''}">all coins</button>

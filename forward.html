@@ -176,7 +176,7 @@ function selectTrade(id) {
       <div class="d-right"><span class="st ${t.status}">${status}</span>${act ? `<button class="text-btn" id="cancelBtn" type="button">${act}</button>` : ''}</div>
     </div>
     <div class="d-levels">entry <b>${t.entry}</b> · CL <b>${t.cl}</b> (${pct(t.cl)}) · TP <b>${t.tp}</b> (${pct(t.tp)}) · 1:${+ratioOf(t).toFixed(2)}${p == null ? '' : ` · now <b>${p}</b>`}<br>
-      planned ${fmtTime(t.created_at)}${t.filled_at ? ` · ${t.missed ? 'entry candle' : 'filled'} ${fmtTime(t.filled_at)} (${t.fill_tf})` : ''}${t.closed_at ? ` · closed ${fmtTime(t.closed_at)} (${t.exit_tf})` : ''}${t.note ? ` · ${esc(t.note)}` : ''}<span class="msg" id="cancelMsg"></span></div>
+      planned ${fmtTime(t.created_at)}${t.filled_at ? ` · ${t.missed ? 'entry candle' : 'filled'} ${fmtTime(t.filled_at)} (${t.fill_tf})${t.fill_note ? `, ${esc(t.fill_note)}` : ''}` : ''}${t.closed_at ? ` · closed ${fmtTime(t.closed_at)} (${t.exit_tf})` : ''}${t.note ? ` · ${esc(t.note)}` : ''}<span class="msg" id="cancelMsg"></span></div>
     <div class="legend"><span class="ind-label">show</span>${indicatorToggles()}<span class="push">ctrl+scroll or pinch to zoom · drag to pan</span></div>
     ${tfs.map((tf, i) => `
       <div class="chart-head"><span class="chart-label">${tf}${i === 0 ? ' <span class="dim">trigger timeframe</span>' : ''}${tf === t.plan_tf ? ' <span class="dim">· planned here</span>' : ''}</span><button class="reset" id="fc-${i}-reset" type="button">reset zoom</button></div>
