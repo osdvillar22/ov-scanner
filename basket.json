@@ -266,14 +266,6 @@
       "higher_tf": "1W",
       "direction": "BULLISH",
       "added_at": "2026-10-07T05:04:54.178Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "CTSIUSD",
-      "display_name": "CTSI/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-08T21:17:41.552Z"
     }
   ]
 }
