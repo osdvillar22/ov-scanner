@@ -269,20 +269,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "CPOOLUSD",
-      "display_name": "CPOOL/USD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-08T01:29:55.311Z",
-      "lines": [
-        "sma50"
-      ],
-      "muted": [
-        "1H"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "CTSIUSD",
       "display_name": "CTSI/USD",
       "higher_tf": "4H",
