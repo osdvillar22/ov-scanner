@@ -273,7 +273,10 @@
       "display_name": "DCR/USD",
       "higher_tf": "4H",
       "direction": "BEARISH",
-      "added_at": "2026-10-10T08:40:12.583Z"
+      "added_at": "2026-10-10T08:40:12.583Z",
+      "muted": [
+        "15m"
+      ]
     }
   ]
 }
