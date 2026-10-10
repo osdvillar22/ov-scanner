@@ -41,6 +41,8 @@ WEIGHT_DAYS = 14
 MOVE_4H_CANDLES = 10
 HISTORY_LOOKBACK_DAYS = 10
 OTHER = "Other"
+# BTC also gets its own row (above all crypto) on the board and heatmap.
+BTC_KEY, BTC_NAME = "BTC", "BTC/USD"
 
 _cats: dict | None = None
 _bars: dict = {}     # ticker -> {"name", "cat", "large", "daily", "hourly", "h4"}
@@ -107,6 +109,8 @@ def _group(coins: list, value) -> dict:
             continue
         by.setdefault(c["cat"], []).append(v)
         by.setdefault("ALL", []).append(v)
+        if c["name"] == BTC_NAME:
+            by.setdefault(BTC_KEY, []).append(v)
     return {k: _stats(v) for k, v in by.items()}
 
 
@@ -207,7 +211,7 @@ def build(state: dict) -> None:
         out = {}
         for c in subset:
             for _, d, _ in coin_watches.get(c["ticker"], []):
-                for k in (c["cat"], "ALL"):
+                for k in (c["cat"], "ALL") + ((BTC_KEY,) if c["name"] == BTC_NAME else ()):
                     out.setdefault(k, {}).setdefault(d, 0)
                     out[k][d] += 1
         return out
