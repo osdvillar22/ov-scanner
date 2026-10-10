@@ -45,6 +45,14 @@
   .coin .t { color: var(--ink-faint); font-size: 10px; margin-left: 6px; }
   .note { font-size: 10.5px; color: var(--ink-faint); margin-top: 8px; }
   h2 { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; color: var(--ink-dim); margin: 18px 0 6px; }
+  h2.first { margin-top: 4px; }
+  .hm th .d { display: block; color: var(--ink-dim); }
+  /* 4H heatmap: 25 columns in one view. */
+  .hm.compact table { font-size: 9.5px; border-spacing: 2px; min-width: 0; table-layout: fixed; }
+  .hm.compact th { font-size: 9px; padding: 1px 0; white-space: nowrap; }
+  .hm.compact td { padding: 3px 0; }
+  .hm.compact th:first-child { width: 96px; }
+  .hm.compact td.k { overflow: hidden; text-overflow: ellipsis; }
   .hm { overflow-x: auto; }
   .hm table { border-collapse: separate; border-spacing: 3px; font-size: 10.5px; min-width: 640px; width: 100%; }
   .hm th { color: var(--ink-faint); font-weight: 400; padding: 2px; }
@@ -66,6 +74,9 @@
   </header>
   <main>
     <div class="summary" id="summary"></div>
+    <h2 id="hm4Title" class="first"></h2>
+    <div class="panel hm compact" id="history4h"></div>
+    <h2>CATEGORIES</h2>
     <div class="panel"><div id="board"><div class="empty">Loading…</div></div>
       <div class="note" id="note"></div></div>
     <h2 id="hmTitle">LAST 14 DAYS · 10-DAY MOVE PER CATEGORY</h2>
@@ -95,7 +106,8 @@ function render() {
   const N = D.move_candles || 10, LB = D.history_lookback_days || 10, span = set.move ? `${N}×4H` : 'today';
   const v = (s) => s ? s[S.weight] : null;
   document.getElementById('meta').innerHTML = `as of <strong>${fmtTime(D.generated_at)}</strong> · day started ${fmtTime(D.day_start)}`;
-  document.getElementById('note').textContent = `Move = price now against the close ${N} 4H candles back (~${N * 4} h) · today = since 8:00 AM Manila (00:00 UTC, Kraken's daily candle) · tap a category for its coins · ↗ opens the dashboard filtered to it · updates with each hourly scan`;
+  const back = N * 4 >= 48 ? `~${+(N * 4 / 24).toFixed(1)} days` : `~${N * 4} h`;
+  document.getElementById('note').textContent = `Move = price now against the close ${N} 4H candles back (${back}) · today = since 8:00 AM Manila (00:00 UTC, Kraken's daily candle) · tap a category for its coins · ↗ opens the dashboard filtered to it · updates with each hourly scan`;
   document.getElementById('hmTitle').textContent = `LAST 14 DAYS · ${LB}-DAY MOVE PER CATEGORY (EACH DAY'S CLOSE AGAINST ${LB} DAYS BEFORE)`;
   const refs = D.ref_move || D.ref || {};
   document.getElementById('summary').innerHTML = `
@@ -139,16 +151,28 @@ function render() {
     const k = r.dataset.cat; S.open.has(k) ? S.open.delete(k) : S.open.add(k); render();
   }));
 
-  // History heatmap: completed days plus today (last column).
-  const days = set.days;
-  const cell = (s) => {
-    if (!s) return '<td style="color:var(--ink-faint)">—</td>';
-    const m = v(s), a = Math.min(1, Math.abs(m) / 15);
-    return `<td style="background:color-mix(in srgb, var(--${m >= 0 ? 'gain' : 'loss'}) ${Math.round(12 + a * 58)}%, transparent)" title="${pct(m)} · ${s.up} up / ${s.down} down">${m > 0 ? '+' : ''}${m.toFixed(1)}</td>`;
+  // Heatmaps: columns oldest to newest, the last one still forming.
+  const heat = (id, cols, label, scale) => {
+    const cell = (s) => {
+      if (!s) return '<td style="color:var(--ink-faint)">—</td>';
+      const m = v(s), a = Math.min(1, Math.abs(m) / scale);
+      return `<td style="background:color-mix(in srgb, var(--${m >= 0 ? 'gain' : 'loss'}) ${Math.round(12 + a * 58)}%, transparent)" title="${pct(m)} · ${s.up} up / ${s.down} down">${m > 0 ? '+' : ''}${m.toFixed(1)}</td>`;
+    };
+    document.getElementById(id).innerHTML = `<table><tr><th></th>${cols.map((c, i) => `<th>${label(c, i)}</th>`).join('')}</tr>
+      ${[['BTC', 'BTC'], ['ALL', 'all crypto'], ...D.categories.map(c => [c, c])].map(([k, l]) => `<tr><td class="k">${esc(l)}</td>${cols.map(c => cell(c[k])).join('')}</tr>`).join('')}</table>`;
   };
-  const label = (d) => { const t = new Date(`${d}T00:00:00Z`); return d === days[days.length - 1].date ? 'today' : t.toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' }); };
-  document.getElementById('history').innerHTML = `<table><tr><th></th>${days.map(d => `<th>${label(d.date)}</th>`).join('')}</tr>
-    ${[['BTC', 'BTC'], ['ALL', 'all crypto'], ...D.categories.map(c => [c, c])].map(([k, l]) => `<tr><td class="k">${esc(l)}</td>${days.map(d => cell(d[k])).join('')}</tr>`).join('')}</table>`;
+  const days = set.days;
+  heat('history', days, (d, i) => i === days.length - 1 ? 'today' : new Date(`${d.date}T00:00:00Z`).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' }), 15);
+  const bars = set.bars_4h || [];
+  document.getElementById('hm4Title').textContent = `LAST ${bars.length} × 4H · ${N}×4H MOVE PER CATEGORY (EACH 4H CLOSE AGAINST ${N} CANDLES BEFORE)`;
+  document.getElementById('hm4Title').hidden = document.getElementById('history4h').hidden = !bars.length;
+  // 4H columns in local time, with the date over the first candle of each day.
+  const dayOf = (b) => new Date(b.time).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  heat('history4h', bars, (b, i) => {
+    const t = new Date(b.time), first = i === 0 || dayOf(bars[i - 1]) !== dayOf(b);
+    const hr = i === bars.length - 1 ? 'now' : t.toLocaleTimeString([], { hour: 'numeric' }).replace(' ', '').toLowerCase();
+    return `<span class="d">${first ? dayOf(b) : '&nbsp;'}</span>${hr}`;
+  }, 12);
 }
 
 fetch('crypto.json', { cache: 'no-cache' })

@@ -6,15 +6,16 @@ make_crypto_categories.py). Every scan, from the 1H, 4H and 1D candles
 the scan already fetched for each coin:
 
   - the move: the latest price against the close MOVE_4H_CANDLES 4H
-    candles before the current one (~40 h), so a green day right after a
-    new low still reads as a down move;
+    candles before the current one (~6.7 days), so a green day right
+    after a new low still reads as a down move;
   - today's move: close / today's open - 1 (the day starts 00:00 UTC =
     8:00 AM Manila, Kraken's daily candle), shown beside it;
   - per category and for all crypto: the volume-weighted move (weight =
     the coin's median daily USD volume over the WEIGHT_DAYS before, so
     bigger coins move it more but one day's spike can't take over),
     the median coin's move, and how many coins are up / down;
-  - the move hour by hour through today (the intraday lines);
+  - the move hour by hour through today (the intraday lines), and at
+    each of the last HISTORY_4H_CANDLES 4H closes (the 4H heatmap);
   - for the last HISTORY_DAYS days (the history heatmap), each day's
     close against the close HISTORY_LOOKBACK_DAYS days before — the
     bigger picture;
@@ -38,7 +39,8 @@ CATS_FILE = "crypto_categories.json"
 OUT_FILE = "crypto.json"
 HISTORY_DAYS = 14
 WEIGHT_DAYS = 14
-MOVE_4H_CANDLES = 10
+MOVE_4H_CANDLES = 40
+HISTORY_4H_CANDLES = 25
 HISTORY_LOOKBACK_DAYS = 10
 OTHER = "Other"
 # BTC also gets its own row (above all crypto) on the board and heatmap.
@@ -71,8 +73,9 @@ def _utc_index(df: pd.DataFrame) -> pd.DatetimeIndex:
 def record(asset: dict, df_1h: pd.DataFrame | None, df_4h: pd.DataFrame | None, df_1d: pd.DataFrame | None) -> None:
     """Keep what the board needs from one coin's candles (called from
     scan.scan_asset for every untagged crypto coin)."""
-    if df_1d is None or len(df_1d) < 3:
-        return
+    cat = asset.get("category") or category_of(asset["display_name"])
+    if df_1d is None or len(df_1d) < 3 or cat in _load().get("hidden", []):
+        return  # stablecoins aren't on the board
     daily = df_1d[["open", "close", "volume"]].iloc[-(HISTORY_DAYS + max(WEIGHT_DAYS, HISTORY_LOOKBACK_DAYS) + 1):].copy()
     daily.index = _utc_index(daily)
     hourly = None
@@ -82,9 +85,9 @@ def record(asset: dict, df_1h: pd.DataFrame | None, df_4h: pd.DataFrame | None, 
         hourly = h["close"][h.index >= daily.index[-1]]
     h4 = None
     if df_4h is not None and len(df_4h) > MOVE_4H_CANDLES:
-        h4 = df_4h["close"].iloc[-(MOVE_4H_CANDLES + 8):].astype(float)
+        h4 = df_4h["close"].iloc[-(MOVE_4H_CANDLES + HISTORY_4H_CANDLES + 8):].astype(float)
         h4.index = _utc_index(h4)
-    _bars[asset["ticker"]] = {"name": asset["display_name"], "cat": asset.get("category") or category_of(asset["display_name"]),
+    _bars[asset["ticker"]] = {"name": asset["display_name"], "cat": cat,
                               "large": bool(asset.get("large_cap")), "daily": daily, "hourly": hourly, "h4": h4}
 
 
@@ -154,6 +157,11 @@ def _board(coins: list, watches: dict) -> dict:
             return None
         return ((h4.iloc[i] if price is None else price) / h4.iloc[i - MOVE_4H_CANDLES] - 1, mv[1])
 
+    # 4H heatmap: the move at each of the last HISTORY_4H_CANDLES 4H
+    # candles (the last one still forming).
+    bars = sorted({t for c in coins if c["h4"] is not None for t in c["h4"].index})[-HISTORY_4H_CANDLES:]
+    history_4h = [{"time": t.isoformat(), **_group(coins, lambda c, t=t: move(c, at=t))} for t in bars]
+
     # Intraday: the move at each hour's close today (a coin with no trade
     # that hour keeps its last price).
     hours = sorted({t for c in coins if c["hourly"] is not None for t in c["hourly"].index})
@@ -179,7 +187,7 @@ def _board(coins: list, watches: dict) -> dict:
             w = watches.get(k, {})
             s["bull"], s["bear"] = w.get("BULLISH", 0), w.get("BEARISH", 0)
     return {"move": move_stats, "today": today_stats,
-            "intraday": {"times": [t.isoformat() for t in hours], "series": series}, "days": history}
+            "intraday": {"times": [t.isoformat() for t in hours], "series": series}, "days": history, "bars_4h": history_4h}
 
 
 def _weight(daily: pd.DataFrame, i: int) -> float:
