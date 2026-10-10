@@ -26,7 +26,7 @@
   .switch .fsep { width: 1px; height: 12px; background: var(--border); align-self: center; }
 
   /* Category board: name · bar around zero · % · up/down · watches · intraday line */
-  .row { display: grid; grid-template-columns: 128px minmax(0, 1fr) 64px 70px 74px 100px; gap: 10px; align-items: center; padding: 6px 2px; border-bottom: 1px solid var(--hair); font-size: 11.5px; }
+  .row { display: grid; grid-template-columns: 128px minmax(0, 1fr) 64px 58px 70px 74px 100px; gap: 10px; align-items: center; padding: 6px 2px; border-bottom: 1px solid var(--hair); font-size: 11.5px; }
   .row.h { color: var(--ink-faint); font-size: 10px; letter-spacing: 0.06em; padding-top: 0; }
   .row.cat { cursor: pointer; }
   .row.cat:hover { background: var(--surface-raised); }
@@ -41,6 +41,8 @@
   .coins { padding: 4px 0 8px 22px; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 2px 18px; font-size: 11px; }
   .coin { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
   .coin .w { color: var(--ink-dim); font-size: 10.5px; }
+  .dim { opacity: 0.6; font-size: 10.5px; }
+  .coin .t { color: var(--ink-faint); font-size: 10px; margin-left: 6px; }
   .note { font-size: 10.5px; color: var(--ink-faint); margin-top: 8px; }
   h2 { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; color: var(--ink-dim); margin: 18px 0 6px; }
   .hm { overflow-x: auto; }
@@ -49,8 +51,8 @@
   .hm td { text-align: center; padding: 4px 2px; border-radius: 3px; color: var(--ink); }
   .hm td.k { text-align: left; color: var(--ink-dim); white-space: nowrap; }
   @media (max-width: 760px) {
-    .row { grid-template-columns: 100px minmax(0, 1fr) 58px 60px; }
-    .row > :nth-child(5), .row > :nth-child(6) { display: none; }
+    .row { grid-template-columns: 100px minmax(0, 1fr) 58px 50px 60px; }
+    .row > :nth-child(6), .row > :nth-child(7) { display: none; }
     .switch { margin-left: 0; }
   }
 </style>
@@ -65,8 +67,8 @@
   <main>
     <div class="summary" id="summary"></div>
     <div class="panel"><div id="board"><div class="empty">Loading…</div></div>
-      <div class="note">Day starts 8:00 AM Manila (00:00 UTC, Kraken's daily candle) · tap a category for its coins · ↗ opens the dashboard filtered to it · updates with each hourly scan</div></div>
-    <h2>LAST 14 DAYS · DAILY MOVE PER CATEGORY</h2>
+      <div class="note" id="note"></div></div>
+    <h2 id="hmTitle">LAST 14 DAYS · 10-DAY MOVE PER CATEGORY</h2>
     <div class="panel hm" id="history"></div>
   </main>
 <script src="ov.js"></script>
@@ -87,12 +89,18 @@ function spark(vals) {
 }
 
 function render() {
-  const set = D.sets[S.set] || D.sets.all, today = set.today, all = today.ALL || {};
+  // The move: price now against the close N 4H candles back (older
+  // crypto.json without it: today's move).
+  const set = D.sets[S.set] || D.sets.all, today = set.move || set.today, day = set.today, all = today.ALL || {};
+  const N = D.move_candles || 10, LB = D.history_lookback_days || 10, span = set.move ? `${N}×4H` : 'today';
   const v = (s) => s ? s[S.weight] : null;
   document.getElementById('meta').innerHTML = `as of <strong>${fmtTime(D.generated_at)}</strong> · day started ${fmtTime(D.day_start)}`;
+  document.getElementById('note').textContent = `Move = price now against the close ${N} 4H candles back (~${N * 4} h) · today = since 8:00 AM Manila (00:00 UTC, Kraken's daily candle) · tap a category for its coins · ↗ opens the dashboard filtered to it · updates with each hourly scan`;
+  document.getElementById('hmTitle').textContent = `LAST 14 DAYS · ${LB}-DAY MOVE PER CATEGORY (EACH DAY'S CLOSE AGAINST ${LB} DAYS BEFORE)`;
+  const refs = D.ref_move || D.ref || {};
   document.getElementById('summary').innerHTML = `
-    <span>crypto today <span class="big ${cls(v(all))}">${pct(v(all))}</span></span>
-    ${Object.entries(D.ref || {}).map(([k, x]) => `<span>${k} <b class="${cls(x)}">${pct(x)}</b></span>`).join('')}
+    <span>crypto ${span} <span class="big ${cls(v(all))}">${pct(v(all))}</span> <span class="dim ${cls(v(day.ALL))}" title="Since 8:00 AM Manila">today ${pct(v(day.ALL))}</span></span>
+    ${Object.entries(refs).map(([k, x]) => `<span>${k} <b class="${cls(x)}">${pct(x)}</b> <span class="dim ${cls((D.ref || {})[k])}">today ${pct((D.ref || {})[k])}</span></span>`).join('')}
     <span>up <b class="up">${all.up ?? 0}</b> · down <b class="down">${all.down ?? 0}</b> of ${all.n ?? 0}</span>
     <span>watches <b class="up">▲${all.bull ?? 0}</b> <b class="down">▼${all.bear ?? 0}</b></span>
     <span class="switch">
@@ -107,7 +115,8 @@ function render() {
 
   const cats = D.categories.filter(c => today[c]).sort((a, b) => v(today[b]) - v(today[a]));
   const maxAbs = Math.max(1, ...cats.map(c => Math.abs(v(today[c]))), Math.abs(v(all)) || 0);
-  const coinsOf = (c) => D.coins.filter(x => x.c === c && (S.set === 'all' || x.l) && x.chg != null).sort((a, b) => b.chg - a.chg);
+  const cm = (x) => set.move ? x.m : x.chg;
+  const coinsOf = (c) => D.coins.filter(x => x.c === c && (S.set === 'all' || x.l) && cm(x) != null).sort((a, b) => cm(b) - cm(a));
   const row = (key, label, isAll) => {
     const s = today[key], m = v(s), w = Math.min(50, Math.abs(m) / maxAbs * 50), open = S.open.has(key);
     const series = ((set.intraday.series[key] || {})[S.weight]) || [];
@@ -115,13 +124,14 @@ function render() {
       <span class="name">${isAll ? '' : `<span class="chev">${open ? '▾' : '▸'}</span>`}${esc(label)}${isAll ? '' : `<a href="dashboard.html?market=crypto&cat=${encodeURIComponent(key)}" title="Open the dashboard filtered to ${esc(key)}">↗</a>`}</span>
       <span class="bar"><span class="mid"></span><span class="fill" style="${m >= 0 ? 'left' : 'right'}:50%;width:${w}%;background:var(--${m >= 0 ? 'gain' : 'loss'})"></span></span>
       <span class="r ${cls(m)}">${pct(m)}</span>
+      <span class="r dim ${cls(v(day[key]))}">${set.move ? pct(v(day[key])) : ''}</span>
       <span class="r"><span class="up">${s.up}</span>/<span class="down">${s.down}</span></span>
       <span class="r"><span class="up">▲${s.bull || 0}</span> <span class="down">▼${s.bear || 0}</span></span>
       ${spark(series)}
-    </div>${open ? `<div class="coins">${coinsOf(key).map(x => `<div class="coin"><span>${esc(x.n.split('/')[0])} ${x.w.length ? `<span class="w">${x.w.map(([tf, d, st]) => `<span class="${d === 'BULLISH' ? 'up' : 'down'}">${tf}${dirArrow(d)}${st === 'sma50' ? '·50' : ''}</span>`).join(' ')}</span>` : ''}</span><span class="${cls(x.chg)}">${pct(x.chg)}</span></div>`).join('')}</div>` : ''}`;
+    </div>${open ? `<div class="coins">${coinsOf(key).map(x => `<div class="coin"><span>${esc(x.n.split('/')[0])} ${x.w.length ? `<span class="w">${x.w.map(([tf, d, st]) => `<span class="${d === 'BULLISH' ? 'up' : 'down'}">${tf}${dirArrow(d)}${st === 'sma50' ? '·50' : ''}</span>`).join(' ')}</span>` : ''}</span><span><span class="${cls(cm(x))}">${pct(cm(x))}</span>${set.move ? `<span class="t ${cls(x.chg)}" title="today">${pct(x.chg)}</span>` : ''}</span></div>`).join('')}</div>` : ''}`;
   };
   document.getElementById('board').innerHTML = `
-    <div class="row h"><span>CATEGORY</span><span style="text-align:center">TODAY</span><span class="r">MOVE</span><span class="r">UP/DOWN</span><span class="r">WATCHES</span><span>INTRADAY</span></div>
+    <div class="row h"><span>CATEGORY</span><span style="text-align:center">${span.toUpperCase()}</span><span class="r">MOVE</span><span class="r">TODAY</span><span class="r">UP/DOWN</span><span class="r">WATCHES</span><span>INTRADAY</span></div>
     ${row('ALL', 'all crypto', true)}${cats.map(c => row(c, c, false)).join('')}`;
   document.querySelectorAll('.row.cat').forEach(r => r.addEventListener('click', (e) => {
     if (e.target.closest('a')) return;
@@ -132,7 +142,7 @@ function render() {
   const days = set.days;
   const cell = (s) => {
     if (!s) return '<td style="color:var(--ink-faint)">—</td>';
-    const m = v(s), a = Math.min(1, Math.abs(m) / 8);
+    const m = v(s), a = Math.min(1, Math.abs(m) / 15);
     return `<td style="background:color-mix(in srgb, var(--${m >= 0 ? 'gain' : 'loss'}) ${Math.round(12 + a * 58)}%, transparent)" title="${pct(m)} · ${s.up} up / ${s.down} down">${m > 0 ? '+' : ''}${m.toFixed(1)}</td>`;
   };
   const label = (d) => { const t = new Date(`${d}T00:00:00Z`); return d === days[days.length - 1].date ? 'today' : t.toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' }); };

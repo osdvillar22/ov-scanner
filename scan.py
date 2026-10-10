@@ -576,7 +576,7 @@ def scan_asset(asset: dict, state: dict) -> None:
 
     # Crypto category board (crypto.html): today's moves from these candles.
     if asset["asset_class"] == "crypto" and not asset.get("tag"):
-        crypto_board.record(asset, tf_data.get("1H"), tf_data.get("1D"))
+        crypto_board.record(asset, tf_data.get("1H"), tf_data.get("4H"), tf_data.get("1D"))
 
     # Lower-tf charts reuse a frame already fetched here (e.g. 1H for 4H).
     ltf_cache = {tf: df for tf, df in tf_data.items() if tf in htfs and df is not None}

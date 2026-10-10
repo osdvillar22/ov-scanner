@@ -744,13 +744,14 @@ function selectAsset(id) {
         `<button type="button" data-id="${w._id}" class="${w === entry ? 'current' : ''}">${l}</button>`).join('')}</span>`
     : '';
   const sub = entry.asset_class === 'pse' ? 'PSE' : (entry.tag || (entry.ticker !== entry.display_name ? entry.ticker : ''));
-  // Crypto: the coin's category, and how that category is doing today.
+  // Crypto: the coin's category, and how that category is moving (price
+  // now against 10 4H candles back, as on crypto.html).
   const cat = entry.asset_class === 'crypto' && entry.category;
   const catToday = (() => {
-    const t = cat && cryptoBoard && cryptoBoard.sets.all.today, s = t && t[cat];
+    const all = cryptoBoard && cryptoBoard.sets.all, t = cat && all && (all.move || all.today), s = t && t[cat];
     if (!s) return '';
     const ranked = cryptoBoard.categories.filter(c => t[c]).sort((a, b) => t[b].vw - t[a].vw);
-    return ` · ${esc(cat)} today <span class="${s.vw >= 0 ? 'bullish' : 'bearish'}">${s.vw >= 0 ? '+' : '−'}${Math.abs(s.vw).toFixed(2)}%</span> (rank ${ranked.indexOf(cat) + 1} of ${ranked.length})`;
+    return ` · ${esc(cat)} ${all.move ? `${cryptoBoard.move_candles}×4H` : 'today'} <span class="${s.vw >= 0 ? 'bullish' : 'bearish'}">${s.vw >= 0 ? '+' : '−'}${Math.abs(s.vw).toFixed(2)}%</span> (rank ${ranked.indexOf(cat) + 1} of ${ranked.length})`;
   })();
   const ago = entry.candles_ago_most_recent;
   const noLsma = entry.higher_tf === '1W';
