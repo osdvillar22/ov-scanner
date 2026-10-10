@@ -266,6 +266,14 @@
       "higher_tf": "1W",
       "direction": "BULLISH",
       "added_at": "2026-10-07T05:04:54.178Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "DCRUSD",
+      "display_name": "DCR/USD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-10T08:40:12.583Z"
     }
   ]
 }
