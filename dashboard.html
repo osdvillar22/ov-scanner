@@ -652,7 +652,7 @@ function buildWatchlist() {
       const title = `Open ${tf}${t && s ? ' (trend + SMA 50 watch)' : s ? ' SMA 50 watch' : ''}${nw ? ' · new this batch' : ''}${macd ? ` · ${macd}` : ''}`;
       return `<button type="button" class="${dirClass(w.direction)}${s ? ' s50' : ''}${nw ? ' nw' : ''}" data-tf="${tf}"${m} title="${title}">${tf}${dirArrow(w.direction)}</button>`;
     }).join('');
-    const tag = a.tag && a.asset_class !== 'pse' ? `<span class="tag">${a.tag}</span>` : '';
+    const tag = (a.tag && a.asset_class !== 'pse' ? `<span class="tag">${a.tag}</span>` : '') + uxTag((live(k).find(w => w.unusual) || {}).unusual);
     // The new watch that put the row here (most recent trigger if several).
     const fresh = b === OLDER ? [] : live(k).filter(w => scanOf(w.first_seen) === b).sort((x, y) => x.candles_ago_most_recent - y.candles_ago_most_recent);
     const isNew = fresh.length > 0;
@@ -762,7 +762,7 @@ function selectAsset(id) {
   const detail = document.getElementById('detail');
   detail.innerHTML = `
     <div class="d-top" data-current-id="${id}">
-      <div><span class="d-name">${esc(entry.display_name)}</span>${sub ? `<span class="d-sub">${esc(sub)}</span>` : ''}${cat ? `<a class="cat-tag" href="crypto.html" title="Category — see how it's moving today">${esc(cat)}</a>` : ''} <span class="rsi ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
+      <div><span class="d-name">${esc(entry.display_name)}</span>${sub ? `<span class="d-sub">${esc(sub)}</span>` : ''}${cat ? `<a class="cat-tag" href="crypto.html" title="Category — see how it's moving today">${esc(cat)}</a>` : ''}${uxTag(entry.unusual)} <span class="rsi ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
       <div class="d-right">${tfSwitch}</div>
     </div>
     <div class="d-summary">${summary}${catToday}${setupSw}</div>
@@ -1062,6 +1062,12 @@ async function init() {
   const qs = new URLSearchParams(location.search);
   if (MARKETS.some(([v]) => v === qs.get('market'))) F.market = qs.get('market');
   if (F.market === 'crypto' && qs.get('cat')) F.cat = qs.get('cat');
+  // ...and from its unusual-activity list: dashboard.html?market=crypto&q=ZEUS
+  if (qs.get('q')) {
+    const v = qs.get('q');
+    document.getElementById('search').value = v; F.q = v.trim().toLowerCase();
+    document.getElementById('searchClear').classList.remove('is-hidden');
+  }
   fetch('crypto.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(d => {
     cryptoBoard = d;
     const open = document.querySelector('#detail [data-current-id]');

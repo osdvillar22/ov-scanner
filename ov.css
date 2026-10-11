@@ -119,3 +119,7 @@ header.page { max-width: 1240px; margin: 0 auto; padding: 14px 16px 6px; }
   .legend .push { display: none; }  /* ctrl+scroll hint — pinch is obvious on a phone */
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+/* Unusual volume (unusual.py): "N×" = last hour's volume against the
+   coin's usual hourly volume. */
+.ux-tag { font-size: 10px; color: var(--violet); border: 1px solid color-mix(in srgb, var(--violet) 55%, var(--border)); border-radius: 3px; padding: 0 4px; margin-left: 6px; white-space: nowrap; font-weight: 500; }

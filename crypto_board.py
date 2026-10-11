@@ -204,8 +204,9 @@ def coin_move(c: dict) -> float | None:
     return round(float(h4.iloc[-1] / h4.iloc[-1 - MOVE_4H_CANDLES] - 1) * 100, 2)
 
 
-def build(state: dict) -> None:
-    """Write crypto.json from the coins recorded this scan and the watch state."""
+def build(state: dict, unusual: list | None = None) -> None:
+    """Write crypto.json from the coins recorded this scan, the watch state
+    and the unusual-volume flags (unusual.py)."""
     if not _bars:
         logger.warning("No crypto candles recorded — %s not written.", OUT_FILE)
         return
@@ -246,6 +247,7 @@ def build(state: dict) -> None:
         "ref": {n: chg(c) for c in coins for n in ("BTC", "ETH") if c["name"] == f"{n}/USD"},
         "ref_move": {n: coin_move(c) for c in coins for n in ("BTC", "ETH") if c["name"] == f"{n}/USD"},
         "sets": sets,
+        "unusual": unusual or [],
     }
     Path(OUT_FILE).write_text(json.dumps(out, separators=(",", ":")))
     logger.info("Wrote %s: %d coins, %d categories.", OUT_FILE, len(coins), len(order))

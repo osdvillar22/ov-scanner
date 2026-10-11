@@ -46,6 +46,16 @@
   .note { font-size: 10.5px; color: var(--ink-faint); margin-top: 8px; }
   h2 { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; color: var(--ink-dim); margin: 18px 0 6px; }
   h2.first { margin-top: 4px; }
+  /* Unusual activity strip (unusual.py) */
+  .ux { margin: 4px 0 14px; }
+  .ux h2 { margin: 0 0 6px; }
+  .ux h2 span { color: var(--ink-faint); letter-spacing: 0; }
+  .ux-row { display: grid; grid-template-columns: 110px 110px 60px 70px minmax(0, 1fr) 110px; white-space: nowrap; gap: 10px; align-items: center; padding: 5px 2px; border-bottom: 1px solid var(--hair); font-size: 11.5px; }
+  .ux-row:last-child { border-bottom: 0; }
+  .ux-row.h { color: var(--ink-faint); font-size: 10px; letter-spacing: 0.06em; padding-top: 0; }
+  .ux-row a { color: var(--gold-bright); text-decoration: none; margin-left: 4px; }
+  .ux-x { color: var(--violet); font-weight: 600; }
+  @media (max-width: 760px) { .ux-row { grid-template-columns: 70px 50px 56px minmax(0, 1fr) 96px; } .ux-row > :nth-child(2) { display: none; } }
   .hm th .d { display: block; color: var(--ink-dim); }
   /* 4H heatmap: 25 columns in one view. */
   /* Fits one view on desktop; narrower screens scroll it sideways with the
@@ -77,6 +87,7 @@
   </header>
   <main>
     <div class="summary" id="summary"></div>
+    <div id="unusual"></div>
     <h2 id="hm4Title" class="first"></h2>
     <div class="panel hm compact" id="history4h"></div>
     <h2>CATEGORIES</h2>
@@ -108,6 +119,16 @@ function render() {
   const set = D.sets[S.set] || D.sets.all, today = set.move || set.today, day = set.today, all = today.ALL || {};
   const N = D.move_candles || 10, LB = D.history_lookback_days || 10, span = set.move ? `${N}×4H` : 'today';
   const v = (s) => s ? s[S.weight] : null;
+  // Unusual activity: coins flagged in the last 24 h, newest first.
+  const ux = D.unusual || [];
+  const wOf = (t) => (D.coins.find(c => c.t === t) || {}).w || [];
+  document.getElementById('unusual').innerHTML = !ux.length ? '' : `<div class="ux"><h2>UNUSUAL ACTIVITY · LAST 24 H <span>· volume ≥ 20× usual and price up ≥ 5% in 4h — an early look, not an entry</span></h2>
+    <div class="panel"><div class="ux-row h"><span>COIN</span><span>CATEGORY</span><span class="r">VOLUME</span><span class="r">4H MOVE</span><span>WATCH</span><span class="r">SEEN</span></div>
+    ${ux.map(f => { const w = wOf(f.ticker); return `<div class="ux-row"><span>${esc(f.name.split('/')[0])}<a href="dashboard.html?market=crypto&q=${encodeURIComponent(f.name.split('/')[0])}" title="Open on the dashboard">↗</a></span><span style="color:var(--ink-dim)">${esc(f.cat || '—')}</span><span class="r ux-x">${f.x}×</span><span class="r up">+${f.mv4}%</span><span>${w.length ? w.map(([tf, d]) => `<span class="${d === 'BULLISH' ? 'up' : 'down'}">${tf}${dirArrow(d)}</span>`).join(' ') : '<span style="color:var(--ink-faint)">—</span>'}</span><span class="r" style="color:var(--ink-dim)">${fmtTime(f.t)}</span></div>`; }).join('')}</div></div>`;
+  // Board rows: the category's biggest flagged coin.
+  const uxCat = {};
+  ux.forEach(f => { if (f.cat && (!uxCat[f.cat] || f.x > uxCat[f.cat].x)) uxCat[f.cat] = f; });
+
   document.getElementById('meta').innerHTML = `as of <strong>${fmtTime(D.generated_at)}</strong> · day started ${fmtTime(D.day_start)}`;
   const back = N * 4 >= 48 ? `~${+(N * 4 / 24).toFixed(1)} days` : `~${N * 4} h`;
   document.getElementById('note').textContent = `Move = price now against the close ${N} 4H candles back (${back}) · today = since 8:00 AM Manila (00:00 UTC, Kraken's daily candle) · tap a category for its coins · ↗ opens the dashboard filtered to it · updates with each hourly scan`;
@@ -137,7 +158,7 @@ function render() {
     const s = today[key], m = v(s), w = Math.min(50, Math.abs(m) / maxAbs * 50), open = S.open.has(key);
     const series = ((set.intraday.series[key] || {})[S.weight]) || [];
     return `<div class="row ${isAll ? 'all' : 'cat'}" data-cat="${isAll ? '' : esc(key)}">
-      <span class="name">${isAll ? '' : `<span class="chev">${open ? '▾' : '▸'}</span>`}${esc(label)}${isAll ? '' : `<a href="dashboard.html?market=crypto&cat=${encodeURIComponent(key)}" title="Open the dashboard filtered to ${esc(key)}">↗</a>`}</span>
+      <span class="name">${isAll ? '' : `<span class="chev">${open ? '▾' : '▸'}</span>`}${esc(label)}${isAll ? '' : `<a href="dashboard.html?market=crypto&cat=${encodeURIComponent(key)}" title="Open the dashboard filtered to ${esc(key)}">↗</a>`}${!isAll && uxCat[key] ? uxTag(uxCat[key], uxCat[key].name.split('/')[0]) : ''}</span>
       <span class="bar"><span class="mid"></span><span class="fill" style="${m >= 0 ? 'left' : 'right'}:50%;width:${w}%;background:var(--${m >= 0 ? 'gain' : 'loss'})"></span></span>
       <span class="r ${cls(m)}">${pct(m)}</span>
       <span class="r dim ${cls(v(day[key]))}">${set.move ? pct(v(day[key])) : ''}</span>

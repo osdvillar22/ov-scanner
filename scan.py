@@ -54,6 +54,7 @@ import config
 import crypto_board
 import fetch
 import indicators
+import unusual
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("scan")
@@ -577,6 +578,7 @@ def scan_asset(asset: dict, state: dict) -> None:
     # Crypto category board (crypto.html): today's moves from these candles.
     if asset["asset_class"] == "crypto" and not asset.get("tag"):
         crypto_board.record(asset, tf_data.get("1H"), tf_data.get("4H"), tf_data.get("1D"))
+        unusual.record(asset, tf_data.get("1H"))
 
     # Lower-tf charts reuse a frame already fetched here (e.g. 1H for 4H).
     ltf_cache = {tf: df for tf, df in tf_data.items() if tf in htfs and df is not None}
@@ -660,6 +662,7 @@ def run() -> None:
     _removals.clear()
     state = load_state()
     removed = state.pop(REMOVED_KEY, [])
+    unusual_sent = state.pop(unusual.STATE_KEY, {})
     before = dict(state)
     universe = build_universe()
 
@@ -670,13 +673,18 @@ def run() -> None:
     prune_unscanned(state, universe)
     removed = update_removed(removed, before, state)
     basket_status = basket.run_hourly(state)
+    unusual.tag_watches(state)
     write_output(state, basket_status, removed)
     try:
-        crypto_board.build(state)
+        crypto_board.build(state, unusual.flags())
     except Exception as exc:  # noqa: BLE001
         logger.error("Crypto board failed: %s", exc)
+    try:
+        unusual_sent = unusual.send_alerts(state, unusual_sent)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Unusual-volume alerts failed: %s", exc)
     run_trades()
-    save_state({**state, REMOVED_KEY: removed})
+    save_state({**state, REMOVED_KEY: removed, unusual.STATE_KEY: unusual_sent})
 
 
 def run_trades() -> None:

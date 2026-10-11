@@ -334,3 +334,10 @@ function wireBasketSettings() {
   });
 }
 
+// Unusual-volume tag for a flag {x, t, mv4?} (unusual.py); '' if none.
+function uxTag(f, coin) {
+  if (!f) return '';
+  const at = new Date(f.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const title = `Unusual volume: ${f.x}× its usual hourly volume in the hour to ${at}${f.mv4 != null ? `, price +${f.mv4}% in 4h` : ''}`;
+  return `<span class="ux-tag" title="${esc(title)}">${coin ? `${esc(coin)} ` : ''}${f.x}×</span>`;
+}
