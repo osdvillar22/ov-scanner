@@ -277,6 +277,14 @@
       "muted": [
         "15m"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "WALUSD",
+      "display_name": "WAL/USD",
+      "higher_tf": "1W",
+      "direction": "BEARISH",
+      "added_at": "2026-10-11T01:52:33.099Z"
     }
   ]
 }
