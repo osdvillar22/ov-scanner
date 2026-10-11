@@ -300,7 +300,10 @@
       "display_name": "CHIP/USD",
       "higher_tf": "4H",
       "direction": "BULLISH",
-      "added_at": "2026-10-11T07:07:46.772Z"
+      "added_at": "2026-10-11T07:07:46.772Z",
+      "muted": [
+        "1H"
+      ]
     }
   ]
 }
