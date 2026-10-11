@@ -48,7 +48,10 @@
   h2.first { margin-top: 4px; }
   .hm th .d { display: block; color: var(--ink-dim); }
   /* 4H heatmap: 25 columns in one view. */
-  .hm.compact table { font-size: 9.5px; border-spacing: 2px; min-width: 0; table-layout: fixed; }
+  /* Fits one view on desktop; narrower screens scroll it sideways with the
+     category names pinned. */
+  .hm.compact table { font-size: 9.5px; border-spacing: 2px; min-width: 860px; table-layout: fixed; }
+  .hm .k, .hm th:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; box-shadow: -14px 0 0 var(--surface); }
   .hm.compact th { font-size: 9px; padding: 1px 0; white-space: nowrap; }
   .hm.compact td { padding: 3px 0; }
   .hm.compact th:first-child { width: 96px; }
