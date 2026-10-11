@@ -318,6 +318,14 @@
       "lines": [
         "sma50"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "TIAUSD",
+      "display_name": "TIA/USD",
+      "higher_tf": "4H",
+      "direction": "BULLISH",
+      "added_at": "2026-10-11T07:14:03.981Z"
     }
   ]
 }
