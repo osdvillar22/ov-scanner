@@ -329,6 +329,14 @@
       "muted": [
         "1H"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "STRKUSD",
+      "display_name": "STRK/USD",
+      "higher_tf": "4H",
+      "direction": "BULLISH",
+      "added_at": "2026-10-11T07:15:22.833Z"
     }
   ]
 }
