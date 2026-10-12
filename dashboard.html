@@ -154,8 +154,6 @@
         <div class="seg" id="tfSeg" aria-label="Timeframe"></div>
         <span class="fsep"></span>
         <div class="seg" id="dirSeg" aria-label="Direction"></div>
-        <span class="fsep"></span>
-        <div class="seg" id="setupSeg" aria-label="Setup"></div>
       </div>
     </div>
   </header>
@@ -564,8 +562,6 @@ function buildFilters(syms) {
     .map(([v, l]) => btn('opt', 'tf', v, l)).join('');
   document.getElementById('dirSeg').innerHTML = [['BULLISH', '<span class="bullish">▲</span>'], ['BEARISH', '<span class="bearish">▼</span>']]
     .map(([v, l]) => btn('opt', 'dir', v, l)).join('');
-  document.getElementById('setupSeg').innerHTML = [['trend', 'trend'], ['sma50', 'SMA 50']]
-    .map(([v, l]) => btn('opt', 'setup', v, l)).join('');
 
   // Category (crypto) / sector (PSE) picker: what the market's watches have.
   const catSel = document.getElementById('catSel');

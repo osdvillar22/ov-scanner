@@ -66,6 +66,9 @@ WATCH_WINDOW_CANDLES = 25
 # through it — starts an SMA 50 watch lasting SMA50_WATCH_CANDLES candles
 # (SMA50_WATCH_CANDLES_BY_TF where set) counted from that touch candle.
 # Its basket entries fire once per line.
+# Turned off Oct 12, 2026 (erratic triggers): no SMA 50 watches are made,
+# existing ones and their basket picks come off. The code stays.
+SMA50_WATCHES_ON = False
 SMA50_SEARCH_CANDLES = 25
 SMA50_WATCH_CANDLES = 20
 SMA50_WATCH_CANDLES_BY_TF = {"1W": 10}   # 20 weeks would be most of half a year

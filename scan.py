@@ -18,8 +18,8 @@ your own machine for now) and it will:
      the most recent trigger closed on the wrong side of EMA20 (trend
      break) — recomputed fresh every run. Every qualifying candle in the
      window gets marked on the dashboard, not just the first one.
-     After that removal, a candle reaching SMA 50 starts a separate SMA 50
-     watch for the next few candles (see find_sma50_watch).
+     (A separate SMA 50 pullback watch after that removal, see
+     find_sma50_watch, is turned off: config.SMA50_WATCHES_ON.)
   3. For every watchlisted asset, also fetch+serialize its two mapped lower
      timeframes (config.LOWER_TF_MAP) purely as reference charts for the
      dashboard — no state or setup tracking runs on them.
@@ -473,8 +473,9 @@ def scan_higher_timeframe(
 
 
 def _scan_sma50(asset, htf, df_htf, aligned_auto_lsma, last_closed, state, key, ltf_cache, marks_by_tf) -> None:
-    if htf not in config.SMA50_TIMEFRAMES or (asset["asset_class"], htf) in config.SMA50_EXCLUDED:
-        state.pop(key, None)
+    if (not config.SMA50_WATCHES_ON or htf not in config.SMA50_TIMEFRAMES
+            or (asset["asset_class"], htf) in config.SMA50_EXCLUDED):
+        state.pop(key, None)  # quietly: not listed on the removed tab
         return
     life = sma50_life(htf)
     watch = find_sma50_watch(df_htf, aligned_auto_lsma, last_closed, life=life)

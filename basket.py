@@ -475,7 +475,8 @@ def run_hourly(state: dict) -> dict:
         watch = state.get(key)
         if watch is None or watch.get("direction") != pick["direction"]:
             remove.add(key)
-            gone = scan._removals.get(key) or ("SMA 50 watch ended" if is_sma50(pick) else "watch ended")
+            gone = scan._removals.get(key) or (
+                ("SMA 50 watch ended" if config.SMA50_WATCHES_ON else "SMA 50 watches turned off") if is_sma50(pick) else "watch ended")
             reasons[key] = gone if watch is None else f"watch flipped to {watch['direction'].lower()}"
             continue
         pick = {**pick, "display_name": watch.get("display_name", pick["display_name"]), "tag": watch.get("tag")}
