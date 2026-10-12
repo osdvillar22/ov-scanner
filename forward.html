@@ -15,34 +15,81 @@
   .nav a { color: var(--ink-dim); text-decoration: none; font-size: 12px; }
   .nav a:hover { color: var(--ink); }
   .nav a.on { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); padding-bottom: 2px; }
-  .stats { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 10px; font-size: 11px; color: var(--ink-dim); }
-  .stats b { color: var(--ink); font-weight: 500; }
   .up { color: var(--gain); } .down { color: var(--loss); }
+  main.wrap { max-width: 1240px; margin: 0 auto; padding: 6px 16px 0; }
 
-  /* Trade list: name + R, a progress bar (CL ← entry → TP), one sub line. */
-  .tr { padding: 8px 10px; border-bottom: 1px solid var(--hair); cursor: pointer; }
+  /* Results first: total R, the cumulative R curve beside it */
+  .hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; align-items: end; }
+  .hero .k { font-size: 11px; color: var(--ink-dim); }
+  .hero .big { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+  .kv { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--ink-dim); font-size: 11.5px; margin-top: 6px; }
+  .kv b { color: var(--ink); font-weight: 500; }
+  #curve { display: block; width: 100%; height: 96px; }
+  .res { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); padding: 8px 0; margin: 14px 0 0; font-size: 11px; color: var(--ink-dim); }
+  .res .by button { color: var(--ink-faint); margin-right: 8px; }
+  .res .by button.on { color: var(--ink); text-decoration: underline; text-decoration-color: var(--gold-bright); text-underline-offset: 3px; }
+  .res .g { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .wb { display: inline-block; width: 44px; height: 4px; border-radius: 2px; background: var(--loss); overflow: hidden; }
+  .wb i { display: block; height: 100%; background: var(--gain); }
+
+  /* List left, trade right — flat, like the dashboard */
+  .fwd .layout { gap: 0; padding-top: 6px; }
+  .fwd .side-panel { order: 0; width: 290px; background: none; border: 0; border-right: 1px solid var(--hair); border-radius: 0; padding-right: 14px; }
+  .fwd .detail-panel { background: none; border: 0; border-radius: 0; padding: 0 0 0 18px; }
+  .fwd .scroll { max-height: calc(100vh - 40px); }
+  .sec { display: flex; justify-content: space-between; color: var(--ink-faint); font-size: 10px; letter-spacing: 0.06em; margin: 12px 6px 4px; }
+  .tr { padding: 6px 6px 7px; border-radius: 4px; cursor: pointer; }
   .tr:hover { background: var(--surface-raised); }
   .tr.active { background: var(--surface-raised); box-shadow: inset 2px 0 0 var(--gold-bright); }
   .tr-head { display: flex; justify-content: space-between; gap: 8px; }
-  .tr-sub { font-size: 10.5px; color: var(--ink-dim); margin-top: 3px; }
-  .prog { height: 4px; border-radius: 2px; background: var(--border); position: relative; margin-top: 6px; }
-  .prog .fill { position: absolute; top: 0; height: 4px; border-radius: 2px; }
-  .prog .at { position: absolute; top: -2px; width: 1px; height: 8px; background: var(--gold-bright); }
-  .brk { padding: 8px 10px; font-size: 10.5px; color: var(--ink-dim); }
-  .brk table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-  .brk th { text-align: left; font-weight: 500; color: var(--ink-faint); letter-spacing: 0.06em; padding: 4px 0 2px; }
-  .brk td { padding: 1px 0; }
-  .brk td.n { text-align: right; }
+  .tr-head .tf { color: var(--ink-faint); font-size: 10.5px; }
+  .tr-sub { font-size: 10px; color: var(--ink-faint); margin-top: 2px; }
+  .miss { font-size: 9.5px; color: var(--gold-bright); border: 1px dashed color-mix(in srgb, var(--gold-bright) 60%, var(--border)); border-radius: 3px; padding: 0 3px; }
+  /* Ruler: CL on the left, TP on the right, the entry tick, price now */
+  .ruler { position: relative; height: 6px; margin-top: 6px; }
+  .ruler .ln { position: absolute; top: 2px; left: 0; right: 0; height: 2px; background: var(--border); }
+  .ruler .cl, .ruler .tp { position: absolute; top: 0; width: 2px; height: 6px; }
+  .ruler .cl { left: 0; background: var(--loss); } .ruler .tp { right: 0; background: var(--gain); }
+  .ruler .en { position: absolute; top: -1px; width: 1px; height: 8px; background: var(--gold-bright); }
+  .ruler .now { position: absolute; top: 0; width: 6px; height: 6px; border-radius: 50%; margin-left: -3px; }
 
-  .st { font-size: 11px; padding: 0 6px; border-radius: 3px; border: 1px solid var(--border); }
-  .st.open { color: var(--gold-bright); border-color: color-mix(in srgb, var(--gold-bright) 50%, var(--border)); }
-  .st.tp { color: var(--gain); } .st.cl { color: var(--loss); }
-  .d-levels { font-size: 11px; color: var(--ink-dim); margin-top: 4px; line-height: 1.6; }
-  .d-levels b { color: var(--ink); font-weight: 500; }
-  .miss { font-size: 10px; color: var(--gold-bright); border: 1px dashed color-mix(in srgb, var(--gold-bright) 60%, var(--border)); border-radius: 3px; padding: 0 4px; }
+  /* Trade detail */
+  .dh { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .dh .n { font-size: 20px; font-weight: 600; }
+  .dh .sub { color: var(--ink-dim); font-size: 11.5px; }
+  .dh .right { display: flex; gap: 14px; align-items: baseline; font-size: 11.5px; }
+  .dh .right a { color: var(--ink-dim); text-decoration: none; } .dh .right a:hover { color: var(--ink); }
+  .pill { font-weight: 600; } .pill.open, .pill.pending { color: var(--gold-bright); }
+  .ladder { position: relative; height: 48px; margin: 14px 8px 4px; }
+  .ladder .bar { position: absolute; top: 22px; left: 0; right: 0; height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--loss) 45%, var(--bg)), var(--hair) 45%, var(--hair) 55%, color-mix(in srgb, var(--gain) 45%, var(--bg))); }
+  .ladder .m { position: absolute; top: 0; transform: translateX(-50%); text-align: center; font-size: 10px; color: var(--ink-dim); white-space: nowrap; }
+  .ladder .m b { display: block; color: var(--ink); font-weight: 500; font-size: 11px; }
+  .ladder .m.lo { top: 32px; }
+  .ladder .tick { position: absolute; top: 19px; width: 2px; height: 12px; transform: translateX(-50%); }
+  .ladder .dot { position: absolute; top: 21px; width: 8px; height: 8px; border-radius: 50%; transform: translateX(-50%); box-shadow: 0 0 0 2px var(--bg); }
+  .tmeta { color: var(--ink-faint); font-size: 10.5px; margin: 14px 0 4px; line-height: 1.6; }
+  .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 4px; font-size: 11px; }
+  .acts .lg { margin-left: auto; display: flex; gap: 10px; }
+  .fwd .ind { border: 0; padding: 0; font-size: 10.5px; gap: 4px; }
+  .fwd .ind.off { color: var(--ink-faint); text-decoration: line-through; }
+  .minis { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+  .mini-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 11px; padding: 6px 0 2px; border-top: 1px solid var(--hair); }
+  .mini-head .dim { color: var(--ink-dim); }
+  .mini-head .big { color: var(--gold-bright); font-size: 10.5px; }
+  .fwd .minis .chart-box { height: 220px; }
+  .fwd .minis .macd-box { height: 56px; }
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; gap: 8px; }
+    .fwd .side-panel { width: 100%; border-right: 0; padding-right: 0; border-bottom: 1px solid var(--hair); padding-bottom: 8px; }
+    .fwd .detail-panel { padding: 12px 0 0; }
+    .fwd .scroll { max-height: 320px; }
+    .minis { grid-template-columns: 1fr; }
+    .acts .lg { margin-left: 0; }
+  }
 </style>
 </head>
-<body>
+<body class="fwd">
 
   <header class="page">
     <div class="topbar">
@@ -58,18 +105,18 @@
       </div>
       <div class="settings-msg" id="tokenMsg"></div>
     </div>
-    <div class="stats" id="stats"></div>
   </header>
 
-  <div class="layout">
-    <div class="side-panel">
-      <div class="panel-tabs">
-        <button class="panel-tab active" data-view="open" type="button">open<span class="n" id="n-open"></span></button>
-        <button class="panel-tab" data-view="pending" type="button">pending<span class="n" id="n-pending"></span></button>
-        <button class="panel-tab" data-view="closed" type="button">closed<span class="n" id="n-closed"></span></button>
-      </div>
-      <div class="scroll" id="list"></div>
+  <main class="wrap">
+    <div class="hero">
+      <div id="headline"><span class="k">Loading…</span></div>
+      <svg id="curve" preserveAspectRatio="none" aria-label="Cumulative R over closed trades"></svg>
     </div>
+    <div class="res" id="res"></div>
+  </main>
+
+  <div class="layout">
+    <div class="side-panel"><div class="scroll" id="list"></div></div>
     <div class="detail-panel" id="detail"><div class="empty">Loading trades…</div></div>
   </div>
 
@@ -80,11 +127,14 @@
 // GitHub) and their charts (trades_data.json, refreshed by the hourly scan).
 // trades.py moves them pending -> open -> tp / cl.
 // ---------------------------------------------------------------------------
-let trades = [], charts = {}, chartsAt = null, view = 'open', currentId = null;
+let trades = [], charts = {}, chartsAt = null, currentId = null, groupBy = 'market', bigTf = null;
 const VIEWS = { open: ['open'], pending: ['pending'], closed: ['tp', 'cl'] };
 const chartKey = (t) => `${t.asset_class}:${t.ticker}:${t.higher_tf}`;
 const tfsOf = (t) => [t.higher_tf, ...LOWER_TF_MAP[t.higher_tf]];
 const ratioOf = (t) => Math.abs(t.tp - t.entry) / Math.abs(t.entry - t.cl);
+const lastTime = (t) => t.closed_at || t.filled_at || t.created_at;
+const byRecent = (a, b) => lastTime(b).localeCompare(lastTime(a));
+const closedOf = () => trades.filter(t => VIEWS.closed.includes(t.status));
 
 // Latest close from the finest chart we have for the trade.
 function lastPrice(t) {
@@ -98,94 +148,169 @@ function fmtDur(ms) {
   return d ? `${d}d ${h % 24}h` : h ? `${h}h ${m % 60}m` : `${m}m`;
 }
 const sideOf = (t) => tradeLong(t) ? '<span class="bullish">long</span>' : '<span class="bearish">short</span>';
+const linesText = (t) => (t.lines || ['lsma']).map(l => l === 'lsma' ? 'LSMA' : 'SMA 50').join(' + ');
 
-function renderStats() {
-  const closed = trades.filter(t => VIEWS.closed.includes(t.status));
-  const wins = closed.filter(t => t.status === 'tp').length, total = closed.reduce((s, t) => s + (t.result_r || 0), 0);
+// ---- Results: headline, cumulative R curve, one line of breakdowns ----
+function renderResults() {
+  const closed = closedOf().sort((a, b) => a.closed_at.localeCompare(b.closed_at));
   const n = (v) => trades.filter(t => VIEWS[v].includes(t.status)).length;
-  document.getElementById('stats').innerHTML = closed.length
-    ? `<span>closed <b>${closed.length}</b></span><span>win rate <b>${Math.round(wins / closed.length * 100)}%</b></span><span>avg <b class="${total >= 0 ? 'up' : 'down'}">${fmtR(total / closed.length)}</b></span><span>total <b class="${total >= 0 ? 'up' : 'down'}">${fmtR(total)}</b></span><span>open <b>${n('open')}</b></span><span>pending <b>${n('pending')}</b></span>`
-    : `<span>No closed trades yet · open <b>${n('open')}</b> · pending <b>${n('pending')}</b></span>`;
-  Object.keys(VIEWS).forEach(v => { document.getElementById(`n-${v}`).textContent = n(v); });
+  const wins = closed.filter(t => t.status === 'tp').length, total = closed.reduce((s, t) => s + (t.result_r || 0), 0);
+  document.getElementById('headline').innerHTML = closed.length
+    ? `<div class="k">total over ${closed.length} closed</div><div class="big ${total >= 0 ? 'up' : 'down'}">${fmtR(total)}</div>
+       <div class="kv"><span>win <b>${Math.round(wins / closed.length * 100)}%</b> (${wins}/${closed.length})</span><span>avg <b class="${total >= 0 ? 'up' : 'down'}">${fmtR(total / closed.length)}</b></span><span>open <b>${n('open')}</b></span><span>pending <b>${n('pending')}</b></span></div>`
+    : `<div class="k">No closed trades yet</div><div class="kv"><span>open <b>${n('open')}</b></span><span>pending <b>${n('pending')}</b></span></div>`;
+
+  // Step curve: each closed trade moves the running total by its R.
+  const svg = document.getElementById('curve');
+  const W = Math.max(200, svg.clientWidth || 600), H = 96;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  if (!closed.length) { svg.innerHTML = ''; return renderGroups(closed); }
+  let run = 0;
+  const pts = [0, ...closed.map(t => (run += t.result_r || 0))];
+  const lo = Math.min(0, ...pts), hi = Math.max(0, ...pts), span = hi - lo || 1;
+  const x = (i) => 6 + i / closed.length * (W - 40), y = (v) => 8 + (hi - v) / span * (H - 18);
+  const ink = cssVar('--ink-faint'), col = cssVar(run >= 0 ? '--gain' : '--loss');
+  let path = `M${x(0)},${y(0)}`;
+  pts.slice(1).forEach((v, i) => { path += ` H${x(i + 1)} V${y(v)}`; });
+  svg.innerHTML = `<line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="${ink}" stroke-dasharray="3 4" stroke-width="1"/>
+    <text x="${W - 2}" y="${y(0) - 3}" fill="${ink}" font-size="9" text-anchor="end">0R</text>
+    <path d="${path}" fill="none" stroke="${col}" stroke-width="1.6"/>
+    ${closed.map((t, i) => `<circle cx="${x(i + 1)}" cy="${y(pts[i + 1])}" r="3" fill="${cssVar(t.status === 'tp' ? '--gain' : '--loss')}" data-id="${t.id}" style="cursor:pointer"><title>${esc(t.display_name)} ${t.status.toUpperCase()} ${fmtR(t.result_r)} · ${fmtTime(t.closed_at)}</title></circle>`).join('')}`;
+  svg.querySelectorAll('circle').forEach(c => c.addEventListener('click', () => selectTrade(c.dataset.id)));
+  renderGroups(closed);
 }
 
-// Results grouped by market, pick timeframe, setup, entry line and the
-// chart the plan was made on.
-function breakdown(closed) {
-  if (!closed.length) return '';
-  const groups = [
-    ['MARKET', t => [...marketsOf(t)].pop()], ['PICK TF', t => t.higher_tf], ['SETUP', t => t.setup === 'sma50' ? 'SMA 50' : 'trend'],
-    ['ENTRY LINE', t => (t.lines || ['lsma']).map(l => l === 'lsma' ? 'LSMA' : 'SMA 50').join(' + ')], ['PLANNED ON', t => t.plan_tf],
-    ['ENTRY TYPE', t => t.missed ? 'missed entry' : 'live plan'],
-  ];
-  return `<div class="brk">${groups.map(([title, key]) => {
-    const by = {};
-    closed.forEach(t => { (by[key(t)] = by[key(t)] || []).push(t); });
-    return `<table><tr><th>${title}</th><th class="n">n</th><th class="n">win</th><th class="n">total</th></tr>${Object.entries(by).map(([k, ts]) => {
+const GROUPS = [
+  ['market', t => ({ pse: 'PSE' }[[...marketsOf(t)].pop()] || [...marketsOf(t)].pop())], ['pick tf', t => t.higher_tf], ['entry line', linesText],
+  ['planned on', t => t.plan_tf], ['entry type', t => t.missed ? 'missed entry' : 'live plan'],
+];
+function renderGroups(closed) {
+  const el = document.getElementById('res');
+  if (!closed.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  el.style.display = '';
+  const key = (GROUPS.find(([g]) => g === groupBy) || GROUPS[0])[1], by = {};
+  closed.forEach(t => (by[key(t)] = by[key(t)] || []).push(t));
+  el.innerHTML = `<span class="by">${GROUPS.map(([g]) => `<button type="button" data-g="${g}" class="${g === groupBy ? 'on' : ''}">${g}</button>`).join('')}</span>`
+    + Object.entries(by).sort((a, b) => b[1].length - a[1].length).map(([k, ts]) => {
       const w = ts.filter(t => t.status === 'tp').length, r = ts.reduce((s, t) => s + (t.result_r || 0), 0);
-      return `<tr><td>${esc(k)}</td><td class="n">${ts.length}</td><td class="n">${Math.round(w / ts.length * 100)}%</td><td class="n ${r >= 0 ? 'up' : 'down'}">${fmtR(r)}</td></tr>`;
-    }).join('')}</table>`;
-  }).join('')}</div>`;
+      return `<span class="g">${esc(k)} <span class="wb"><i style="width:${w / ts.length * 100}%"></i></span> ${w}/${ts.length} <b class="${r >= 0 ? 'up' : 'down'}" style="font-weight:500">${fmtR(r)}</b></span>`;
+    }).join('');
+  el.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { groupBy = b.dataset.g; renderGroups(closed); }));
 }
+
+// ---- One list: open, pending, closed ----
+// Ruler position of a value in R (CL = -1, entry = 0, TP = +ratio).
+const rulerX = (t, r) => Math.max(0, Math.min(100, (r + 1) / (1 + ratioOf(t)) * 100));
 
 function renderList() {
   const el = document.getElementById('list');
-  const shown = trades.filter(t => VIEWS[view].includes(t.status))
-    .sort((a, b) => (b.closed_at || b.filled_at || b.created_at).localeCompare(a.closed_at || a.filled_at || a.created_at));
-  if (!shown.length) {
-    el.innerHTML = `<div class="empty">${{ open: 'No open trades. A pending plan opens when price reaches its entry.', pending: 'No pending plans. Plan one on the dashboard: open a basket pick and tap "plan trade".', closed: 'No closed trades yet.' }[view]}</div>`;
+  if (!trades.some(t => [...VIEWS.open, ...VIEWS.pending, ...VIEWS.closed].includes(t.status))) {
+    el.innerHTML = '<div class="empty">No trades yet. Plan one on the dashboard: open a basket pick and tap "plan trade".</div>';
     return;
   }
-  el.innerHTML = shown.map(t => {
-    const name = `<b>${esc(t.display_name)}</b> <span class="d-sub" style="margin:0">${t.plan_tf}</span> ${sideOf(t)}${t.missed ? ' <span class="miss">missed</span>' : ''}`;
-    let right = '', sub = '', bar = '';
+  const item = (t) => {
+    const name = `<span><b>${esc(t.display_name)}</b> ${sideOf(t)} <span class="tf">${t.plan_tf}</span>${t.missed ? ' <span class="miss">missed</span>' : ''}</span>`;
+    let right = '', extra = '';
     if (t.status === 'open') {
-      const p = lastPrice(t), r = p == null ? null : tradeR(t, p), ratio = ratioOf(t);
+      const p = lastPrice(t), r = p == null ? null : tradeR(t, p);
       right = r == null ? '' : `<span class="${r >= 0 ? 'up' : 'down'}">${fmtR(r)}</span>`;
-      const x = (v) => Math.max(0, Math.min(100, (v + 1) / (1 + ratio) * 100)), x0 = x(0);
-      if (r != null) bar = `<div class="prog"><span class="fill" style="left:${Math.min(x0, x(r))}%;width:${Math.abs(x(r) - x0)}%;background:var(${r >= 0 ? '--gain' : '--loss'})"></span><span class="at" style="left:${x0}%"></span></div>`;
-      sub = `${t.setup === 'sma50' ? 'SMA 50' : 'trend'} · ${t.higher_tf} pick · ${fmtDur(Date.now() - parseTime(t.filled_at))} in trade`;
+      extra = `<div class="ruler"><span class="ln"></span><span class="cl"></span><span class="tp"></span><span class="en" style="left:${rulerX(t, 0)}%"></span>${r == null ? '' : `<span class="now" style="left:${rulerX(t, r)}%;background:var(${r >= 0 ? '--gain' : '--loss'})"></span>`}</div>
+        <div class="tr-sub">filled ${fmtDur(Date.now() - parseTime(t.filled_at))} ago · ${t.higher_tf} pick</div>`;
     } else if (t.status === 'pending') {
       const p = lastPrice(t);
-      right = p == null ? '' : `<span class="d-sub" style="margin:0">${Math.abs((t.entry - p) / p * 100).toFixed(2)}% away</span>`;
-      sub = `entry ${t.entry} · planned ${fmtTime(t.created_at)}`;
+      right = p == null ? '' : `<span class="tf">${Math.abs((t.entry - p) / p * 100).toFixed(2)}% away</span>`;
+      extra = `<div class="tr-sub">entry ${t.entry} · planned ${fmtTime(t.created_at)}</div>`;
     } else {
       right = `<span class="${t.status === 'tp' ? 'up' : 'down'}">${t.status.toUpperCase()} ${fmtR(t.result_r)}</span>`;
-      sub = `${fmtTime(t.closed_at)}${t.note ? ` · ${esc(t.note)}` : ''}`;
+      extra = `<div class="tr-sub">${fmtTime(t.closed_at)}</div>`;
     }
-    return `<div class="tr${t.id === currentId ? ' active' : ''}" data-id="${t.id}"><div class="tr-head"><span>${name}</span>${right}</div>${bar}<div class="tr-sub">${sub}</div></div>`;
-  }).join('') + (view === 'closed' ? breakdown(shown) : '');
+    return `<div class="tr${t.id === currentId ? ' active' : ''}" data-id="${t.id}"><div class="tr-head">${name}${right}</div>${extra}</div>`;
+  };
+  const section = (title, list, note) => list.length ? `<div class="sec"><span>${title}</span><span>${note}</span></div>${list.map(item).join('')}` : '';
+  const open = trades.filter(t => t.status === 'open').sort(byRecent);
+  const pending = trades.filter(t => t.status === 'pending').sort(byRecent);
+  const closed = closedOf().sort(byRecent), total = closed.reduce((s, t) => s + (t.result_r || 0), 0);
+  el.innerHTML = section('OPEN', open, open.length) + section('PENDING', pending, pending.length)
+    + section('CLOSED', closed, `${closed.length} · <span class="${total >= 0 ? 'up' : 'down'}">${fmtR(total)}</span>`);
   el.querySelectorAll('.tr').forEach(r => r.addEventListener('click', () => selectTrade(r.dataset.id)));
+}
+
+// ---- Trade detail: levels ladder, history line, charts ----
+function ladder(t, p) {
+  // Prices left to right from the lower to the higher of CL / TP.
+  const lo = Math.min(t.cl, t.tp), hi = Math.max(t.cl, t.tp), span = hi - lo || 1;
+  const x = (v) => Math.max(0, Math.min(100, (v - lo) / span * 100));
+  const pct = (v) => `${v >= t.entry ? '+' : '−'}${Math.abs((v - t.entry) / t.entry * 100).toFixed(2)}%`;
+  // Labels at the ends hang inwards so they stay on screen.
+  const pos = (v) => { const p = x(v); return `left:${p}%;${p < 10 ? 'transform:none;text-align:left' : p > 90 ? 'transform:translateX(-100%);text-align:right' : ''}`; };
+  const mark = (v, label, color, under) => `<span class="m${under ? ' lo' : ''}" style="${pos(v)}"><b>${v}</b>${label}</span><span class="tick" style="left:${x(v)}%;background:var(${color})"></span>`;
+  // Gradient runs loss -> gain left to right; flip it for shorts.
+  const flip = t.cl > t.tp ? ' style="transform:scaleX(-1)"' : '';
+  let html = `<span class="bar"${flip}></span>${mark(t.cl, `CL ${pct(t.cl)}`, '--loss')}${mark(t.entry, 'entry', '--gold-bright')}${mark(t.tp, `TP ${pct(t.tp)}`, '--gain')}`;
+  if (p != null && ['open', 'pending'].includes(t.status)) {
+    const r = tradeR(t, p);
+    html += `<span class="dot" style="left:${x(p)}%;background:var(${r >= 0 ? '--gain' : '--loss'})" title="now ${p}"></span><span class="m lo" style="${pos(p)}">now ${p}</span>`;
+  }
+  return `<div class="ladder">${html}</div>`;
 }
 
 function selectTrade(id) {
   const t = trades.find(x => x.id === id);
   if (!t) return;
+  if (currentId !== id) bigTf = null;
   currentId = id;
   document.querySelectorAll('#list .tr').forEach(r => r.classList.toggle('active', r.dataset.id === id));
   teardownCharts();
   const p = lastPrice(t), r = p == null ? null : tradeR(t, p);
   const status = t.status === 'open' ? `open${r == null ? '' : ` ${fmtR(r)}`}` : t.status === 'pending' ? 'pending' : `${t.status.toUpperCase()} ${fmtR(t.result_r)}`;
+  const statusCls = t.status === 'tp' ? 'up' : t.status === 'cl' ? 'down' : t.status;
   const act = t.status === 'pending' ? 'cancel plan' : t.status === 'open' ? 'cancel trade' : '';
-  const pct = (v) => `${v >= t.entry ? '+' : '−'}${Math.abs((v - t.entry) / t.entry * 100).toFixed(2)}%`;
-  const tfs = tfsOf(t), c = charts[chartKey(t)] || {};
+  const market = [...marketsOf(t)].includes('pse') ? 'pse' : t.asset_class;
+  const dash = `dashboard.html?market=${market}&q=${encodeURIComponent(t.display_name.split('/')[0])}`;
+  const end = t.closed_at ? parseTime(t.closed_at) : new Date();
+  const history = [
+    `planned ${fmtTime(t.created_at)} on ${t.plan_tf}`,
+    t.filled_at ? `${t.missed ? 'entry candle' : 'filled'} ${fmtTime(t.filled_at)} (${t.fill_tf})${t.fill_note ? `, ${esc(t.fill_note)}` : ''}` : '',
+    t.closed_at ? `${t.status.toUpperCase()} ${fmtTime(t.closed_at)} (${t.exit_tf})` : '',
+    t.filled_at ? `${fmtDur(end - parseTime(t.filled_at))} in trade` : '',
+    t.note ? esc(t.note) : '',
+  ].filter(Boolean).join(' · ');
+
+  // Charts: the timeframe the plan was made on is large (or the one
+  // enlarged); the other two side by side.
+  const c = charts[chartKey(t)] || {}, tfs = tfsOf(t);
+  const big = bigTf && tfs.includes(bigTf) ? bigTf : (tfs.includes(t.plan_tf) ? t.plan_tf : tfs[0]);
+  const minis = tfs.filter(tf => tf !== big);
+  const label = (tf) => `${tf === t.higher_tf ? 'trigger timeframe' : ''}${tf === t.plan_tf ? `${tf === t.higher_tf ? ' · ' : ''}planned here` : ''}`;
+
   const detail = document.getElementById('detail');
   detail.innerHTML = `
-    <div class="d-top" data-current-id="${id}">
-      <div><span class="d-name">${esc(t.display_name)}</span><span class="d-sub">${sideOf(t)}${t.missed ? ' · <span class="miss">missed entry</span>' : ''} · planned on ${t.plan_tf} · ${t.setup === 'sma50' ? 'SMA 50' : 'trend'} ${t.higher_tf} ${dirArrow(t.pick_direction)} · entry on ${(t.lines || ['lsma']).map(l => l === 'lsma' ? 'LSMA' : 'SMA 50').join(' + ')}</span></div>
-      <div class="d-right"><span class="st ${t.status}">${status}</span>${act ? `<button class="text-btn" id="cancelBtn" type="button">${act}</button>` : ''}</div>
+    <div class="dh" data-current-id="${id}">
+      <span><span class="n">${esc(t.display_name)}</span> ${sideOf(t)} <span class="sub">· ${t.higher_tf} ${t.setup === 'sma50' ? 'SMA 50' : 'trend'} pick ${dirArrow(t.pick_direction)} · entry on ${linesText(t)}${t.missed ? ' · <span class="miss">missed entry</span>' : ''}</span></span>
+      <span class="right"><span class="pill ${statusCls}">${status}</span>${act ? `<button class="text-btn" id="cancelBtn" type="button">${act}</button>` : ''}<a href="${dash}">open on dashboard ↗</a></span>
     </div>
-    <div class="d-levels">entry <b>${t.entry}</b> · CL <b>${t.cl}</b> (${pct(t.cl)}) · TP <b>${t.tp}</b> (${pct(t.tp)}) · 1:${+ratioOf(t).toFixed(2)}${p == null ? '' : ` · now <b>${p}</b>`}<br>
-      planned ${fmtTime(t.created_at)}${t.filled_at ? ` · ${t.missed ? 'entry candle' : 'filled'} ${fmtTime(t.filled_at)} (${t.fill_tf})${t.fill_note ? `, ${esc(t.fill_note)}` : ''}` : ''}${t.closed_at ? ` · closed ${fmtTime(t.closed_at)} (${t.exit_tf})` : ''}${t.note ? ` · ${esc(t.note)}` : ''}<span class="msg" id="cancelMsg"></span></div>
-    <div class="legend"><span class="ind-label">show</span>${indicatorToggles()}<span class="push">ctrl+scroll or pinch to zoom · drag to pan</span></div>
-    ${tfs.map((tf, i) => `
-      <div class="chart-head"><span class="chart-label">${tf}${i === 0 ? ' <span class="dim">trigger timeframe</span>' : ''}${tf === t.plan_tf ? ' <span class="dim">· planned here</span>' : ''}</span><button class="reset" id="fc-${i}-reset" type="button">reset zoom</button></div>
-      <div class="chart-box" id="fc-${i}"></div>
-      <div class="macd-box" id="fm-${i}"></div>`).join('')}`;
+    ${ladder(t, p)}
+    <div class="tmeta">${history}<span class="msg" id="cancelMsg"></span></div>
+    <div class="acts"><span class="dim" style="color:var(--ink-dim)">1:${+ratioOf(t).toFixed(2)} · ${big} <span style="color:var(--ink-faint)">${label(big)}</span></span><span class="lg" title="Show or hide on the charts">${indicatorToggles()}</span></div>
+    <div class="chart-head" title="ctrl+scroll or pinch to zoom · drag to pan"><span class="chart-label">${big}${bigTf && big !== (tfs.includes(t.plan_tf) ? t.plan_tf : tfs[0]) ? ` <span class="dim">enlarged · <button class="link-btn" type="button" id="bigBack">back</button></span>` : ''}</span><button class="reset" id="fc-big-reset" type="button">reset zoom</button></div>
+    <div class="chart-box" id="fc-big"></div>
+    <div class="macd-box" id="fm-big"></div>
+    <div class="minis">${minis.map((tf, i) => `
+      <div>
+        <div class="mini-head"><span><b>${tf}</b> <span class="dim">${label(tf)}</span></span><span><button class="reset" id="fc-${i}-reset" type="button">reset</button> &nbsp;<button class="big" type="button" data-tf="${tf}">enlarge</button></span></div>
+        <div class="chart-box" id="fc-${i}"></div>
+        <div class="macd-box" id="fm-${i}"></div>
+      </div>`).join('')}
+    </div>`;
   detail.querySelectorAll('.ind').forEach(b => b.addEventListener('click', () => setIndicator(b.dataset.key, !shown[b.dataset.key])));
+  detail.querySelectorAll('.minis .big').forEach(b => b.addEventListener('click', () => { bigTf = b.dataset.tf; selectTrade(id); }));
+  const back = document.getElementById('bigBack');
+  if (back) back.addEventListener('click', () => { bigTf = null; selectTrade(id); });
   if (!shown.macd) detail.querySelectorAll('.macd-box').forEach(el => el.classList.add('is-hidden'));
   const forex = marketsOf(t).has('forex');
-  tfs.forEach((tf, i) => { const cc = toCandles(c[tf]); renderBlock(cc, `fc-${i}`, `fm-${i}`, i === 0 ? 25 : cc.length, { forex, trades: [t] }); });
+  const draw = (tf, chartId, macdId) => { const cc = toCandles(c[tf]); renderBlock(cc, chartId, macdId, tf === t.higher_tf ? 25 : cc.length, { forex, trades: [t] }); };
+  draw(big, 'fc-big', 'fm-big');
+  minis.forEach((tf, i) => draw(tf, `fc-${i}`, `fm-${i}`));
   const cancel = document.getElementById('cancelBtn');
   if (cancel) cancel.addEventListener('click', () => cancelTrade(t));
 }
@@ -204,14 +329,16 @@ async function cancelTrade(t) {
   } catch (err) { msg.textContent = ` · couldn't cancel: ${err.message}`; }
 }
 
+// The trade to show: the one open now if still listed, else the newest
+// open, then pending, then the latest closed.
 function render() {
-  renderStats();
+  renderResults();
   renderList();
-  const keep = trades.find(t => t.id === currentId && VIEWS[view].includes(t.status));
-  const first = keep || trades.filter(t => VIEWS[view].includes(t.status))
-    .sort((a, b) => (b.closed_at || b.filled_at || b.created_at).localeCompare(a.closed_at || a.filled_at || a.created_at))[0];
+  const listed = (t) => [...VIEWS.open, ...VIEWS.pending, ...VIEWS.closed].includes(t.status);
+  const keep = trades.find(t => t.id === currentId && listed(t));
+  const first = keep || ['open', 'pending', 'closed'].map(v => trades.filter(t => VIEWS[v].includes(t.status)).sort(byRecent)[0]).find(Boolean);
   if (first) selectTrade(first.id);
-  else { teardownCharts(); currentId = null; document.getElementById('detail').innerHTML = '<div class="empty">Pick a trade on the right.</div>'; }
+  else { teardownCharts(); currentId = null; document.getElementById('detail').innerHTML = ''; }
 }
 
 async function load(initial) {
@@ -222,22 +349,14 @@ async function load(initial) {
       const resp = await fetch('trades_data.json', { cache: 'no-cache' });
       if (resp.ok) { const d = await resp.json(); charts = d.charts || {}; chartsAt = d.generated_at; }
     } catch (e) {}
-    // Start on whichever tab has something.
-    view = ['open', 'pending', 'closed'].find(v => trades.some(t => VIEWS[v].includes(t.status))) || 'open';
-    document.querySelectorAll('.panel-tab').forEach(x => x.classList.toggle('active', x.dataset.view === view));
   }
-  document.getElementById('meta').innerHTML = `charts ${chartsAt ? `<strong>${fmtTime(chartsAt)}</strong>` : '—'} · status live`;
+  document.getElementById('meta').innerHTML = `status live · charts ${chartsAt ? `<strong>${fmtTime(chartsAt)}</strong>` : '—'}`;
   if (initial) render();
-  else { renderStats(); renderList(); }
+  else { renderResults(); renderList(); }
 }
 
 wireBasketSettings();
-document.querySelectorAll('.panel-tab').forEach(tab => tab.addEventListener('click', () => {
-  view = tab.dataset.view;
-  document.querySelectorAll('.panel-tab').forEach(x => x.classList.toggle('active', x === tab));
-  render();
-}));
-window.addEventListener('resize', () => activeCharts.forEach(({ chart, el }) => chart.applyOptions({ width: el.clientWidth })));
+window.addEventListener('resize', () => { activeCharts.forEach(({ chart, el }) => chart.applyOptions({ width: el.clientWidth })); renderResults(); });
 load(true);
 // Statuses change from the 5-minute and hourly checks — refresh the list.
 setInterval(() => { if (!document.hidden) load(false); }, 120e3);
