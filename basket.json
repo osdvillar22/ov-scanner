@@ -22,20 +22,6 @@
     },
     {
       "asset_class": "pse",
-      "ticker": "IMI",
-      "display_name": "IMI",
-      "higher_tf": "1W",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T09:00:41.036Z",
-      "muted": [
-        "1D"
-      ],
-      "lines": [
-        "sma50"
-      ]
-    },
-    {
-      "asset_class": "pse",
       "ticker": "UPSON",
       "display_name": "UPSON",
       "higher_tf": "1W",
@@ -121,17 +107,6 @@
       "added_at": "2026-09-25T09:38:34.460Z",
       "muted": [
         "1D",
-        "4H"
-      ]
-    },
-    {
-      "asset_class": "pse",
-      "ticker": "ROCK",
-      "display_name": "ROCK",
-      "higher_tf": "1W",
-      "direction": "BULLISH",
-      "added_at": "2026-09-26T00:12:34.275Z",
-      "muted": [
         "4H"
       ]
     },
