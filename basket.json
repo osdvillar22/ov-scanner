@@ -322,7 +322,10 @@
       "display_name": "PNB",
       "higher_tf": "1W",
       "direction": "BULLISH",
-      "added_at": "2026-10-12T05:00:41.443Z"
+      "added_at": "2026-10-12T05:00:41.443Z",
+      "muted": [
+        "1D"
+      ]
     }
   ]
 }
