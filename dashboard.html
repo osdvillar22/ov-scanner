@@ -128,14 +128,75 @@
   .bk-msg:empty { display: none; }
   .hint { padding: 7px 10px; font-size: 10.5px; color: var(--ink-faint); }
 
+  /* ==== Redesign: list on the left drives, the chart on the right answers.
+     Flat panels, filters as one line of menus, fixed timeframe columns,
+     lower timeframes side by side. ==== */
+  .nav { display: flex; gap: 14px; align-items: baseline; }
+  .nav a { color: var(--ink-dim); text-decoration: none; font-size: 12px; }
+  .nav a:hover { color: var(--ink); }
+  .nav a.on { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); padding-bottom: 2px; }
+  .dash .layout { gap: 0; padding-top: 6px; }
+  .dash .side-panel { order: 0; width: 300px; background: none; border: 0; border-right: 1px solid var(--hair); border-radius: 0; padding-right: 14px; }
+  .dash .detail-panel { background: none; border: 0; border-radius: 0; padding: 0 0 0 18px; }
+  .dash .panel-tabs { border-bottom: 0; gap: 14px; }
+  .dash .panel-tab { flex: none; padding: 4px 0 4px; font-size: 12px; }
+  .dash .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 8px 0 6px; }
+  .fsel { font: inherit; font-size: 11px; color: var(--ink); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 4px; max-width: 140px; }
+  .fsel.on { border-color: var(--gold-bright); color: var(--gold-bright); }
+  .dash .search { border: 1px solid var(--hair); border-radius: 4px; margin-bottom: 6px; }
+  .dash .scroll { max-height: calc(100vh - 150px); }
+  .dash .grp { background: none; padding: 10px 6px 3px; border-bottom: 1px solid var(--hair); }
+  .dash .wl-sum { padding: 4px 6px; }
+  .dash .row { padding: 6px 6px; border-bottom: 0; border-radius: 4px; gap: 6px; }
+  .dash .row.active { box-shadow: inset 2px 0 0 var(--gold-bright); }
+  .dash .sym { font-weight: 500; }
+  .dash .row .rsi { color: var(--ink-faint) !important; font-size: 10px; }
+  /* Four fixed timeframe columns, coloured text — scan straight down one. */
+  .dash .tfs { display: grid; grid-template-columns: repeat(4, 30px); gap: 0; font-size: 10.5px; }
+  .dash .tfs > * { text-align: left; }
+  .dash .tfs .off { color: var(--hair); }
+  .dash .tfs button { opacity: 1; }
+  .dash .tfs .shown { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  .dash .tfs .in-basket { text-decoration-color: var(--gold-bright); }
+  .dash .bk { padding: 8px 6px; border-bottom: 1px solid var(--hair); }
+  /* Asset view */
+  .dash .d-name { font-size: 20px; }
+  .dash .tf-sw { border: 0; background: none; padding: 1px 2px; border-radius: 0; }
+  .dash .tf-sw.bullish, .dash .tf-sw.bearish { opacity: 0.75; }
+  .dash .tf-sw.current { opacity: 1; font-weight: 600; box-shadow: inset 0 -2px 0 currentColor; background: none; }
+  .dash .d-summary { font-size: 11.5px; margin-top: 4px; line-height: 1.5; }
+  .dash .d-actions { margin-top: 8px; flex-wrap: wrap; }
+  .dash .d-actions .lg { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .dash .ind { border: 0; padding: 0; font-size: 10.5px; gap: 4px; }
+  .dash .ind.off { color: var(--ink-faint); text-decoration: line-through; }
+  .chart-wrap { position: relative; margin-top: 8px; }
+  .chart-wrap .reset { position: absolute; top: 4px; left: 6px; z-index: 3; }
+  .chart-tag { position: absolute; top: 4px; left: 6px; z-index: 3; font-size: 10.5px; color: var(--ink-dim); }
+  .chart-wrap .chart-tag + .reset { left: auto; right: 62px; }
+  .dash .price-line { border-bottom: 0; }
+  .minis { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+  .mini-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 11px; padding: 6px 0 2px; border-top: 1px solid var(--hair); }
+  .mini-head b { font-weight: 600; }
+  .mini-head .st { color: var(--ink-dim); font-size: 10.5px; }
+  .mini-head .big { color: var(--gold-bright); font-size: 10.5px; }
+  .dash .minis .chart-box { height: 220px; }
+  .dash .minis .macd-box { height: 56px; }
+  .cyc-key { font-size: 10px; color: var(--ink-faint); margin-top: 6px; }
+  @media (max-width: 860px) {
+    .dash .side-panel { width: 100%; border-right: 0; padding-right: 0; border-bottom: 1px solid var(--hair); padding-bottom: 8px; }
+    .dash .detail-panel { padding: 12px 0 0; }
+    .dash .scroll { max-height: 300px; }
+    .minis { grid-template-columns: 1fr; }
+    .dash .d-actions .lg { margin-left: 0; }
+  }
 </style>
 </head>
-<body>
+<body class="dash">
 
   <header class="page">
     <div class="topbar">
-      <span class="brand">OV <span>SCANNER</span></span>
-      <span class="meta"><span id="scanMeta">Loading…</span> · <a class="link-btn" href="forward.html">forward test</a> · <a class="link-btn" href="crypto.html">markets</a> · <button class="link-btn" id="basketSettingsBtn" type="button">basket settings</button></span>
+      <span class="nav"><span class="brand">OV <span>SCANNER</span></span><a class="on" href="dashboard.html">dashboard</a><a href="forward.html">forward test</a><a href="crypto.html">markets</a></span>
+      <span class="meta"><span id="scanMeta">Loading…</span> · <button class="link-btn" id="basketSettingsBtn" type="button">basket settings</button></span>
     </div>
     <div class="settings-panel is-hidden" id="basketSettings">
       <div><strong>Basket access.</strong> Adding and removing basket picks saves <code>basket.json</code> in your GitHub repo, which needs a token with access to this repo only. It's stored in this browser only — each device needs it once.</div>
@@ -146,16 +207,6 @@
       </div>
       <div class="settings-msg" id="tokenMsg"></div>
     </div>
-    <div class="filters" id="filters">
-      <div class="mkt-tabs" id="marketTabs" aria-label="Market"></div>
-      <div class="refine">
-        <span id="lcWrap" class="is-hidden"><button class="sub-opt" type="button" id="largeCaps" aria-pressed="false">large caps<span class="n"></span></button><span class="fsep"></span></span>
-        <span id="catWrap" class="is-hidden"><select class="cat-sel" id="catSel" aria-label="Category or sector"></select><span class="fsep"></span></span>
-        <div class="seg" id="tfSeg" aria-label="Timeframe"></div>
-        <span class="fsep"></span>
-        <div class="seg" id="dirSeg" aria-label="Direction"></div>
-      </div>
-    </div>
   </header>
 
   <div class="layout">
@@ -164,6 +215,13 @@
         <button class="panel-tab active" data-view="watchlist" type="button">watchlist<span class="n" id="wlCount"></span></button>
         <button class="panel-tab" data-view="basket" type="button">basket<span class="n" id="bkCount"></span></button>
         <button class="panel-tab" data-view="removed" type="button" title="Watches removed in the last 24 hours">removed<span class="n" id="rmCount"></span></button>
+      </div>
+      <div class="filters" id="filters">
+        <select class="fsel" id="mktSel" aria-label="Market"></select>
+        <span id="catWrap" class="is-hidden" style="display:contents"><select class="fsel" id="catSel" aria-label="Category or sector"></select></span>
+        <select class="fsel" id="tfSel" aria-label="Timeframe"></select>
+        <div class="seg" id="dirSeg" aria-label="Direction"></div>
+        <span id="lcWrap" class="is-hidden"><button class="sub-opt" type="button" id="largeCaps" aria-pressed="false">large caps<span class="n"></span></button></span>
       </div>
       <label class="search"><span aria-hidden="true">⌕</span><input type="search" id="search" placeholder="search…" autocomplete="off" spellcheck="false" aria-label="Search assets"><button class="search-clear is-hidden" id="searchClear" type="button" aria-label="Clear search">×</button></label>
       <div class="scroll" id="watchlist"></div>
@@ -542,24 +600,29 @@ function updateCounts() {
   const n = (over) => { const f = { ...F, ...over }; return syms.filter(byTf => marketMatch(Object.values(byTf)[0], f) && primaryWatch(byTf, f)).length; };
   document.querySelectorAll('#filters button[data-group] .n').forEach(el => {
     const { group, value } = el.parentElement.dataset;
-    const count = n(group === 'market' ? { market: value, large: false, cat: 'ALL' } : { [group]: value });
-    el.textContent = count;
-    if (group === 'market') el.parentElement.classList.toggle('zero', count === 0);
+    el.textContent = n({ [group]: value });
   });
+  document.querySelectorAll('#mktSel option').forEach(o => { o.textContent = `${MARKET_LABEL[o.value]} ${n({ market: o.value, large: false, cat: 'ALL' })}`; });
+  document.querySelectorAll('#tfSel option').forEach(o => { o.textContent = `${TF_LABEL[o.value]} ${n({ tf: o.value })}`; });
   if (LARGE_CAP_MARKETS.includes(F.market)) document.querySelector('#largeCaps .n').textContent = n({ large: true });
   if (CAT_MARKETS[F.market]) document.querySelectorAll('#catSel option').forEach(o => { o.textContent = `${o.value === 'ALL' ? (F.market === 'pse' ? 'all sectors' : 'all categories') : o.value} ${n({ cat: o.value })}`; });
 }
 
-// Direction and setup are toggles: tap one to show only it, tap it again
-// to show both. Market and timeframe always have exactly one choice.
+// Direction is a toggle: tap one to show only it, tap it again to show
+// both. Market and timeframe are menus.
 const TOGGLE_GROUPS = ['dir', 'setup'];
+const MARKET_LABEL = Object.fromEntries(MARKETS.map(([v, l]) => [v, v === 'all' ? 'all markets' : l]));
+const TF_CHOICES = [['ALL', 'all tf'], ['1H', '1H'], ['4H', '4H'], ['1D', '1D'], ['1W', '1W'], ['ALIGNED', 'aligned']];
+const TF_LABEL = Object.fromEntries(TF_CHOICES);
 
 function buildFilters(syms) {
   // Counts are filled in by updateCounts().
   const btn = (cls, group, value, label) => `<button class="${cls}" type="button" data-group="${group}" data-value="${value}">${label}<span class="n"></span></button>`;
-  document.getElementById('marketTabs').innerHTML = MARKETS.map(([v, l]) => btn('mkt', 'market', v, l)).join('');
-  document.getElementById('tfSeg').innerHTML = [['ALL', 'all tf'], ['1H', '1H'], ['4H', '4H'], ['1D', '1D'], ['1W', '1W'], ['ALIGNED', 'aligned']]
-    .map(([v, l]) => btn('opt', 'tf', v, l)).join('');
+  const mktSel = document.getElementById('mktSel'), tfSel = document.getElementById('tfSel');
+  mktSel.innerHTML = MARKETS.map(([v]) => `<option value="${v}">${MARKET_LABEL[v]}</option>`).join('');
+  tfSel.innerHTML = TF_CHOICES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  mktSel.addEventListener('change', () => { F.market = mktSel.value; F.large = false; F.cat = 'ALL'; paint(); applyFilters(); });
+  tfSel.addEventListener('change', () => { F.tf = tfSel.value; paint(); applyFilters(); });
   document.getElementById('dirSeg').innerHTML = [['BULLISH', '<span class="bullish">▲</span>'], ['BEARISH', '<span class="bearish">▼</span>']]
     .map(([v, l]) => btn('opt', 'dir', v, l)).join('');
 
@@ -581,6 +644,8 @@ function buildFilters(syms) {
       b.classList.toggle('on', on);
       b.setAttribute('aria-pressed', on);
     });
+    mktSel.value = F.market; mktSel.classList.toggle('on', F.market !== 'all');
+    tfSel.value = F.tf; tfSel.classList.toggle('on', F.tf !== 'ALL');
     const lc = document.getElementById('largeCaps');
     document.getElementById('lcWrap').classList.toggle('is-hidden', !LARGE_CAP_MARKETS.includes(F.market));
     document.getElementById('catWrap').classList.toggle('is-hidden', !CAT_MARKETS[F.market]);
@@ -659,7 +724,7 @@ function buildWatchlist() {
       const nw = b !== OLDER && [t, s].some(x => x && scanOf(x.first_seen) === b);
       const title = `Open ${tf}${t && s ? ' (trend + SMA 50 watch)' : s ? ' SMA 50 watch' : ''}${nw ? ' · new this batch' : ''}${macd ? ` · ${macd}` : ''}`;
       return `<button type="button" class="${dirClass(w.direction)}${s ? ' s50' : ''}${nw ? ' nw' : ''}" data-tf="${tf}"${m} title="${title}">${tf}${dirArrow(w.direction)}</button>`;
-    }).join('');
+    }).join('') + '<span></span>'.repeat(4 - tfsFor(a).length);
     const tag = (a.tag && a.asset_class !== 'pse' ? `<span class="tag">${a.tag}</span>` : '') + uxTag((live(k).find(w => w.unusual) || {}).unusual);
     // The new watch that put the row here (most recent trigger if several).
     const fresh = b === OLDER ? [] : live(k).filter(w => scanOf(w.first_seen) === b).sort((x, y) => x.candles_ago_most_recent - y.candles_ago_most_recent);
@@ -768,6 +833,31 @@ function selectAsset(id) {
     ? `${entry.higher_tf} <span class="${dc}">${dc}</span> <span class="s50-tag">SMA 50</span> pullback · removed ${fmtTime(entry.removed_at)} (close past EMA20) · touched SMA 50 ${entry.touch_gap ? `${entry.touch_gap} ${entry.touch_gap === 1 ? 'candle' : 'candles'} later` : 'on that candle'} · ${entry.candles_left} of ${entry.life} candles left`
     : `${entry.higher_tf} <span class="${dc}">${dc} continuation</span> · trend${noLsma ? '' : ' + LSMA'} + RSI ${direction === 'BULLISH' ? '&gt; 70' : '&lt; 30'} · ${entry.qualifying_count} of ${entry.window} qualified · last ${ago} ${ago === 1 ? 'candle' : 'candles'} ago`;
 
+  // The charts: the trigger tf and its two lower tfs. One is large (the
+  // trigger tf unless a lower one was enlarged), the others sit side by
+  // side underneath.
+  if (bigFor !== id) { bigTf = null; bigFor = id; }
+  const forex = marketsOf(entry).has('forex');
+  const trades = tradesFor(entry);
+  const blocks = [{ tf: entry.higher_tf, candles: toCandles(entry.candles), visible: entry.window || 25,
+                    opts: { forex, trades, triggers: { marks: entry.marks, times: entry.trigger_times || [], direction, s50: s50 ? entry : null } } }]
+    .concat(lowerTfs.map(ltf => {
+      const c = toCandles(entry.lower_tf_candles[ltf]);
+      return { tf: ltf, candles: c, visible: c.length,
+               opts: { forex, trades, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50: !!cycleStatus[ltf].lines } : null,
+                       triggers: (entry.lower_tf_marks || {})[ltf] ? { marks: entry.lower_tf_marks[ltf], times: [], direction } : null } };
+    }));
+  const bigIdx = Math.max(0, blocks.findIndex(b => b.tf === bigTf));
+  const main = blocks[bigIdx], minis = blocks.filter((_, i) => i !== bigIdx);
+  // A lower tf's entry status (basket picks), for its chart's header.
+  const ltfStatus = (tf) => {
+    const st = cycleStatus && cycleStatus[tf];
+    if (!st) return tf === entry.higher_tf ? 'trigger timeframe' : '';
+    if (st.lines) return Object.entries(st.lines).map(([l, x]) => `${l === 'lsma' ? 'L' : 'S'} ${(STATE_TEXT[x.state] || [x.state])[0]}`).join(' · ');
+    const last = (st.events || []).at(-1);
+    return st.state === 'waiting' && last && last.type === 'entry' ? `entry ${fmtTime(last.time)}` : (STATE_TEXT[st.state] || [st.state])[0];
+  };
+
   const detail = document.getElementById('detail');
   detail.innerHTML = `
     <div class="d-top" data-current-id="${id}">
@@ -775,49 +865,43 @@ function selectAsset(id) {
       <div class="d-right">${tfSwitch}</div>
     </div>
     <div class="d-summary">${summary}${catToday}${setupSw}</div>
-    <div class="d-actions"><button class="bk-btn" id="basketBtn" type="button"></button><button class="plan-btn is-hidden" id="planBtn" type="button" title="Click the entry, then the cut loss, on any chart below">plan trade</button><span class="msg" id="basketMsg"></span>${tradeNote(entry)}</div>
+    <div class="d-actions"><button class="bk-btn" id="basketBtn" type="button"></button><button class="plan-btn is-hidden" id="planBtn" type="button" title="Click the entry, then the cut loss, on any chart below">plan trade</button><span class="msg" id="basketMsg"></span>${tradeNote(entry)}
+      <span class="lg" title="Show or hide on the charts">${indicatorToggles()}</span></div>
     <div class="plan-bar is-hidden" id="planBar"></div>
 
-    <div class="legend">
-      <span class="ind-label">show</span>${indicatorToggles()}
-      <span class="push">ctrl+scroll or pinch to zoom · drag to pan</span>
-    </div>
-    <div class="chart-head"><span class="chart-label">${entry.higher_tf} <span class="dim">trigger timeframe</span></span><button class="reset" id="detail-chart-reset" type="button">reset zoom</button></div>
+    <div class="chart-head" title="ctrl+scroll or pinch to zoom · drag to pan"><span class="chart-label">${main.tf} <span class="dim">${bigIdx ? `enlarged · <button class="link-btn" type="button" id="bigBack">back to ${entry.higher_tf}</button>` : 'trigger timeframe'}</span></span><button class="reset" id="detail-chart-reset" type="button">reset zoom</button></div>
     <div class="chart-box" id="detail-chart"></div>
     <div class="macd-box" id="detail-macd"></div>
     <div class="price-line"><span id="detail-price">—</span><span id="detail-pct">—</span></div>
+    ${cycleStatus ? `<div class="cyc-key"><span style="color:var(--gold-bright)">●</span> pulled back &nbsp;<span style="color:var(--violet)">●</span> armed &nbsp;<span>${dirArrow(direction)}</span> entry${Object.values(cycleStatus).some(c => c && c.lines) ? ` (S = SMA 50, L = LSMA${s50 ? ' · first cross of each only' : ''})` : ''}</div>` : ''}
 
-    <div class="section"><span>LOWER TIMEFRAMES</span>${cycleStatus ? `<span class="cy"><span style="color:var(--gold-bright)">●</span> pulled back &nbsp;<span style="color:var(--violet)">●</span> armed &nbsp;<span>${dirArrow(direction)}</span> entry${Object.values(cycleStatus).some(c => c && c.lines) ? ` (S = SMA 50, L = LSMA${s50 ? ' · first cross of each only' : ''})` : ''}</span>` : ''}</div>
-    ${lowerTfs.map((ltf, li) => `
-      <div class="chart-head"><span class="chart-label">${ltf}</span><button class="reset" id="detail-mini-${li}-reset" type="button">reset zoom</button></div>
-      <div class="chart-box" id="detail-mini-${li}"></div>
-      <div class="macd-box" id="detail-minimacd-${li}"></div>
-    `).join('')}`;
+    <div class="minis">${minis.map((b, i) => `
+      <div>
+        <div class="mini-head"><span><b>${b.tf}</b> <span class="st">${esc(ltfStatus(b.tf))}</span></span>
+          <span><button class="reset" id="detail-mini-${i}-reset" type="button">reset</button> &nbsp;<button class="big" type="button" data-tf="${b.tf}">enlarge</button></span></div>
+        <div class="chart-box" id="detail-mini-${i}"></div>
+        <div class="macd-box" id="detail-minimacd-${i}"></div>
+      </div>`).join('')}
+    </div>`;
 
   detail.querySelectorAll('.tf-sw[data-id], .setup-sw [data-id]').forEach(b => { if (b.dataset.id !== id) b.addEventListener('click', () => selectAsset(b.dataset.id)); });
   detail.querySelectorAll('.ind').forEach(b => b.addEventListener('click', () => setIndicator(b.dataset.key, !shown[b.dataset.key])));
+  detail.querySelectorAll('.minis .big').forEach(b => b.addEventListener('click', () => { if (plan) return; bigTf = b.dataset.tf; selectAsset(id); }));
+  const back = document.getElementById('bigBack');
+  if (back) back.addEventListener('click', () => { if (plan) return; bigTf = null; selectAsset(id); });
   if (!shown.macd) detail.querySelectorAll('.macd-box').forEach(el => el.classList.add('is-hidden'));
   wireBasketButton(entry);
 
-  const forex = marketsOf(entry).has('forex');
-  const candles = toCandles(entry.candles);
-  const trades = tradesFor(entry);
-  addPlanChart(entry.higher_tf, renderBlock(candles, 'detail-chart', 'detail-macd', entry.window || 25,
-    { forex, trades, triggers: { marks: entry.marks, times: entry.trigger_times || [], direction, s50: s50 ? entry : null } }));
-  if (candles.length > 1) {
-    const last = candles[candles.length - 1].close, first = candles[0].close;
+  addPlanChart(main.tf, renderBlock(main.candles, 'detail-chart', 'detail-macd', main.visible, main.opts));
+  if (main.candles.length > 1) {
+    const last = main.candles[main.candles.length - 1].close, first = main.candles[0].close;
     const pct = (last - first) / first * 100;
     document.getElementById('detail-price').textContent = last;
     const pctEl = document.getElementById('detail-pct');
     pctEl.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
     pctEl.className = pct >= 0 ? 'up' : 'down';
   }
-  lowerTfs.forEach((ltf, li) => {
-    const c = toCandles(entry.lower_tf_candles[ltf]);
-    addPlanChart(ltf, renderBlock(c, `detail-mini-${li}`, `detail-minimacd-${li}`, c.length,
-      { forex, trades, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50: !!cycleStatus[ltf].lines } : null,
-        triggers: (entry.lower_tf_marks || {})[ltf] ? { marks: entry.lower_tf_marks[ltf], times: [], direction } : null }));
-  });
+  minis.forEach((b, i) => addPlanChart(b.tf, renderBlock(b.candles, `detail-mini-${i}`, `detail-minimacd-${i}`, b.visible, b.opts)));
 }
 
 // ---------------------------------------------------------------------------
@@ -832,6 +916,7 @@ let tradesList = [];         // trades.json, as last read
 // The first candle from there whose range includes the entry is a missed
 // entry — the plan saves already filled there (unless switched to a
 // pending plan). Clicks right of the last candle make a pending plan.
+let bigTf = null, bigFor = null;   // the enlarged lower tf, and for which watch
 let plan = null;             // { pick, step: 'entry'|'cl'|'adjust', entry, cl, tp, ratio, custom, tf, precision, candles, from, asPending }
 let planCharts = [];         // [{ tf, chart, series, el, precision, lines }]
 const RATIOS = [1, 1.5, 2, 3];
