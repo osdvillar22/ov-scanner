@@ -15,76 +15,66 @@
   .nav a:hover { color: var(--ink); }
   .nav a.on { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); padding-bottom: 2px; }
   .up { color: var(--gain); } .down { color: var(--loss); }
-  main { max-width: 1240px; margin: 0 auto; padding: 8px 16px 48px; }
-  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
-  .summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 22px; margin: 4px 0 12px; font-size: 11.5px; color: var(--ink-dim); }
-  .summary b { color: var(--ink); font-weight: 500; }
-  .big { font-size: 22px; font-weight: 600; }
-  .switch { margin-left: auto; display: flex; gap: 10px; }
-  .switch button { color: var(--ink-faint); font-size: 11px; }
-  .switch button.on { color: var(--ink); text-decoration: underline; text-decoration-color: var(--gold-bright); text-underline-offset: 3px; }
-  .switch .fsep { width: 1px; height: 12px; background: var(--border); align-self: center; }
+  main { max-width: 1240px; margin: 0 auto; padding: 4px 16px 48px; }
 
-  /* Category board: name · bar around zero · % · up/down · watches · intraday line */
-  .row { display: grid; grid-template-columns: 128px minmax(0, 1fr) 64px 58px 70px 74px 100px; gap: 10px; align-items: center; padding: 6px 2px; border-bottom: 1px solid var(--hair); font-size: 11.5px; }
-  .row.h { color: var(--ink-faint); font-size: 10px; letter-spacing: 0.06em; padding-top: 0; }
-  .row.cat { cursor: pointer; }
-  .row.cat:hover { background: var(--surface-raised); }
-  .row.all { font-weight: 600; }
+  /* Controls: market on the left, view options on the right */
+  .bar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin: 8px 0 20px; font-size: 12px; }
+  .bar button { color: var(--ink-faint); }
+  .bar button.on { color: var(--ink); }
+  .bar .mkt.on { box-shadow: inset 0 -2px 0 var(--gold-bright); padding-bottom: 2px; }
+  .bar .sp { flex: 1; }
+  .bar .opt { font-size: 11px; }
+  .bar .sep { width: 1px; height: 11px; background: var(--border); align-self: center; }
+
+  /* The headline: the market's move, then one sentence */
+  .hero { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+  .hero .k { font-size: 13px; color: var(--ink-dim); }
+  .hero .n { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+  .hero .s { font-size: 12px; color: var(--ink-dim); }
+  .read { color: var(--ink-dim); margin: 6px 0 4px; font-size: 12px; line-height: 1.6; }
+  .read b { color: var(--ink); font-weight: 500; }
+  .uxline { font-size: 11px; color: var(--ink-dim); margin: 2px 0 0; }
+  .uxline a { color: var(--violet); text-decoration: none; margin-right: 10px; white-space: nowrap; }
+  .uxline a:hover { text-decoration: underline; }
+
+  /* One table: name · move · tape · today · up/down */
+  .tbl { margin-top: 18px; display: grid; grid-template-columns: 196px 100px minmax(0, 1fr) 86px 126px; align-items: stretch; }
+  .tbl > .h { color: var(--ink-faint); font-size: 10px; letter-spacing: 0.08em; padding: 0 16px 6px 0; border-bottom: 1px solid var(--border); }
+  .tbl > .c { padding: 8px 16px 8px 0; border-bottom: 1px solid var(--hair); min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+  .tbl > .br, .tbl > .brh { padding-right: 0; }
+  .tbl > .c.hov { background: var(--surface); }
   .r { text-align: right; }
-  .name a { color: var(--gold-bright); text-decoration: none; margin-left: 4px; }
-  .name .chev { color: var(--ink-faint); display: inline-block; width: 10px; }
-  .bar { position: relative; height: 10px; }
-  .bar .mid { position: absolute; left: 50%; top: -3px; width: 1px; height: 16px; background: var(--ink-faint); }
-  .bar .fill { position: absolute; top: 0; height: 10px; border-radius: 2px; }
-  .spark { width: 100px; height: 22px; display: block; }
-  .coins { padding: 4px 0 8px 22px; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 2px 18px; font-size: 11px; }
-  .coin { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
-  .coin .w { color: var(--ink-dim); font-size: 10.5px; }
-  .dim { opacity: 0.6; font-size: 10.5px; }
-  .coin .t { color: var(--ink-faint); font-size: 10px; margin-left: 6px; }
-  .note { font-size: 10.5px; color: var(--ink-faint); margin-top: 8px; }
-  h2 { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; color: var(--ink-dim); margin: 18px 0 6px; }
-  h2.first { margin-top: 4px; }
-  /* Unusual activity strip (unusual.py) */
-  .ux { margin: 4px 0 14px; }
-  .ux h2 { margin: 0 0 6px; }
-  .ux h2 span { color: var(--ink-faint); letter-spacing: 0; }
-  .ux-row { display: grid; grid-template-columns: 110px 110px 60px 70px minmax(0, 1fr) 110px; white-space: nowrap; gap: 10px; align-items: center; padding: 5px 2px; border-bottom: 1px solid var(--hair); font-size: 11.5px; }
-  .ux-row:last-child { border-bottom: 0; }
-  .ux-row.h { color: var(--ink-faint); font-size: 10px; letter-spacing: 0.06em; padding-top: 0; }
-  .ux-row a { color: var(--gold-bright); text-decoration: none; margin-left: 4px; }
-  .ux-x { color: var(--violet); font-weight: 600; }
-  @media (max-width: 760px) { .ux-row { grid-template-columns: 70px 50px 56px minmax(0, 1fr) 96px; } .ux-row > :nth-child(2) { display: none; } }
-  .hm th .d { display: block; color: var(--ink-dim); }
-  /* 4H heatmap: 25 columns in one view. */
-  /* Fits one view on desktop; narrower screens scroll it sideways with the
-     category names pinned. */
-  .hm.compact table { font-size: 9.5px; border-spacing: 2px; min-width: 860px; table-layout: fixed; }
-  .hm .k, .hm th:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; box-shadow: -14px 0 0 var(--surface); }
-  .hm.compact th { font-size: 9px; padding: 1px 0; white-space: nowrap; }
-  .hm.compact td { padding: 3px 0; }
-  .hm.compact th:first-child { width: 96px; }
-  .hm.compact td.k { overflow: hidden; text-overflow: ellipsis; }
-  .hm { overflow-x: auto; }
-  .hm table { border-collapse: separate; border-spacing: 3px; font-size: 10.5px; min-width: 640px; width: 100%; }
-  .hm th { color: var(--ink-faint); font-weight: 400; padding: 2px; }
-  .hm td { text-align: center; padding: 4px 2px; border-radius: 3px; color: var(--ink); }
-  .hm td.k { text-align: left; color: var(--ink-dim); white-space: nowrap; }
-  /* Market switch (crypto | PSE) */
-  .mkt { display: flex; gap: 16px; margin: 6px 0 2px; font-size: 12px; }
-  .mkt button { color: var(--ink-faint); padding-bottom: 2px; }
-  .mkt button.on { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); }
-  /* PSE: PSE's own sector index beside our number */
-  #board.with-ix .row { grid-template-columns: 128px minmax(0, 1fr) 64px 58px 58px 70px 74px 100px; }
-  .ix { color: var(--ink-dim); font-size: 10.5px; }
-  .coins .subh { grid-column: 1 / -1; color: var(--ink-dim); font-size: 10px; letter-spacing: 0.05em; margin-top: 4px; }
+  .nm { display: block !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; align-content: center; }
+  .nm .chev { display: inline-block; width: 12px; color: var(--ink-faint); }
+  .nm a { color: var(--gold-bright); text-decoration: none; margin-left: 4px; }
+  .ref .nm, .ref.mv { font-weight: 600; }
+  .mv { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .mv small { display: block; font-weight: 400; font-size: 9.5px; color: var(--ink-faint); }
+  .td { text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .tape { display: grid; gap: 2px; height: 16px; }
+  .tape i { display: block; border-radius: 2px; min-width: 0; }
+  .tape i.now { outline: 1px solid var(--ink); outline-offset: 1px; }
+  .tape i.none { background: var(--hair); }
+  .tbl > .br { flex-direction: row; align-items: center; gap: 7px; font-size: 10px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .br .b { flex: 1; height: 4px; border-radius: 2px; background: var(--loss); overflow: hidden; }
+  .br .b i { display: block; height: 100%; background: var(--gain); }
+  .kids { grid-column: 1 / -1; padding: 6px 0 12px 12px; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 3px 22px; font-size: 11px; }
+  .kids .k { display: flex; justify-content: space-between; gap: 8px; }
+  .kids .w { color: var(--ink-dim); font-size: 10px; }
+  .kids .t { color: var(--ink-faint); font-size: 10px; margin-left: 6px; }
+  .kids .subh { grid-column: 1 / -1; color: var(--ink-faint); font-size: 9.5px; letter-spacing: 0.06em; margin-top: 6px; }
+  .foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; color: var(--ink-faint); font-size: 10.5px; margin-top: 10px; }
+  .scale { display: flex; align-items: center; gap: 6px; }
+  .scale i { width: 64px; height: 5px; border-radius: 2px; background: linear-gradient(90deg, var(--loss), var(--hair), var(--gain)); }
+  .empty { color: var(--ink-dim); padding: 24px 0; }
   @media (max-width: 760px) {
-    .row, #board.with-ix .row { grid-template-columns: 100px minmax(0, 1fr) 58px 50px 60px; }
-    #board.with-ix .row > :nth-child(5), #board.with-ix .row > :nth-child(7), #board.with-ix .row > :nth-child(8) { display: none; }
-    #board.with-ix .row > :nth-child(6) { display: block; }
-    .row > :nth-child(6), .row > :nth-child(7) { display: none; }
-    .switch { margin-left: 0; }
+    .tbl { grid-template-columns: 100px 72px minmax(0, 1fr) 58px; }
+    .tbl > .c, .tbl > .h { padding-right: 10px; }
+    .tbl > .h { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nm a, .mv small { display: none; }
+    .tbl > .br, .tbl > .h.brh { display: none; }
+    .hero .n { font-size: 28px; }
+    .bar .sp { flex-basis: 100%; height: 0; }
   }
 </style>
 </head>
@@ -96,168 +86,162 @@
     </div>
   </header>
   <main>
-    <div class="mkt" id="mkt"><button type="button" data-m="crypto">crypto</button><button type="button" data-m="pse">PSE</button></div>
-    <div class="summary" id="summary"></div>
-    <div id="unusual"></div>
-    <h2 id="hm4Title" class="first"></h2>
-    <div class="panel hm compact" id="history4h"></div>
-    <h2 id="boardTitle">CATEGORIES</h2>
-    <div class="panel"><div id="board"><div class="empty">Loading…</div></div>
-      <div class="note" id="note"></div></div>
-    <h2 id="hmTitle">LAST 14 DAYS · 10-DAY MOVE PER CATEGORY</h2>
-    <div class="panel hm" id="history"></div>
+    <div class="bar" id="bar">
+      <button type="button" class="mkt" data-m="crypto">crypto</button><button type="button" class="mkt" data-m="pse">PSE</button>
+      <span class="sp"></span>
+      <button type="button" class="opt" data-tape="4h">4H tape</button><button type="button" class="opt" data-tape="d">daily tape</button>
+      <span class="sep"></span>
+      <button type="button" class="opt" data-w="med">median</button><button type="button" class="opt" data-w="vw" id="vwBtn">volume-wtd</button>
+      <span class="sep"></span>
+      <button type="button" class="opt" data-s="all" id="allBtn">all</button><button type="button" class="opt" data-s="large" id="largeBtn">large caps</button>
+    </div>
+    <div id="top"></div>
+    <div class="tbl" id="tbl"><div class="empty">Loading…</div></div>
+    <div class="foot"><span id="cap"></span><span class="scale" id="scale"></span></div>
   </main>
 <script src="ov.js"></script>
 <script>
 let D = null;
-const S = { market: 'crypto', weight: 'vw', set: 'all', open: new Set() };
-try { Object.assign(S, JSON.parse(localStorage.getItem('ovs-crypto') || '{}'), { open: new Set() }); } catch (e) {}
+const S = { market: 'crypto', weight: 'med', set: 'all', tape: '4h', open: new Set() };
+try { Object.assign(S, JSON.parse(localStorage.getItem('ovs-markets') || '{}'), { open: new Set() }); } catch (e) {}
 // crypto.html?m=pse opens the PSE tab.
 const qm = new URLSearchParams(location.search).get('m');
 if (qm === 'pse' || qm === 'crypto') S.market = qm;
-const save = () => { try { localStorage.setItem('ovs-crypto', JSON.stringify({ market: S.market, weight: S.weight, set: S.set })); } catch (e) {} };
-// Words that differ between the two markets.
-const WORDS = {
-  crypto: { one: 'coin', many: 'coins', large: 'large caps', cat: 'CATEGORY', cats: 'CATEGORIES', weight: 'volume-weighted',
-            weightTitle: 'Each coin weighted by its median daily USD volume over the past 14 days',
-            today: "today = since 8:00 AM Manila (00:00 UTC, Kraken's daily candle)", days: (n) => `LAST ${n} DAYS`,
-          ux: 'volume ≥ 20× usual and price up ≥ 5% in 4h' },
-  pse: { one: 'stock', many: 'stocks', large: 'PSEi 30', cat: 'SECTOR', cats: 'SECTORS', weight: 'value-weighted',
-         weightTitle: 'Each stock weighted by its median daily traded value over the past 14 sessions',
-         today: "today = against the previous session's close · index = PSE's own sector index", days: (n) => `LAST ${n} SESSIONS`,
-         ux: 'peso value ≥ 5× its usual hour, at least ₱1M, and price up ≥ 5% in 4 trading hours' },
-};
+const save = () => { try { localStorage.setItem('ovs-markets', JSON.stringify({ market: S.market, weight: S.weight, set: S.set, tape: S.tape })); } catch (e) {} };
 const pct = (v) => v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}%`;
 const cls = (v) => v > 0 ? 'up' : v < 0 ? 'down' : '';
 
-function spark(vals) {
-  if (!vals || vals.length < 2) return '<svg class="spark"></svg>';
-  const lo = Math.min(0, ...vals), hi = Math.max(0, ...vals), span = hi - lo || 1;
-  const y = (v) => 20 - (v - lo) / span * 18, x = (i) => i / (vals.length - 1) * 98 + 1;
-  const last = vals[vals.length - 1];
-  return `<svg class="spark" viewBox="0 0 100 22" preserveAspectRatio="none"><line x1="0" x2="100" y1="${y(0)}" y2="${y(0)}" stroke="var(--border)" stroke-width="1"/><polyline fill="none" stroke="var(--${last >= 0 ? 'gain' : 'loss'})" stroke-width="1.4" vector-effect="non-scaling-stroke" points="${vals.map((v, i) => `${x(i)},${y(v)}`).join(' ')}"/></svg>`;
-}
+// Words that differ between the two markets.
+const WORDS = {
+  crypto: { one: 'coin', many: 'coins', large: 'large caps', cat: 'category', cats: 'categories', vw: 'volume-wtd',
+            today: "today = since 8:00 AM Manila (Kraken's daily candle)", day: 'day', days: 'days' },
+  pse: { one: 'stock', many: 'stocks', large: 'PSEi 30', cat: 'sector', cats: 'sectors', vw: 'value-wtd',
+         today: "today = against the previous session's close · index = PSE's own sector index", day: 'session', days: 'sessions' },
+};
+
+// Tape colour: loss / gain mixed into the page by size of the move
+// (full colour at `scale` %).
+const tint = (m, scale) => {
+  const a = Math.min(1, Math.abs(m) / scale);
+  return `color-mix(in srgb, var(--${m >= 0 ? 'gain' : 'loss'}) ${Math.round(18 + a * 82)}%, var(--hair))`;
+};
 
 function render() {
-  // The move: price now against the close N 4H candles back (older
-  // crypto.json without it: today's move).
-  const set = D.sets[S.set] || D.sets.all, today = set.move || set.today, day = set.today, all = today.ALL || {};
-  const N = D.move_candles || 10, LB = D.history_lookback_days || 10, span = set.move ? `${N}×4H` : 'today';
-  const mk = D.market || 'crypto', W = WORDS[mk], REF = D.ref_key || 'BTC', REF_L = D.ref_label || 'BTC', ALL_L = D.all_label || 'all crypto';
-  const IX = D.sector_index || {}, withIx = Object.keys(IX).length > 0;
-  document.querySelectorAll('#mkt button').forEach(b => b.classList.toggle('on', b.dataset.m === mk));
-  document.getElementById('boardTitle').textContent = W.cats;
+  const mk = D.market || 'crypto', W = WORDS[mk];
+  const set = D.sets[S.set] || D.sets.all, mv = set.move || set.today, day = set.today, all = mv.ALL || {};
+  const N = D.move_candles || 40, LB = D.history_lookback_days || 10;
+  const REF = D.ref_key || 'BTC', REF_L = D.ref_label || 'BTC', ALL_L = D.all_label || 'all crypto';
+  const IX = D.sector_index || {};
   const v = (s) => s ? s[S.weight] : null;
-  // Unusual activity: coins flagged in the last 24 h, newest first.
-  const mk0 = D.market || 'crypto', ux = D.unusual || [];
-  const wOf = (t) => (D.coins.find(c => c.t === t) || {}).w || [];
-  document.getElementById('unusual').innerHTML = !ux.length ? '' : `<div class="ux"><h2>UNUSUAL ACTIVITY · LAST 24 H <span>· ${WORDS[mk0].ux} — an early look, not an entry</span></h2>
-    <div class="panel"><div class="ux-row h"><span>${WORDS[mk0].one.toUpperCase()}</span><span>${WORDS[mk0].cat}</span><span class="r">VOLUME</span><span class="r">4H MOVE</span><span>WATCH</span><span class="r">SEEN</span></div>
-    ${ux.map(f => { const w = wOf(f.ticker); return `<div class="ux-row"><span>${esc(f.name.split('/')[0])}<a href="dashboard.html?market=${mk0}&q=${encodeURIComponent(f.name.split('/')[0])}" title="Open on the dashboard">↗</a></span><span style="color:var(--ink-dim)">${esc(f.cat || '—')}</span><span class="r ux-x">${f.x}×</span><span class="r up">+${f.mv4}%</span><span>${w.length ? w.map(([tf, d]) => `<span class="${d === 'BULLISH' ? 'up' : 'down'}">${tf}${dirArrow(d)}</span>`).join(' ') : '<span style="color:var(--ink-faint)">—</span>'}</span><span class="r" style="color:var(--ink-dim)">${fmtTime(f.t)}</span></div>`; }).join('')}</div></div>`;
-  // Board rows: the category's biggest flagged coin.
+  const span = mk === 'pse' ? `${N / 2} sessions` : `${+(N * 4 / 24).toFixed(1)} days`;
+
+  // Controls
+  document.querySelectorAll('#bar [data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === mk));
+  document.querySelectorAll('#bar [data-tape]').forEach(b => b.classList.toggle('on', b.dataset.tape === S.tape));
+  document.querySelectorAll('#bar [data-w]').forEach(b => b.classList.toggle('on', b.dataset.w === S.weight));
+  document.querySelectorAll('#bar [data-s]').forEach(b => b.classList.toggle('on', b.dataset.s === S.set));
+  document.getElementById('vwBtn').textContent = W.vw;
+  document.getElementById('allBtn').textContent = `all ${W.many}`;
+  document.getElementById('largeBtn').textContent = W.large;
+  document.getElementById('largeBtn').disabled = !D.sets.large;
+  document.getElementById('meta').innerHTML = `as of <strong>${fmtTime(D.generated_at)}</strong>`;
+
+  // Headline: the reference (PSEi / BTC) for PSE, all crypto for crypto.
+  const refs = D.ref_move || {}, refToday = D.ref || {};
+  const heroKey = mk === 'pse' ? 'PSEi' : null;
+  const heroMove = heroKey ? refs[heroKey] : v(all), heroToday = heroKey ? refToday[heroKey] : v(day.ALL);
+  const cats = D.categories.filter(c => mv[c]).sort((a, b) => v(mv[b]) - v(mv[a]));
+  const downN = cats.filter(c => v(mv[c]) < 0).length, upN = cats.length - downN;
+  const best = cats[0], worst = cats[cats.length - 1];
+  const lead = downN > upN
+    ? `<b>Down in ${downN} of ${cats.length} ${W.cats}.</b> ${esc(worst)} leads the selling; ${esc(best)} ${v(mv[best]) >= 0 ? 'is the one up most' : 'holds up best'}.`
+    : `<b>Up in ${upN} of ${cats.length} ${W.cats}.</b> ${esc(best)} leads; ${esc(worst)} ${v(mv[worst]) < 0 ? 'is down most' : 'lags'}.`;
+  const others = mk === 'pse'
+    ? `${esc(ALL_L)} ${pct(v(all))} · `
+    : Object.entries(refs).map(([k, x]) => `${k} <span class="${cls(x)}">${pct(x)}</span>`).join(' · ') + ' · ';
+  const ux = D.unusual || [];
+  document.getElementById('top').innerHTML = `
+    <div class="hero"><span class="k">${heroKey ? 'PSEi' : 'crypto'}</span><span class="n ${cls(heroMove)}">${pct(heroMove)}</span>
+      <span class="s">over ${span} · <span class="${cls(heroToday)}">${pct(heroToday)}</span> today${D.ref_level ? ` · ${D.ref_level.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ''}</span></div>
+    <div class="read">${lead} ${others}${all.up ?? 0} ${W.many} up, ${all.down ?? 0} down · watches <span class="up">▲${all.bull ?? 0}</span> <span class="down">▼${all.bear ?? 0}</span></div>
+    ${ux.length ? `<div class="uxline">unusual volume today: ${ux.map(f => `<a href="dashboard.html?market=${mk}&q=${encodeURIComponent(f.name.split('/')[0])}" title="${f.x}× its usual volume, +${f.mv4}% in 4h · ${esc(f.cat || '')} · ${fmtTime(f.t)}">${esc(f.name.split('/')[0])} ${f.x}×</a>`).join('')}</div>` : ''}`;
   const uxCat = {};
   ux.forEach(f => { if (f.cat && (!uxCat[f.cat] || f.x > uxCat[f.cat].x)) uxCat[f.cat] = f; });
+  const uxOf = {};
+  ux.forEach(f => { uxOf[f.ticker] = f; });
 
-  document.getElementById('meta').innerHTML = `as of <strong>${fmtTime(D.generated_at)}</strong> · ${mk === 'pse' ? `session ${fmtTime(D.day_start)} – 3:30 PM` : `day started ${fmtTime(D.day_start)}`}`;
-  const back = mk === 'pse' ? `~${N / 2} trading days` : N * 4 >= 48 ? `~${+(N * 4 / 24).toFixed(1)} days` : `~${N * 4} h`;
-  document.getElementById('note').textContent = `Move = price now against the close ${N} 4H candles back (${back}) · ${W.today} · tap a ${W.cat.toLowerCase()} for its ${W.many} · ↗ opens the dashboard filtered to it · updates with each hourly scan`;
-  document.getElementById('hmTitle').textContent = `${W.days(set.days.length)} · ${LB}-DAY MOVE PER ${W.cat} (EACH DAY'S CLOSE AGAINST ${LB} ${mk === 'pse' ? 'SESSIONS' : 'DAYS'} BEFORE)`;
-  const refs = D.ref_move || D.ref || {};
-  // PSE leads with the PSEi itself; crypto with all crypto.
-  const lead = mk === 'pse'
-    ? `<span>PSEi ${span} <span class="big ${cls(refs.PSEi)}">${pct(refs.PSEi)}</span> <span class="dim ${cls((D.ref || {}).PSEi)}">today ${pct((D.ref || {}).PSEi)}</span></span>
-       ${D.ref_level ? `<span>${D.ref_level.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>` : ''}
-       <span>${ALL_L} <b class="${cls(v(all))}">${pct(v(all))}</b> <span class="dim ${cls(v(day.ALL))}">today ${pct(v(day.ALL))}</span></span>`
-    : `<span>crypto ${span} <span class="big ${cls(v(all))}">${pct(v(all))}</span> <span class="dim ${cls(v(day.ALL))}" title="Since 8:00 AM Manila">today ${pct(v(day.ALL))}</span></span>
-       ${Object.entries(refs).map(([k, x]) => `<span>${k} <b class="${cls(x)}">${pct(x)}</b> <span class="dim ${cls((D.ref || {})[k])}">today ${pct((D.ref || {})[k])}</span></span>`).join('')}`;
-  document.getElementById('summary').innerHTML = `
-    ${lead}
-    <span>up <b class="up">${all.up ?? 0}</b> · down <b class="down">${all.down ?? 0}</b> of ${all.n ?? 0}</span>
-    <span>watches <b class="up">▲${all.bull ?? 0}</b> <b class="down">▼${all.bear ?? 0}</b></span>
-    <span class="switch">
-      <button type="button" data-w="vw" class="${S.weight === 'vw' ? 'on' : ''}" title="${W.weightTitle}">${W.weight}</button>
-      <button type="button" data-w="med" class="${S.weight === 'med' ? 'on' : ''}" title="The middle ${W.one}'s move">median ${W.one}</button>
-      <span class="fsep"></span>
-      <button type="button" data-s="all" class="${S.set === 'all' ? 'on' : ''}">all ${W.many}</button>
-      <button type="button" data-s="large" class="${S.set === 'large' ? 'on' : ''}"${D.sets.large ? '' : ' disabled'}>${W.large}</button>
-    </span>`;
-  document.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => { S.weight = b.dataset.w; save(); render(); }));
-  document.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => { S.set = b.dataset.s; save(); render(); }));
+  // Tape: 4H (the move at each 4H close) or daily (each close vs LB before).
+  const cols = S.tape === 'd' ? set.days : (set.bars_4h || []);
+  const scale = S.tape === 'd' ? 15 : 12;
+  const colLabel = (c, i) => i === cols.length - 1 ? 'now'
+    : S.tape === 'd' ? new Date(`${c.date}T00:00:00Z`).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    : new Date(c.time).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const tape = (key) => `<span class="tape" style="grid-template-columns:repeat(${cols.length},minmax(0,1fr))">${cols.map((c, i) => {
+    const m = v(c[key]), last = i === cols.length - 1 ? ' now' : '';
+    return m == null ? `<i class="none${last}"></i>` : `<i class="${last.trim()}" style="background:${tint(m, scale)}" title="${colLabel(c, i)}: ${pct(m)}"></i>`;
+  }).join('')}</span>`;
 
-  const cats = D.categories.filter(c => today[c]).sort((a, b) => v(today[b]) - v(today[a]));
-  const maxAbs = Math.max(1, ...cats.map(c => Math.abs(v(today[c]))), Math.abs(v(all)) || 0, Math.abs(v(today[REF])) || 0);
+  // Rows
   const cm = (x) => set.move ? x.m : x.chg;
-  const coinsOf = (c) => D.coins.filter(x => x.c === c && (S.set === 'all' || x.l) && cm(x) != null).sort((a, b) => cm(b) - cm(a));
   const med = (a) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), h = s.length >> 1; return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2; };
-  const coinCell = (x) => `<div class="coin"><span>${esc(x.n.split('/')[0])} ${x.w.length ? `<span class="w">${x.w.map(([tf, d, st]) => `<span class="${d === 'BULLISH' ? 'up' : 'down'}">${tf}${dirArrow(d)}${st === 'sma50' ? '·50' : ''}</span>`).join(' ')}</span>` : ''}</span><span><span class="${cls(cm(x))}">${pct(cm(x))}</span>${set.move ? `<span class="t ${cls(x.chg)}" title="today">${pct(x.chg)}</span>` : ''}</span></div>`;
-  // PSE: a sector's stocks grouped by subsector (median move in the header).
-  const coinList = (key) => {
-    const list = coinsOf(key);
+  const coinCell = (x) => `<div class="k"><span>${esc(x.n.split('/')[0])}${uxOf[x.t] ? uxTag(uxOf[x.t]) : ''} ${x.w.length ? `<span class="w">${x.w.map(([tf, d]) => `<span class="${d === 'BULLISH' ? 'up' : 'down'}">${tf}${dirArrow(d)}</span>`).join(' ')}</span>` : ''}</span><span><span class="${cls(cm(x))}">${pct(cm(x))}</span><span class="t ${cls(x.chg)}" title="today">${pct(x.chg)}</span></span></div>`;
+  const kids = (key) => {
+    const list = D.coins.filter(x => x.c === key && (S.set === 'all' || x.l) && cm(x) != null).sort((a, b) => cm(b) - cm(a));
     if (mk !== 'pse') return list.map(coinCell).join('');
     const subs = {};
     list.forEach(x => (subs[x.s || key] = subs[x.s || key] || []).push(x));
+    const many = Object.keys(subs).length > 1;
     return Object.entries(subs).sort((a, b) => med(b[1].map(cm)) - med(a[1].map(cm)))
-      .map(([s, xs]) => `${Object.keys(subs).length > 1 || s !== key ? `<div class="subh">${esc(s.toUpperCase())} <span class="${cls(med(xs.map(cm)))}">${pct(med(xs.map(cm)))}</span> · ${xs.length}</div>` : ''}${xs.map(coinCell).join('')}`).join('');
+      .map(([s, xs]) => `${many ? `<div class="subh">${esc(s.toUpperCase())} <span class="${cls(med(xs.map(cm)))}">${pct(med(xs.map(cm)))}</span> · ${xs.length}</div>` : ''}${xs.map(coinCell).join('')}`).join('');
   };
-  const row = (key, label, isAll) => {
-    if (!today[key]) return '';
-    const s = today[key], m = v(s), w = Math.min(50, Math.abs(m) / maxAbs * 50), open = S.open.has(key);
-    const series = ((set.intraday.series[key] || {})[S.weight]) || [];
-    return `<div class="row ${isAll ? 'all' : 'cat'}" data-cat="${isAll ? '' : esc(key)}">
-      <span class="name">${isAll ? '' : `<span class="chev">${open ? '▾' : '▸'}</span>`}${esc(label)}${isAll ? '' : `<a href="dashboard.html?market=${mk}&cat=${encodeURIComponent(key)}" title="Open the dashboard filtered to ${esc(key)}">↗</a>`}${!isAll && uxCat[key] ? uxTag(uxCat[key], uxCat[key].name.split('/')[0]) : ''}</span>
-      <span class="bar"><span class="mid"></span><span class="fill" style="${m >= 0 ? 'left' : 'right'}:50%;width:${w}%;background:var(--${m >= 0 ? 'gain' : 'loss'})"></span></span>
-      <span class="r ${cls(m)}">${pct(m)}</span>
-      <span class="r dim ${cls(v(day[key]))}">${set.move ? pct(v(day[key])) : ''}</span>
-      ${withIx ? `<span class="r ix" title="PSE's own ${esc(key)} index: ${N}×4H move${IX[key] ? ` · today ${pct(IX[key].chg)}` : ''}">${IX[key] ? pct(IX[key].m) : ''}</span>` : ''}
-      <span class="r">${key === REF ? '' : `<span class="up">${s.up}</span>/<span class="down">${s.down}</span>`}</span>
-      <span class="r"><span class="up">▲${s.bull || 0}</span> <span class="down">▼${s.bear || 0}</span></span>
-      ${spark(series)}
-    </div>${open ? `<div class="coins">${coinList(key)}</div>` : ''}`;
+  const row = (key, label, ref) => {
+    const s = mv[key];
+    if (!s) return '';
+    const m = v(s), t = v(day[key]), open = S.open.has(key), ix = IX[key];
+    const ud = key === REF ? '' : `<span class="b"><i style="width:${s.n ? s.up / s.n * 100 : 0}%"></i></span>${s.up}/${s.down}`;
+    const attrs = `data-k="${ref ? '' : esc(key)}"`;
+    return `<div class="c nm ${ref ? 'ref' : ''}" ${attrs}>${ref ? '' : `<span class="chev">${open ? '▾' : '▸'}</span>`}${esc(label)}${ref ? '' : `<a href="dashboard.html?market=${mk}&cat=${encodeURIComponent(key)}" title="Open the dashboard filtered to ${esc(key)}">↗</a>`}${!ref && uxCat[key] ? uxTag(uxCat[key], uxCat[key].name.split('/')[0]) : ''}</div>
+      <div class="c mv ${ref ? 'ref' : ''} ${cls(m)}" ${attrs}>${pct(m)}${ix ? `<small title="PSE's own ${esc(key)} index">index ${pct(ix.m)}</small>` : ''}</div>
+      <div class="c" ${attrs}>${tape(key)}</div>
+      <div class="c td ${cls(t)}" ${attrs}>${pct(t)}</div>
+      <div class="c br" ${attrs}>${ud}</div>
+      ${open ? `<div class="kids">${kids(key)}</div>` : ''}`;
   };
-  const board = document.getElementById('board');
-  board.classList.toggle('with-ix', withIx);
-  board.innerHTML = `
-    <div class="row h"><span>${W.cat}</span><span style="text-align:center">${span.toUpperCase()}</span><span class="r">MOVE</span><span class="r">TODAY</span>${withIx ? '<span class="r">INDEX</span>' : ''}<span class="r">UP/DOWN</span><span class="r">WATCHES</span><span>INTRADAY</span></div>
+  const first = cols[0], tapeHead = !cols.length ? '' : S.tape === 'd'
+    ? `LAST ${cols.length} ${W.days.toUpperCase()} → TODAY`
+    : `LAST ${cols.length} × 4H → NOW`;
+  document.getElementById('tbl').innerHTML = `
+    <div class="h">${W.cat.toUpperCase()}</div><div class="h r">${N}×4H MOVE</div><div class="h">${tapeHead}</div><div class="h r">TODAY</div><div class="h brh">UP / DOWN</div>
     ${row(REF, REF_L, true)}${row('ALL', ALL_L, true)}${cats.map(c => row(c, c, false)).join('')}`;
-  document.querySelectorAll('.row.cat').forEach(r => r.addEventListener('click', (e) => {
-    if (e.target.closest('a')) return;
-    const k = r.dataset.cat; S.open.has(k) ? S.open.delete(k) : S.open.add(k); render();
-  }));
-
-  // Heatmaps: columns oldest to newest, the last one still forming.
-  const heat = (id, cols, label, scale) => {
-    const cell = (s) => {
-      if (!s) return '<td style="color:var(--ink-faint)">—</td>';
-      const m = v(s), a = Math.min(1, Math.abs(m) / scale);
-      return `<td style="background:color-mix(in srgb, var(--${m >= 0 ? 'gain' : 'loss'}) ${Math.round(12 + a * 58)}%, transparent)" title="${pct(m)} · ${s.up} up / ${s.down} down">${m > 0 ? '+' : ''}${m.toFixed(1)}</td>`;
-    };
-    document.getElementById(id).innerHTML = `<table><tr><th></th>${cols.map((c, i) => `<th>${label(c, i)}</th>`).join('')}</tr>
-      ${[[REF, REF_L], ['ALL', ALL_L], ...D.categories.map(c => [c, c])].map(([k, l]) => `<tr><td class="k">${esc(l)}</td>${cols.map(c => cell(c[k])).join('')}</tr>`).join('')}</table>`;
-  };
-  const days = set.days;
-  heat('history', days, (d, i) => i === days.length - 1 ? 'today' : new Date(`${d.date}T00:00:00Z`).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' }), 15);
-  const bars = set.bars_4h || [];
-  document.getElementById('hm4Title').textContent = `LAST ${bars.length} × 4H · ${N}×4H MOVE PER ${W.cat} (EACH 4H CLOSE AGAINST ${N} CANDLES BEFORE${mk === 'pse' ? ' · 2 CANDLES A SESSION' : ''})`;
-  document.getElementById('hm4Title').hidden = document.getElementById('history4h').hidden = !bars.length;
-  // 4H columns in local time, with the date over the first candle of each day.
-  const dayOf = (b) => new Date(b.time).toLocaleDateString([], { month: 'short', day: 'numeric' });
-  heat('history4h', bars, (b, i) => {
-    const t = new Date(b.time), first = i === 0 || dayOf(bars[i - 1]) !== dayOf(b);
-    const hr = i === bars.length - 1 ? 'now' : t.toLocaleTimeString([], mk === 'pse' ? { hour: 'numeric', minute: '2-digit' } : { hour: 'numeric' }).replace(' ', '').toLowerCase();
-    return `<span class="d">${first ? dayOf(b) : '&nbsp;'}</span>${hr}`;
-  }, 12);
+  document.querySelectorAll('#tbl [data-k]').forEach(el => {
+    const k = el.dataset.k;
+    if (!k) return;
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return;
+      S.open.has(k) ? S.open.delete(k) : S.open.add(k); render();
+    });
+    el.addEventListener('mouseenter', () => document.querySelectorAll(`#tbl [data-k="${CSS.escape(k)}"]`).forEach(x => x.classList.add('hov')));
+    el.addEventListener('mouseleave', () => document.querySelectorAll(`#tbl .hov`).forEach(x => x.classList.remove('hov')));
+  });
+  document.getElementById('cap').textContent = (S.tape === 'd'
+    ? `Tape: each cell = that ${W.day}'s close against ${LB} ${W.days} before`
+    : `Tape: each cell = the ${N}×4H move at that 4H close`) + ` · outlined = now · ${N}×4H move = price now against the close ${N} 4H candles back · ${W.today} · tap a ${W.cat} for its ${W.many}`;
+  document.getElementById('scale').innerHTML = `−${scale}% <i></i> +${scale}%`;
 }
 
 // crypto.json / pse.json, written by the hourly scan.
 function load(market) {
   S.market = market; S.open = new Set(); save();
-  document.querySelectorAll('#mkt button').forEach(b => b.classList.toggle('on', b.dataset.m === market));
+  document.querySelectorAll('#bar [data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === market));
   fetch(`${market}.json`, { cache: 'no-cache' })
     .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
     .then(d => { if (S.market === market) { D = d; render(); } })
-    .catch(err => { document.getElementById('board').innerHTML = `<div class="empty">Couldn't load ${market}.json (${esc(err.message)}) — it's written by the hourly scan.</div>`; });
+    .catch(err => { document.getElementById('tbl').innerHTML = `<div class="empty">Couldn't load ${market}.json (${esc(err.message)}). It's written by the hourly scan.</div>`; });
 }
-document.querySelectorAll('#mkt button').forEach(b => b.addEventListener('click', () => { if (b.dataset.m !== S.market) load(b.dataset.m); }));
+document.querySelectorAll('#bar [data-m]').forEach(b => b.addEventListener('click', () => { if (b.dataset.m !== S.market) load(b.dataset.m); }));
+document.querySelectorAll('#bar [data-tape]').forEach(b => b.addEventListener('click', () => { S.tape = b.dataset.tape; save(); render(); }));
+document.querySelectorAll('#bar [data-w]').forEach(b => b.addEventListener('click', () => { S.weight = b.dataset.w; save(); render(); }));
+document.querySelectorAll('#bar [data-s]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { S.set = b.dataset.s; save(); render(); } }));
 load(S.market);
 </script>
 </body>
