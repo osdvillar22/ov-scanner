@@ -64,6 +64,17 @@
   .kids .t { color: var(--ink-faint); font-size: 10px; margin-left: 6px; }
   .kids .subh { grid-column: 1 / -1; color: var(--ink-faint); font-size: 9.5px; letter-spacing: 0.06em; margin-top: 6px; }
   .foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; color: var(--ink-faint); font-size: 10.5px; margin-top: 10px; }
+  /* Line view: each row's 40×4H move over the last 40 4H closes */
+  .spark { display: block; width: 100%; height: 32px; overflow: visible; }
+  .bigv { grid-column: 1 / -1; padding: 10px 0 6px; }
+  .bv-h { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--ink-dim); margin-bottom: 6px; }
+  .bv-h b { color: var(--ink); font-weight: 500; }
+  .bv-plot { position: relative; height: 150px; margin-left: 40px; touch-action: pan-y; }
+  .bv-plot svg { display: block; width: 100%; height: 100%; }
+  .bv-y { position: absolute; left: -40px; width: 34px; text-align: right; font-size: 9.5px; color: var(--ink-faint); transform: translateY(-50%); }
+  .bv-guide { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ink-faint); display: none; pointer-events: none; }
+  .bv-x { display: flex; justify-content: space-between; margin-left: 40px; font-size: 9.5px; color: var(--ink-faint); margin-top: 3px; }
+  .bv-read { font-size: 10.5px; color: var(--ink-dim); margin: 4px 0 0 40px; min-height: 1.4em; }
   .scale { display: flex; align-items: center; gap: 6px; }
   .scale i { width: 64px; height: 5px; border-radius: 2px; background: linear-gradient(90deg, var(--loss), var(--hair), var(--gain)); }
   .empty { color: var(--ink-dim); padding: 24px 0; }
@@ -89,7 +100,7 @@
     <div class="bar" id="bar">
       <button type="button" class="mkt" data-m="crypto">crypto</button><button type="button" class="mkt" data-m="pse">PSE</button>
       <span class="sp"></span>
-      <button type="button" class="opt" data-tape="4h">4H tape</button><button type="button" class="opt" data-tape="d">daily tape</button>
+      <button type="button" class="opt" data-tape="line">line</button><button type="button" class="opt" data-tape="4h">4H tape</button><button type="button" class="opt" data-tape="d">daily tape</button>
       <span class="sep"></span>
       <button type="button" class="opt" data-w="med">median</button><button type="button" class="opt" data-w="vw" id="vwBtn">volume-wtd</button>
       <span class="sep"></span>
@@ -102,12 +113,16 @@
 <script src="ov.js"></script>
 <script>
 let D = null;
-const S = { market: 'crypto', weight: 'med', set: 'all', tape: '4h', open: new Set() };
-try { Object.assign(S, JSON.parse(localStorage.getItem('ovs-markets') || '{}'), { open: new Set() }); } catch (e) {}
+const S = { market: 'crypto', weight: 'med', set: 'all', tape: 'line', open: new Set() };
+try {
+  const saved = JSON.parse(localStorage.getItem('ovs-markets') || '{}');
+  Object.assign(S, saved, { open: new Set() });
+  if (!saved.v2) S.tape = 'line';   // the line view is new — show it once
+} catch (e) {}
 // crypto.html?m=pse opens the PSE tab.
 const qm = new URLSearchParams(location.search).get('m');
 if (qm === 'pse' || qm === 'crypto') S.market = qm;
-const save = () => { try { localStorage.setItem('ovs-markets', JSON.stringify({ market: S.market, weight: S.weight, set: S.set, tape: S.tape })); } catch (e) {} };
+const save = () => { try { localStorage.setItem('ovs-markets', JSON.stringify({ market: S.market, weight: S.weight, set: S.set, tape: S.tape, v2: true })); } catch (e) {} };
 const pct = (v) => v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}%`;
 const cls = (v) => v > 0 ? 'up' : v < 0 ? 'down' : '';
 
@@ -170,8 +185,61 @@ function render() {
   const uxOf = {};
   ux.forEach(f => { uxOf[f.ticker] = f; });
 
-  // Tape: 4H (the move at each 4H close) or daily (each close vs LB before).
-  const cols = S.tape === 'd' ? set.days : (set.bars_4h || []);
+  // Line: the 40×4H move at each of the last 40 4H closes, every row on
+  // one scale. Tape: 4H (the last 25 of those) or daily (each close vs LB
+  // before).
+  const bars = set.bars_4h || [];
+  const ser = (key) => bars.map(c => v(c[key]));
+  // Scale from the typical range (90th percentile of every row's values,
+  // up to the next 5%): a rare spike clips at the edge instead of
+  // flattening every other line.
+  const lineLim = (() => {
+    const all = [REF, 'ALL', ...cats].flatMap(k => ser(k)).filter(x => x != null).map(Math.abs).sort((x, y) => x - y);
+    const p90 = all.length ? all[Math.floor(all.length * 0.9)] : 0;
+    return Math.max(5, Math.ceil(p90 / 5) * 5);
+  })();
+  const barTime = (c) => new Date(c.time).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  // SVG body for a series on [-lim, lim]: zero line, green / red fill,
+  // the line, and a dot on the latest point. Gaps carry the last value.
+  const plot = (vals, w, h, lim, ref) => {
+    let prev = 0;
+    const vs = vals.map(x => (prev = x == null ? prev : x));
+    const n = vs.length, y = (x) => h / 2 - Math.max(-lim, Math.min(lim, x)) / lim * (h / 2 - 2), xp = (i) => n < 2 ? 0 : i / (n - 1) * w;
+    const area = (pos) => `<polygon points="0,${y(0)} ${vs.map((x, i) => `${xp(i)},${y(pos ? Math.max(0, x) : Math.min(0, x))}`).join(' ')} ${w},${y(0)}" fill="var(--${pos ? 'gain' : 'loss'})" fill-opacity="0.25"/>`;
+    const last = vs[n - 1];
+    return `<line x1="0" x2="${w}" y1="${y(0)}" y2="${y(0)}" stroke="var(--ink-faint)" stroke-dasharray="2 3" stroke-width="1" vector-effect="non-scaling-stroke"/>`
+      + area(true) + area(false)
+      + (ref ? `<polyline points="${ref.map((x, i) => `${xp(i)},${y(x == null ? 0 : x)}`).join(' ')}" fill="none" stroke="var(--ink-dim)" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>` : '')
+      + `<polyline points="${vs.map((x, i) => `${xp(i)},${y(x)}`).join(' ')}" fill="none" stroke="var(--${last >= 0 ? 'gain' : 'loss'})" stroke-width="1.5" vector-effect="non-scaling-stroke"/>`
+      + `<line x1="${xp(n - 1)}" x2="${xp(n - 1)}" y1="${y(last)}" y2="${y(last)}" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+  };
+  const spark = (key) => {
+    const vals = ser(key);
+    if (!vals.some(x => x != null)) return '';
+    return `<svg class="spark" viewBox="0 0 400 32" preserveAspectRatio="none"><title>${N}×4H move over the last ${bars.length} × 4H · now ${pct(vals[vals.length - 1])}</title>${plot(vals, 400, 32, lineLim)}</svg>`;
+  };
+  // Larger view of an opened row: its line against the reference, the
+  // last zero cross, and a hover readout.
+  const bigView = (key, label) => {
+    const vals = ser(key), ref = key === REF ? null : ser(REF);
+    if (!vals.some(x => x != null)) return '';
+    let cross = '';
+    for (let i = vals.length - 1; i > 0; i--) {
+      const a = vals[i - 1], b = vals[i];
+      if (a != null && b != null && (a < 0) !== (b < 0)) { cross = `crossed ${b >= 0 ? 'above' : 'below'} 0 · ${barTime(bars[i])}`; break; }
+    }
+    if (!cross) cross = `${vals[vals.length - 1] >= 0 ? 'above' : 'below'} 0 the whole time`;
+    const ys = [lineLim, lineLim / 2, 0, -lineLim / 2, -lineLim];
+    return `<div class="bigv" data-big="${esc(key)}">
+      <div class="bv-h"><span><b>${esc(label)}</b>${ref ? ` vs <span style="border-bottom:1px dashed var(--ink-dim)">${esc(REF_L)}</span>` : ''} · ${N}×4H move, last ${bars.length} × 4H</span><span>${cross}</span></div>
+      <div class="bv-plot"><svg viewBox="0 0 600 150" preserveAspectRatio="none">${plot(vals, 600, 150, lineLim, ref)}</svg>
+        ${ys.map(t => `<span class="bv-y" style="top:${(1 - (t + lineLim) / (2 * lineLim)) * 100}%">${t > 0 ? '+' : t < 0 ? '−' : ''}${Math.abs(t)}%</span>`).join('')}
+        <span class="bv-guide"></span></div>
+      <div class="bv-x"><span>${bars.length ? barTime(bars[0]) : ''}</span><span>${bars.length ? barTime(bars[bars.length >> 1]) : ''}</span><span>now</span></div>
+      <div class="bv-read">hover the line for values</div>
+    </div>`;
+  };
+  const cols = S.tape === 'd' ? set.days : bars.slice(-25);
   const scale = S.tape === 'd' ? 15 : 12;
   const colLabel = (c, i) => i === cols.length - 1 ? 'now'
     : S.tape === 'd' ? new Date(`${c.date}T00:00:00Z`).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' })
@@ -202,17 +270,26 @@ function render() {
     const attrs = `data-k="${ref ? '' : esc(key)}"`;
     return `<div class="c nm ${ref ? 'ref' : ''}" ${attrs}>${ref ? '' : `<span class="chev">${open ? '▾' : '▸'}</span>`}${esc(label)}${ref ? '' : `<a href="dashboard.html?market=${mk}&cat=${encodeURIComponent(key)}" title="Open the dashboard filtered to ${esc(key)}">↗</a>`}${!ref && uxCat[key] ? uxTag(uxCat[key], uxCat[key].name.split('/')[0]) : ''}</div>
       <div class="c mv ${ref ? 'ref' : ''} ${cls(m)}" ${attrs}>${pct(m)}${ix ? `<small title="PSE's own ${esc(key)} index">index ${pct(ix.m)}</small>` : ''}</div>
-      <div class="c" ${attrs}>${tape(key)}</div>
+      <div class="c" ${attrs}>${S.tape === 'line' ? spark(key) : tape(key)}</div>
       <div class="c td ${cls(t)}" ${attrs}>${pct(t)}</div>
       <div class="c br" ${attrs}>${ud}</div>
-      ${open ? `<div class="kids">${kids(key)}</div>` : ''}`;
+      ${open ? `${bigView(key, label)}<div class="kids">${kids(key)}</div>` : ''}`;
   };
-  const first = cols[0], tapeHead = !cols.length ? '' : S.tape === 'd'
-    ? `LAST ${cols.length} ${W.days.toUpperCase()} → TODAY`
-    : `LAST ${cols.length} × 4H → NOW`;
+  const tapeHead = S.tape === 'line' ? (bars.length ? `${N}×4H MOVE · LAST ${bars.length} × 4H → NOW` : '')
+    : !cols.length ? '' : S.tape === 'd' ? `LAST ${cols.length} ${W.days.toUpperCase()} → TODAY` : `LAST ${cols.length} × 4H → NOW`;
   document.getElementById('tbl').innerHTML = `
     <div class="h">${W.cat.toUpperCase()}</div><div class="h r">${N}×4H MOVE</div><div class="h">${tapeHead}</div><div class="h r">TODAY</div><div class="h brh">UP / DOWN</div>
     ${row(REF, REF_L, true)}${row('ALL', ALL_L, true)}${cats.map(c => row(c, c, false)).join('')}`;
+  document.querySelectorAll('#tbl .bigv').forEach(bv => {
+    const key = bv.dataset.big, vals = ser(key), ref = key === REF ? null : ser(REF);
+    const plotEl = bv.querySelector('.bv-plot'), guide = bv.querySelector('.bv-guide'), read = bv.querySelector('.bv-read');
+    plotEl.addEventListener('pointermove', (e) => {
+      const r = plotEl.getBoundingClientRect(), i = Math.max(0, Math.min(bars.length - 1, Math.round((e.clientX - r.left) / r.width * (bars.length - 1))));
+      guide.style.display = 'block'; guide.style.left = `${bars.length < 2 ? 0 : i / (bars.length - 1) * 100}%`;
+      read.innerHTML = `${barTime(bars[i])}: <span class="${cls(vals[i])}">${pct(vals[i])}</span>${ref ? ` · ${esc(REF_L)} <span class="${cls(ref[i])}">${pct(ref[i])}</span>` : ''}`;
+    });
+    plotEl.addEventListener('pointerleave', () => { guide.style.display = 'none'; read.textContent = 'hover the line for values'; });
+  });
   document.querySelectorAll('#tbl [data-k]').forEach(el => {
     const k = el.dataset.k;
     if (!k) return;
@@ -223,10 +300,12 @@ function render() {
     el.addEventListener('mouseenter', () => document.querySelectorAll(`#tbl [data-k="${CSS.escape(k)}"]`).forEach(x => x.classList.add('hov')));
     el.addEventListener('mouseleave', () => document.querySelectorAll(`#tbl .hov`).forEach(x => x.classList.remove('hov')));
   });
-  document.getElementById('cap').textContent = (S.tape === 'd'
-    ? `Tape: each cell = that ${W.day}'s close against ${LB} ${W.days} before`
-    : `Tape: each cell = the ${N}×4H move at that 4H close`) + ` · outlined = now · ${N}×4H move = price now against the close ${N} 4H candles back · ${W.today} · tap a ${W.cat} for its ${W.many}`;
-  document.getElementById('scale').innerHTML = `−${scale}% <i></i> +${scale}%`;
+  document.getElementById('cap').textContent = (S.tape === 'line'
+    ? `Line: the ${N}×4H move at each 4H close, all rows on one scale · dotted = 0 · dot = now · tap a ${W.cat} for a larger view`
+    : S.tape === 'd'
+    ? `Tape: each cell = that ${W.day}'s close against ${LB} ${W.days} before · outlined = now`
+    : `Tape: each cell = the ${N}×4H move at that 4H close · outlined = now`) + ` · ${N}×4H move = price now against the close ${N} 4H candles back · ${W.today} · tap a ${W.cat} for its ${W.many}`;
+  document.getElementById('scale').innerHTML = S.tape === 'line' ? `shared scale ±${lineLim}%` : `−${scale}% <i></i> +${scale}%`;
 }
 
 // crypto.json / pse.json, written by the hourly scan.

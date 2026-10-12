@@ -19,8 +19,9 @@ the 1H, 4H and 1D candles the scan already fetched for each one:
     so bigger names move it more but one day's spike can't take over),
     the median move, and how many are up / down;
   - the move hour by hour through today (the intraday lines), and at
-    each of the last HISTORY_4H_CANDLES 4H closes (the 4H heatmap);
-  - for the last HISTORY_DAYS days (the history heatmap), each day's
+    each of the last HISTORY_4H_CANDLES 4H closes (the momentum line and
+    the 4H tape, which shows the last 25);
+  - for the last HISTORY_DAYS days / sessions (the daily tape), each day's
     close against the close HISTORY_LOOKBACK_DAYS days before — the
     bigger picture;
   - the watchlist's bullish / bearish watches per category.
@@ -45,10 +46,10 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 CATS_FILE = "crypto_categories.json"
-HISTORY_DAYS = 14
+HISTORY_DAYS = 25
 WEIGHT_DAYS = 14
 MOVE_4H_CANDLES = 40
-HISTORY_4H_CANDLES = 25
+HISTORY_4H_CANDLES = 40
 HISTORY_LOOKBACK_DAYS = 10
 OTHER = "Other"
 
@@ -186,7 +187,8 @@ def _move_at(c: dict, price=None, at=None):
 
 def _board(coins: list, watches: dict, mode: str) -> dict:
     today = max(c["daily"].index[-1] for c in coins if c["member"])
-    days = sorted({d for c in coins if c["member"] for d in c["daily"].index if d > today - pd.Timedelta(days=HISTORY_DAYS)})
+    # The last HISTORY_DAYS days with candles (PSE: sessions, not weekends).
+    days = sorted({d for c in coins if c["member"] for d in c["daily"].index if d <= today})[-HISTORY_DAYS:]
     # Weight of each name for the moves: its median traded value before its
     # latest session.
     weight = {id(c): _weight(c["daily"], len(c["daily"]) - 1) for c in coins}
