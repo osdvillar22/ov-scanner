@@ -180,17 +180,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "CHIPUSD",
-      "display_name": "CHIP/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-11T07:07:46.772Z",
-      "muted": [
-        "1H"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "OGNUSD",
       "display_name": "OGN/USD",
       "higher_tf": "1D",
@@ -210,17 +199,6 @@
       "higher_tf": "4H",
       "direction": "BULLISH",
       "added_at": "2026-10-11T07:14:03.981Z",
-      "muted": [
-        "1H"
-      ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "STRKUSD",
-      "display_name": "STRK/USD",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-11T07:15:22.833Z",
       "muted": [
         "1H"
       ]
