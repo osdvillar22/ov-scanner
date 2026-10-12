@@ -10,6 +10,7 @@ the whole run. That resilience is the actual hard part of this system
 (see learnings.md); don't relax it while "cleaning up" this file later.
 """
 
+import html as html_lib
 import re
 import time
 import logging
@@ -204,6 +205,29 @@ _EDGE_HEADERS = {
 }
 
 
+# Symbol -> (sector, subsector), filled by get_pse_symbols from the same
+# directory pages (for the PSE sector board, market_board.py).
+PSE_SECTORS: dict = {}
+
+
+def _pse_sector(name: str) -> str:
+    """PSE EDGE's sector name, tidied ("PROPERTY" -> "Property", the SME
+    board shortened)."""
+    for known in ("Financials", "Industrial", "Holding Firms", "Property", "Services", "Mining and Oil"):
+        if name.lower() == known.lower():
+            return known
+    return "SME Board" if name.lower().startswith("small, medium") else name
+
+
+def _pse_subsector(name: str) -> str | None:
+    """One spelling per subsector ("Power and Water", "Power, & Water" ->
+    "Power & Water")."""
+    if not name:
+        return None
+    name = re.sub(r",?\s+(and|&)\s+", " & ", name.strip(), flags=re.I)
+    return " ".join(w if w == "&" else w[:1].upper() + w[1:].lower() for w in name.split())
+
+
 def get_pse_symbols() -> list[str]:
     """Every listing in PSE EDGE's public company directory (~283, one
     primary security per company, ETFs included). Paged 50 at a time; the
@@ -228,6 +252,10 @@ def get_pse_symbols() -> list[str]:
                 if len(anchors) >= 2:
                     symbols.append(anchors[1].strip())
                     found += 1
+                    # Columns: name, symbol, sector, subsector, listing date.
+                    cells = [html_lib.unescape(re.sub(r"<[^>]+>", "", c)).strip() for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
+                    if len(cells) >= 4 and cells[2]:
+                        PSE_SECTORS[anchors[1].strip()] = (_pse_sector(cells[2]), _pse_subsector(cells[3]))
             if found == 0:
                 break
             page += 1

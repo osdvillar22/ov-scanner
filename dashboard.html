@@ -135,7 +135,7 @@
   <header class="page">
     <div class="topbar">
       <span class="brand">OV <span>SCANNER</span></span>
-      <span class="meta"><span id="scanMeta">Loading…</span> · <a class="link-btn" href="forward.html">forward test</a> · <a class="link-btn" href="crypto.html">crypto</a> · <button class="link-btn" id="basketSettingsBtn" type="button">basket settings</button></span>
+      <span class="meta"><span id="scanMeta">Loading…</span> · <a class="link-btn" href="forward.html">forward test</a> · <a class="link-btn" href="crypto.html">markets</a> · <button class="link-btn" id="basketSettingsBtn" type="button">basket settings</button></span>
     </div>
     <div class="settings-panel is-hidden" id="basketSettings">
       <div><strong>Basket access.</strong> Adding and removing basket picks saves <code>basket.json</code> in your GitHub repo, which needs a token with access to this repo only. It's stored in this browser only — each device needs it once.</div>
@@ -150,7 +150,7 @@
       <div class="mkt-tabs" id="marketTabs" aria-label="Market"></div>
       <div class="refine">
         <span id="lcWrap" class="is-hidden"><button class="sub-opt" type="button" id="largeCaps" aria-pressed="false">large caps<span class="n"></span></button><span class="fsep"></span></span>
-        <span id="catWrap" class="is-hidden"><select class="cat-sel" id="catSel" aria-label="Crypto category"></select><span class="fsep"></span></span>
+        <span id="catWrap" class="is-hidden"><select class="cat-sel" id="catSel" aria-label="Category or sector"></select><span class="fsep"></span></span>
         <div class="seg" id="tfSeg" aria-label="Timeframe"></div>
         <span class="fsep"></span>
         <div class="seg" id="dirSeg" aria-label="Direction"></div>
@@ -195,7 +195,10 @@ const LARGE_CAP_MARKETS = ['pse', 'crypto'];
 const F = { market: 'all', large: false, tf: 'ALL', dir: 'ALL', setup: 'ALL', q: '', cat: 'ALL' };
 // Crypto categories (crypto_categories.json via scan.py), in the picker's order.
 const CAT_ORDER = ['Staked/Wrapped', 'Meme', 'AI', 'Gaming', 'NFT', 'Privacy', 'Exchange', 'L2', 'Oracles/Infra', 'L1', 'RWA', 'DeFi', 'Payments', 'Stablecoins', 'Other'];
-let cryptoBoard = null;      // crypto.json — today's move per category
+// PSE sectors (PSE EDGE, via scan.py), in the picker's order.
+const PSE_SECTOR_ORDER = ['Financials', 'Industrial', 'Holding Firms', 'Property', 'Services', 'Mining and Oil', 'SME Board', 'ETF'];
+const CAT_MARKETS = { crypto: CAT_ORDER, pse: PSE_SECTOR_ORDER };
+const boards = {};           // crypto.json / pse.json — the moves per category / sector
 
 // PSE session (Mon-Fri 9:30-15:00 Manila). Doesn't know PSE holidays.
 function pseOpen() {
@@ -234,7 +237,7 @@ function marketMatch(a, f = F) {
   if (f.q && !`${a.ticker} ${a.display_name || ''}`.toLowerCase().includes(f.q)) return false;
   if (f.market === 'all') return true;
   if (!marketsOf(a).has(f.market)) return false;
-  if (f.market === 'crypto' && f.cat !== 'ALL' && a.category !== f.cat) return false;
+  if (CAT_MARKETS[f.market] && f.cat !== 'ALL' && a.category !== f.cat) return false;
   return !(LARGE_CAP_MARKETS.includes(f.market) && f.large) || !!a.large_cap;
 }
 
@@ -546,7 +549,7 @@ function updateCounts() {
     if (group === 'market') el.parentElement.classList.toggle('zero', count === 0);
   });
   if (LARGE_CAP_MARKETS.includes(F.market)) document.querySelector('#largeCaps .n').textContent = n({ large: true });
-  if (F.market === 'crypto') document.querySelectorAll('#catSel option').forEach(o => { o.textContent = `${o.value === 'ALL' ? 'all categories' : o.value} ${n({ cat: o.value })}`; });
+  if (CAT_MARKETS[F.market]) document.querySelectorAll('#catSel option').forEach(o => { o.textContent = `${o.value === 'ALL' ? (F.market === 'pse' ? 'all sectors' : 'all categories') : o.value} ${n({ cat: o.value })}`; });
 }
 
 // Direction and setup are toggles: tap one to show only it, tap it again
@@ -564,9 +567,17 @@ function buildFilters(syms) {
   document.getElementById('setupSeg').innerHTML = [['trend', 'trend'], ['sma50', 'SMA 50']]
     .map(([v, l]) => btn('opt', 'setup', v, l)).join('');
 
-  const present = new Set(syms.map(byTf => Object.values(byTf)[0].category).filter(Boolean));
+  // Category (crypto) / sector (PSE) picker: what the market's watches have.
   const catSel = document.getElementById('catSel');
-  catSel.innerHTML = ['ALL', ...CAT_ORDER.filter(c => present.has(c) || c === F.cat)].map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  let catFor = null;
+  const catOptions = () => {
+    if (catFor === F.market || !CAT_MARKETS[F.market]) return;
+    catFor = F.market;
+    const order = CAT_MARKETS[F.market];
+    const present = new Set(syms.map(byTf => Object.values(byTf)[0]).filter(a => a.asset_class === F.market).map(a => a.category).filter(Boolean));
+    const cats = [...order.filter(c => present.has(c) || c === F.cat), ...[...present].filter(c => !order.includes(c)).sort()];
+    catSel.innerHTML = ['ALL', ...cats].map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  };
   catSel.addEventListener('change', () => { F.cat = catSel.value; paint(); applyFilters(); });
   const paint = () => {
     document.querySelectorAll('#filters button[data-group]').forEach(b => {
@@ -576,7 +587,8 @@ function buildFilters(syms) {
     });
     const lc = document.getElementById('largeCaps');
     document.getElementById('lcWrap').classList.toggle('is-hidden', !LARGE_CAP_MARKETS.includes(F.market));
-    document.getElementById('catWrap').classList.toggle('is-hidden', F.market !== 'crypto');
+    document.getElementById('catWrap').classList.toggle('is-hidden', !CAT_MARKETS[F.market]);
+    catOptions();
     const cs = document.getElementById('catSel');
     cs.value = F.cat; cs.classList.toggle('on', F.cat !== 'ALL');
     lc.classList.toggle('on', F.large);
@@ -744,14 +756,15 @@ function selectAsset(id) {
         `<button type="button" data-id="${w._id}" class="${w === entry ? 'current' : ''}">${l}</button>`).join('')}</span>`
     : '';
   const sub = entry.asset_class === 'pse' ? 'PSE' : (entry.tag || (entry.ticker !== entry.display_name ? entry.ticker : ''));
-  // Crypto: the coin's category, and how that category is moving (price
-  // now against 10 4H candles back, as on crypto.html).
-  const cat = entry.asset_class === 'crypto' && entry.category;
+  // Crypto / PSE: the category or sector, and how it's moving (price now
+  // against 40 4H candles back, as on crypto.html).
+  const board = boards[entry.asset_class];
+  const cat = CAT_MARKETS[entry.asset_class] && entry.category;
   const catToday = (() => {
-    const all = cryptoBoard && cryptoBoard.sets.all, t = cat && all && (all.move || all.today), s = t && t[cat];
+    const all = board && board.sets.all, t = cat && all && (all.move || all.today), s = t && t[cat];
     if (!s) return '';
-    const ranked = cryptoBoard.categories.filter(c => t[c]).sort((a, b) => t[b].vw - t[a].vw);
-    return ` · ${esc(cat)} ${all.move ? `${cryptoBoard.move_candles}×4H` : 'today'} <span class="${s.vw >= 0 ? 'bullish' : 'bearish'}">${s.vw >= 0 ? '+' : '−'}${Math.abs(s.vw).toFixed(2)}%</span> (rank ${ranked.indexOf(cat) + 1} of ${ranked.length})`;
+    const ranked = board.categories.filter(c => t[c]).sort((a, b) => t[b].vw - t[a].vw);
+    return ` · ${esc(cat)} ${all.move ? `${board.move_candles}×4H` : 'today'} <span class="${s.vw >= 0 ? 'bullish' : 'bearish'}">${s.vw >= 0 ? '+' : '−'}${Math.abs(s.vw).toFixed(2)}%</span> (rank ${ranked.indexOf(cat) + 1} of ${ranked.length})`;
   })();
   const ago = entry.candles_ago_most_recent;
   const noLsma = entry.higher_tf === '1W';
@@ -762,7 +775,7 @@ function selectAsset(id) {
   const detail = document.getElementById('detail');
   detail.innerHTML = `
     <div class="d-top" data-current-id="${id}">
-      <div><span class="d-name">${esc(entry.display_name)}</span>${sub ? `<span class="d-sub">${esc(sub)}</span>` : ''}${cat ? `<a class="cat-tag" href="crypto.html" title="Category — see how it's moving today">${esc(cat)}</a>` : ''}${uxTag(entry.unusual)} <span class="rsi ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
+      <div><span class="d-name">${esc(entry.display_name)}</span>${sub ? `<span class="d-sub">${esc(sub)}</span>` : ''}${cat ? `<a class="cat-tag" href="crypto.html?m=${entry.asset_class}" title="${entry.asset_class === 'pse' ? 'Sector' : 'Category'} — see how it's moving">${esc(cat)}</a>` : ''}${uxTag(entry.unusual)} <span class="rsi ${dc}">RSI ${entry.last_rsi ?? '—'}</span></div>
       <div class="d-right">${tfSwitch}</div>
     </div>
     <div class="d-summary">${summary}${catToday}${setupSw}</div>
@@ -1061,18 +1074,18 @@ async function init() {
   // Links in from crypto.html: dashboard.html?market=crypto&cat=AI
   const qs = new URLSearchParams(location.search);
   if (MARKETS.some(([v]) => v === qs.get('market'))) F.market = qs.get('market');
-  if (F.market === 'crypto' && qs.get('cat')) F.cat = qs.get('cat');
+  if (CAT_MARKETS[F.market] && qs.get('cat')) F.cat = qs.get('cat');
   // ...and from its unusual-activity list: dashboard.html?market=crypto&q=ZEUS
   if (qs.get('q')) {
     const v = qs.get('q');
     document.getElementById('search').value = v; F.q = v.trim().toLowerCase();
     document.getElementById('searchClear').classList.remove('is-hidden');
   }
-  fetch('crypto.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(d => {
-    cryptoBoard = d;
+  ['crypto', 'pse'].forEach(m => fetch(`${m}.json`, { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).then(d => {
+    boards[m] = d;
     const open = document.querySelector('#detail [data-current-id]');
     if (d && open && !plan) selectAsset(open.dataset.currentId);
-  }).catch(() => {});
+  }).catch(() => {}));
   buildFilters(syms);
   if (!assets.length) {
     document.getElementById('detail').innerHTML = '<div class="empty">Nothing on watch right now — no asset meets the trigger condition this scan.</div>';

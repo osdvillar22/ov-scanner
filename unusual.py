@@ -1,25 +1,36 @@
 """
-unusual.py — crypto coins trading far above their usual volume while
-price runs up: an early look at moves like ZEUS's.
+unusual.py — crypto coins and PSE stocks trading far above their usual
+volume while price runs up: an early look at moves like ZEUS's or ION's.
 
-A coin is flagged on a closed 1H candle when
+A name is flagged on a closed 1H candle when
 
-  - its USD volume is >= VOL_RATIO x its median hourly USD volume over
-    the BASE_HOURS before (the "N x" shown everywhere),
-  - price is up >= MOVE_4H over the last 4 hours (up moves only),
-  - at least MIN_USD_HOUR traded in that hour (so one small trade in a
-    thin coin can't do it — but a dormant coin waking up, like ZEUS at
-    ~$100/h before its run, still counts),
+  - its traded value (close x volume) is >= `ratio` x its usual hourly
+    value (the "N x" shown everywhere),
+  - price is up >= `move` over the last 4 candles (up moves only),
+  - at least `min_value` traded in that hour (so one small trade in a
+    thin name can't do it — but a dormant one waking up still counts),
 
-at most once per coin every COOLDOWN_HOURS. Tested on 14 days of all
-Kraken coins (Sep 27 - Oct 11): ~9 alerts a day; caught ZEUS on Oct 5
-(595x volume, +467% more after the alert), STRK, DRV; 44 of 89 runs of
-+40% caught, 20 with at least half the run still ahead. 35% of alerts saw
-+10% within 72 h (21% for any coin), but the median alert is down ~4%
-a day later: an early look, not an entry signal — many spikes fade.
+at most once per name every `cooldown` candles. Per market (RULES):
+
+  crypto  usual = median hourly USD value over the 168 hours before;
+          20x, +5%, $50k; once per 72 h. Tested on 14 days of all Kraken
+          coins (Sep 27 - Oct 11): ~9 a day; caught ZEUS on Oct 5 (595x,
+          +467% more after the alert), STRK, DRV; 35% of alerts saw +10%
+          within 72 h (21% for any coin), median ~-4% a day later.
+  pse     usual = mean hourly peso value over the 110 candles (~20
+          sessions) before — many PSE stocks have hours with no trades,
+          so a median would often be 0; 5x, +5%, P1M; once per 18
+          candles (~3 sessions). Tested on 60 days of all PSE stocks
+          (Aug 13 - Oct 12): ~2 a trading day; 25 of 29 runs of +20%
+          caught, 14 with at least half the run ahead (ION +184% at +17%
+          from its low, TUGS, ACR, NRCP, AT, OPM); 42% of alerts saw +5%
+          within 3 sessions (15% for any liquid stock), median -0.9% the
+          next session.
+
+An early look, not an entry signal — many spikes fade.
 
 Recomputed from the scan's 1H candles each run; only the last alert sent
-per coin is kept (in state.json) so Discord gets each one once.
+per name is kept (in state.json) so Discord gets each one once.
 """
 
 import logging
@@ -32,18 +43,17 @@ import config
 
 logger = logging.getLogger(__name__)
 
-VOL_RATIO = 20
-MOVE_4H = 0.05
-MIN_USD_HOUR = 50_000
-BASE_HOURS = 168
-COOLDOWN_HOURS = 72
+RULES = {
+    "crypto": {"ratio": 20, "move": 0.05, "min_value": 50_000, "base": 168, "how": "median", "cooldown": 72, "cur": "$"},
+    "pse": {"ratio": 5, "move": 0.05, "min_value": 1_000_000, "base": 110, "how": "mean", "cooldown": 18, "cur": "₱"},
+}
 # Flags shown on the dashboard / crypto page this long after the candle.
 SHOW_HOURS = 24
 # Only alert candles this recent (a first run mustn't send old ones).
 ALERT_HOURS = 3
 STATE_KEY = "__unusual__"
 
-_flags: dict = {}    # ticker -> latest flag within SHOW_HOURS
+_flags: dict = {}    # (market, ticker) -> latest flag within SHOW_HOURS
 
 
 def _utc(idx) -> pd.DatetimeIndex:
@@ -51,82 +61,100 @@ def _utc(idx) -> pd.DatetimeIndex:
     return idx.tz_localize("UTC") if idx.tz is None else idx.tz_convert("UTC")
 
 
-def events(df_1h: pd.DataFrame, now: pd.Timestamp) -> list:
-    """Flags on the closed 1H candles of the last COOLDOWN_HOURS + SHOW_HOURS,
+def market_of(asset: dict) -> str | None:
+    if asset.get("asset_class") == "pse":
+        return "pse"
+    if asset.get("asset_class") == "crypto" and not asset.get("tag"):
+        return "crypto"
+    return None
+
+
+def events(df_1h: pd.DataFrame, now: pd.Timestamp, market: str = "crypto") -> list:
+    """Flags on the closed 1H candles of the last cooldown + 48 candles,
     replaying the cooldown from there."""
-    if df_1h is None or len(df_1h) < BASE_HOURS // 2 + 5:
+    r = RULES[market]
+    if df_1h is None or len(df_1h) < r["base"] // 2 + 5:
         return []
     df = df_1h[["close", "volume"]].astype(float).copy()
     df.index = _utc(df.index)
     df = df[df.index + pd.Timedelta(hours=1) <= now]          # closed candles only
-    usd = df["close"] * df["volume"]
-    base = usd.rolling(BASE_HOURS, min_periods=BASE_HOURS // 2).median().shift(1)
+    value = df["close"] * df["volume"]
+    roll = value.rolling(r["base"], min_periods=r["base"] // 2)
+    base = (roll.median() if r["how"] == "median" else roll.mean()).shift(1)
     mv4 = df["close"] / df["close"].shift(4) - 1
-    since = now - pd.Timedelta(hours=COOLDOWN_HOURS + SHOW_HOURS)
     out, last = [], None
-    for t in df.index[df.index >= since]:
-        b, u, m = base.get(t), usd[t], mv4.get(t)
-        if not (b and b > 0 and u >= MIN_USD_HOUR and m is not None and m >= MOVE_4H and u >= VOL_RATIO * b):
+    for i in range(max(0, len(df) - r["cooldown"] - 48), len(df)):
+        b, u, m = base.iloc[i], value.iloc[i], mv4.iloc[i]
+        if not (b > 0 and u >= r["min_value"] and m >= r["move"] and u >= r["ratio"] * b):
+            continue  # (NaN comparisons are False)
+        if last is not None and i - last < r["cooldown"]:
             continue
-        if last is not None and t - last < pd.Timedelta(hours=COOLDOWN_HOURS):
-            continue
-        last = t
+        last = i
+        t = df.index[i]
         out.append({"t": (t + pd.Timedelta(hours=1)).isoformat(), "x": round(u / b), "mv4": round(float(m) * 100, 1),
-                    "usd": round(float(u)), "price": float(df["close"][t])})
+                    "usd": round(float(u)), "price": float(df["close"].iloc[i])})
     return out
 
 
 def record(asset: dict, df_1h: pd.DataFrame | None) -> None:
-    """Called from scan.scan_asset for every untagged crypto coin."""
+    """Called from scan.scan_asset for every untagged crypto coin and PSE stock."""
+    market = market_of(asset)
+    if market is None:
+        return
     now = pd.Timestamp.now(tz="UTC")
     try:
-        ev = [e for e in events(df_1h, now) if pd.Timestamp(e["t"]) >= now - pd.Timedelta(hours=SHOW_HOURS)]
+        ev = [e for e in events(df_1h, now, market) if pd.Timestamp(e["t"]) >= now - pd.Timedelta(hours=SHOW_HOURS)]
     except Exception as exc:  # noqa: BLE001
         logger.error("Unusual-volume check failed for %s: %s", asset["display_name"], exc)
         return
     if ev:
-        _flags[asset["ticker"]] = {**ev[-1], "ticker": asset["ticker"], "name": asset["display_name"],
-                                   "cat": asset.get("category")}
+        _flags[(market, asset["ticker"])] = {**ev[-1], "market": market, "ticker": asset["ticker"],
+                                             "name": asset["display_name"], "cat": asset.get("category")}
 
 
-def flags() -> list:
-    """This run's flags, newest first."""
-    return sorted(_flags.values(), key=lambda f: f["t"], reverse=True)
+def flags(market: str | None = None) -> list:
+    """This run's flags (of one market), newest first."""
+    return sorted((f for f in _flags.values() if market in (None, f["market"])), key=lambda f: f["t"], reverse=True)
 
 
 def tag_watches(state: dict) -> None:
-    """Put the flag ({x, t}) on each crypto watch of a flagged coin (and take
+    """Put the flag ({x, t, mv4}) on each watch of a flagged name (and take
     old ones off) for the dashboard's tag."""
     for key, e in state.items():
         if key.startswith("__"):
             continue
-        f = _flags.get(e["ticker"]) if e.get("asset_class") == "crypto" else None
+        f = _flags.get((market_of(e), e["ticker"]))
         if f:
             e["unusual"] = {"x": f["x"], "t": f["t"], "mv4": f["mv4"]}
         else:
             e.pop("unusual", None)
 
 
+def _sent_key(f: dict) -> str:
+    # Crypto keeps its plain ticker (as first deployed); PSE is prefixed.
+    return f["ticker"] if f["market"] == "crypto" else f"pse:{f['ticker']}"
+
+
 def send_alerts(state: dict, sent: dict) -> dict:
     """Discord alert for each new flag (candle within ALERT_HOURS, after the
-    last one sent for that coin). Returns the updated sent map, pruned."""
+    last one sent for that name). Returns the updated sent map, pruned."""
     now = pd.Timestamp.now(tz="UTC")
     new = [f for f in flags() if pd.Timestamp(f["t"]) >= now - pd.Timedelta(hours=ALERT_HOURS)
-           and f["t"] > sent.get(f["ticker"], "")]
+           and f["t"] > sent.get(_sent_key(f), "")]
     url = os.environ.get(config.DISCORD_ENTRY_WEBHOOK_ENV)
     if new and url:
         watches = {}
         for e in state.values():
-            if isinstance(e, dict) and e.get("asset_class") == "crypto":
-                watches.setdefault(e["ticker"], []).append(f"{e['higher_tf']}{'▲' if e['direction'] == 'BULLISH' else '▼'}")
+            if isinstance(e, dict) and market_of(e):
+                watches.setdefault((market_of(e), e["ticker"]), []).append(f"{e['higher_tf']}{'▲' if e['direction'] == 'BULLISH' else '▼'}")
         embeds = []
         for f in new:
-            w = watches.get(f["ticker"])
+            w, cur = watches.get((f["market"], f["ticker"])), RULES[f["market"]]["cur"]
             embeds.append({
-                "title": f"UNUSUAL · {f['name']} ▲ +{f['mv4']}% in 4h",
+                "title": f"UNUSUAL · {f['name']}{' (PSE)' if f['market'] == 'pse' else ''} ▲ +{f['mv4']}% in 4h",
                 "color": 0x8A6FD1,
-                "description": f"volume **{f['x']}×** usual (last hour ${f['usd']:,.0f})\n"
-                               f"category {f['cat'] or '—'} · price `{f['price']:.6g}`\n"
+                "description": f"volume **{f['x']}×** usual (last hour {cur}{f['usd']:,.0f})\n"
+                               f"{'sector' if f['market'] == 'pse' else 'category'} {f['cat'] or '—'} · price `{f['price']:.6g}`\n"
                                + (f"watch: {' '.join(w)}" if w else "no watch yet"),
                 "timestamp": now.isoformat(),
             })
@@ -137,7 +165,7 @@ def send_alerts(state: dict, sent: dict) -> dict:
                 logger.error("Discord unusual-volume alert failed: %s", exc)
                 return sent
     for f in new:
-        sent[f["ticker"]] = f["t"]
+        sent[_sent_key(f)] = f["t"]
         logger.info("UNUSUAL: %s %sx volume, +%s%% in 4h", f["name"], f["x"], f["mv4"])
-    cutoff = (now - pd.Timedelta(hours=COOLDOWN_HOURS + SHOW_HOURS)).isoformat()
+    cutoff = (now - pd.Timedelta(days=7)).isoformat()
     return {k: v for k, v in sent.items() if v >= cutoff}

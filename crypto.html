@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OV CRYPTO</title>
+<title>OV MARKETS</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314140F'/%3E%3Ccircle cx='10' cy='16' r='5.5' fill='none' stroke='%23E8CC66' stroke-width='3'/%3E%3Cpath d='M18.5 10.5l3.5 11 3.5-11' fill='none' stroke='%23E8CC66' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -71,8 +71,18 @@
   .hm th { color: var(--ink-faint); font-weight: 400; padding: 2px; }
   .hm td { text-align: center; padding: 4px 2px; border-radius: 3px; color: var(--ink); }
   .hm td.k { text-align: left; color: var(--ink-dim); white-space: nowrap; }
+  /* Market switch (crypto | PSE) */
+  .mkt { display: flex; gap: 16px; margin: 6px 0 2px; font-size: 12px; }
+  .mkt button { color: var(--ink-faint); padding-bottom: 2px; }
+  .mkt button.on { color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold-bright); }
+  /* PSE: PSE's own sector index beside our number */
+  #board.with-ix .row { grid-template-columns: 128px minmax(0, 1fr) 64px 58px 58px 70px 74px 100px; }
+  .ix { color: var(--ink-dim); font-size: 10.5px; }
+  .coins .subh { grid-column: 1 / -1; color: var(--ink-dim); font-size: 10px; letter-spacing: 0.05em; margin-top: 4px; }
   @media (max-width: 760px) {
-    .row { grid-template-columns: 100px minmax(0, 1fr) 58px 50px 60px; }
+    .row, #board.with-ix .row { grid-template-columns: 100px minmax(0, 1fr) 58px 50px 60px; }
+    #board.with-ix .row > :nth-child(5), #board.with-ix .row > :nth-child(7), #board.with-ix .row > :nth-child(8) { display: none; }
+    #board.with-ix .row > :nth-child(6) { display: block; }
     .row > :nth-child(6), .row > :nth-child(7) { display: none; }
     .switch { margin-left: 0; }
   }
@@ -81,16 +91,17 @@
 <body>
   <header class="page">
     <div class="topbar">
-      <span class="nav"><span class="brand">OV <span>SCANNER</span></span><a href="dashboard.html">dashboard</a><a href="forward.html">forward test</a><a class="on" href="crypto.html">crypto</a></span>
+      <span class="nav"><span class="brand">OV <span>SCANNER</span></span><a href="dashboard.html">dashboard</a><a href="forward.html">forward test</a><a class="on" href="crypto.html">markets</a></span>
       <span class="meta" id="meta">Loading…</span>
     </div>
   </header>
   <main>
+    <div class="mkt" id="mkt"><button type="button" data-m="crypto">crypto</button><button type="button" data-m="pse">PSE</button></div>
     <div class="summary" id="summary"></div>
     <div id="unusual"></div>
     <h2 id="hm4Title" class="first"></h2>
     <div class="panel hm compact" id="history4h"></div>
-    <h2>CATEGORIES</h2>
+    <h2 id="boardTitle">CATEGORIES</h2>
     <div class="panel"><div id="board"><div class="empty">Loading…</div></div>
       <div class="note" id="note"></div></div>
     <h2 id="hmTitle">LAST 14 DAYS · 10-DAY MOVE PER CATEGORY</h2>
@@ -99,9 +110,23 @@
 <script src="ov.js"></script>
 <script>
 let D = null;
-const S = { weight: 'vw', set: 'all', open: new Set() };
+const S = { market: 'crypto', weight: 'vw', set: 'all', open: new Set() };
 try { Object.assign(S, JSON.parse(localStorage.getItem('ovs-crypto') || '{}'), { open: new Set() }); } catch (e) {}
-const save = () => { try { localStorage.setItem('ovs-crypto', JSON.stringify({ weight: S.weight, set: S.set })); } catch (e) {} };
+// crypto.html?m=pse opens the PSE tab.
+const qm = new URLSearchParams(location.search).get('m');
+if (qm === 'pse' || qm === 'crypto') S.market = qm;
+const save = () => { try { localStorage.setItem('ovs-crypto', JSON.stringify({ market: S.market, weight: S.weight, set: S.set })); } catch (e) {} };
+// Words that differ between the two markets.
+const WORDS = {
+  crypto: { one: 'coin', many: 'coins', large: 'large caps', cat: 'CATEGORY', cats: 'CATEGORIES', weight: 'volume-weighted',
+            weightTitle: 'Each coin weighted by its median daily USD volume over the past 14 days',
+            today: "today = since 8:00 AM Manila (00:00 UTC, Kraken's daily candle)", days: (n) => `LAST ${n} DAYS`,
+          ux: 'volume ≥ 20× usual and price up ≥ 5% in 4h' },
+  pse: { one: 'stock', many: 'stocks', large: 'PSEi 30', cat: 'SECTOR', cats: 'SECTORS', weight: 'value-weighted',
+         weightTitle: 'Each stock weighted by its median daily traded value over the past 14 sessions',
+         today: "today = against the previous session's close · index = PSE's own sector index", days: (n) => `LAST ${n} SESSIONS`,
+         ux: 'peso value ≥ 5× its usual hour, at least ₱1M, and price up ≥ 5% in 4 trading hours' },
+};
 const pct = (v) => v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}%`;
 const cls = (v) => v > 0 ? 'up' : v < 0 ? 'down' : '';
 
@@ -118,58 +143,82 @@ function render() {
   // crypto.json without it: today's move).
   const set = D.sets[S.set] || D.sets.all, today = set.move || set.today, day = set.today, all = today.ALL || {};
   const N = D.move_candles || 10, LB = D.history_lookback_days || 10, span = set.move ? `${N}×4H` : 'today';
+  const mk = D.market || 'crypto', W = WORDS[mk], REF = D.ref_key || 'BTC', REF_L = D.ref_label || 'BTC', ALL_L = D.all_label || 'all crypto';
+  const IX = D.sector_index || {}, withIx = Object.keys(IX).length > 0;
+  document.querySelectorAll('#mkt button').forEach(b => b.classList.toggle('on', b.dataset.m === mk));
+  document.getElementById('boardTitle').textContent = W.cats;
   const v = (s) => s ? s[S.weight] : null;
   // Unusual activity: coins flagged in the last 24 h, newest first.
-  const ux = D.unusual || [];
+  const mk0 = D.market || 'crypto', ux = D.unusual || [];
   const wOf = (t) => (D.coins.find(c => c.t === t) || {}).w || [];
-  document.getElementById('unusual').innerHTML = !ux.length ? '' : `<div class="ux"><h2>UNUSUAL ACTIVITY · LAST 24 H <span>· volume ≥ 20× usual and price up ≥ 5% in 4h — an early look, not an entry</span></h2>
-    <div class="panel"><div class="ux-row h"><span>COIN</span><span>CATEGORY</span><span class="r">VOLUME</span><span class="r">4H MOVE</span><span>WATCH</span><span class="r">SEEN</span></div>
-    ${ux.map(f => { const w = wOf(f.ticker); return `<div class="ux-row"><span>${esc(f.name.split('/')[0])}<a href="dashboard.html?market=crypto&q=${encodeURIComponent(f.name.split('/')[0])}" title="Open on the dashboard">↗</a></span><span style="color:var(--ink-dim)">${esc(f.cat || '—')}</span><span class="r ux-x">${f.x}×</span><span class="r up">+${f.mv4}%</span><span>${w.length ? w.map(([tf, d]) => `<span class="${d === 'BULLISH' ? 'up' : 'down'}">${tf}${dirArrow(d)}</span>`).join(' ') : '<span style="color:var(--ink-faint)">—</span>'}</span><span class="r" style="color:var(--ink-dim)">${fmtTime(f.t)}</span></div>`; }).join('')}</div></div>`;
+  document.getElementById('unusual').innerHTML = !ux.length ? '' : `<div class="ux"><h2>UNUSUAL ACTIVITY · LAST 24 H <span>· ${WORDS[mk0].ux} — an early look, not an entry</span></h2>
+    <div class="panel"><div class="ux-row h"><span>${WORDS[mk0].one.toUpperCase()}</span><span>${WORDS[mk0].cat}</span><span class="r">VOLUME</span><span class="r">4H MOVE</span><span>WATCH</span><span class="r">SEEN</span></div>
+    ${ux.map(f => { const w = wOf(f.ticker); return `<div class="ux-row"><span>${esc(f.name.split('/')[0])}<a href="dashboard.html?market=${mk0}&q=${encodeURIComponent(f.name.split('/')[0])}" title="Open on the dashboard">↗</a></span><span style="color:var(--ink-dim)">${esc(f.cat || '—')}</span><span class="r ux-x">${f.x}×</span><span class="r up">+${f.mv4}%</span><span>${w.length ? w.map(([tf, d]) => `<span class="${d === 'BULLISH' ? 'up' : 'down'}">${tf}${dirArrow(d)}</span>`).join(' ') : '<span style="color:var(--ink-faint)">—</span>'}</span><span class="r" style="color:var(--ink-dim)">${fmtTime(f.t)}</span></div>`; }).join('')}</div></div>`;
   // Board rows: the category's biggest flagged coin.
   const uxCat = {};
   ux.forEach(f => { if (f.cat && (!uxCat[f.cat] || f.x > uxCat[f.cat].x)) uxCat[f.cat] = f; });
 
-  document.getElementById('meta').innerHTML = `as of <strong>${fmtTime(D.generated_at)}</strong> · day started ${fmtTime(D.day_start)}`;
-  const back = N * 4 >= 48 ? `~${+(N * 4 / 24).toFixed(1)} days` : `~${N * 4} h`;
-  document.getElementById('note').textContent = `Move = price now against the close ${N} 4H candles back (${back}) · today = since 8:00 AM Manila (00:00 UTC, Kraken's daily candle) · tap a category for its coins · ↗ opens the dashboard filtered to it · updates with each hourly scan`;
-  document.getElementById('hmTitle').textContent = `LAST 14 DAYS · ${LB}-DAY MOVE PER CATEGORY (EACH DAY'S CLOSE AGAINST ${LB} DAYS BEFORE)`;
+  document.getElementById('meta').innerHTML = `as of <strong>${fmtTime(D.generated_at)}</strong> · ${mk === 'pse' ? `session ${fmtTime(D.day_start)} – 3:30 PM` : `day started ${fmtTime(D.day_start)}`}`;
+  const back = mk === 'pse' ? `~${N / 2} trading days` : N * 4 >= 48 ? `~${+(N * 4 / 24).toFixed(1)} days` : `~${N * 4} h`;
+  document.getElementById('note').textContent = `Move = price now against the close ${N} 4H candles back (${back}) · ${W.today} · tap a ${W.cat.toLowerCase()} for its ${W.many} · ↗ opens the dashboard filtered to it · updates with each hourly scan`;
+  document.getElementById('hmTitle').textContent = `${W.days(set.days.length)} · ${LB}-DAY MOVE PER ${W.cat} (EACH DAY'S CLOSE AGAINST ${LB} ${mk === 'pse' ? 'SESSIONS' : 'DAYS'} BEFORE)`;
   const refs = D.ref_move || D.ref || {};
+  // PSE leads with the PSEi itself; crypto with all crypto.
+  const lead = mk === 'pse'
+    ? `<span>PSEi ${span} <span class="big ${cls(refs.PSEi)}">${pct(refs.PSEi)}</span> <span class="dim ${cls((D.ref || {}).PSEi)}">today ${pct((D.ref || {}).PSEi)}</span></span>
+       ${D.ref_level ? `<span>${D.ref_level.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>` : ''}
+       <span>${ALL_L} <b class="${cls(v(all))}">${pct(v(all))}</b> <span class="dim ${cls(v(day.ALL))}">today ${pct(v(day.ALL))}</span></span>`
+    : `<span>crypto ${span} <span class="big ${cls(v(all))}">${pct(v(all))}</span> <span class="dim ${cls(v(day.ALL))}" title="Since 8:00 AM Manila">today ${pct(v(day.ALL))}</span></span>
+       ${Object.entries(refs).map(([k, x]) => `<span>${k} <b class="${cls(x)}">${pct(x)}</b> <span class="dim ${cls((D.ref || {})[k])}">today ${pct((D.ref || {})[k])}</span></span>`).join('')}`;
   document.getElementById('summary').innerHTML = `
-    <span>crypto ${span} <span class="big ${cls(v(all))}">${pct(v(all))}</span> <span class="dim ${cls(v(day.ALL))}" title="Since 8:00 AM Manila">today ${pct(v(day.ALL))}</span></span>
-    ${Object.entries(refs).map(([k, x]) => `<span>${k} <b class="${cls(x)}">${pct(x)}</b> <span class="dim ${cls((D.ref || {})[k])}">today ${pct((D.ref || {})[k])}</span></span>`).join('')}
+    ${lead}
     <span>up <b class="up">${all.up ?? 0}</b> · down <b class="down">${all.down ?? 0}</b> of ${all.n ?? 0}</span>
     <span>watches <b class="up">▲${all.bull ?? 0}</b> <b class="down">▼${all.bear ?? 0}</b></span>
     <span class="switch">
-      <button type="button" data-w="vw" class="${S.weight === 'vw' ? 'on' : ''}" title="Each coin weighted by its median daily USD volume over the past 14 days">volume-weighted</button>
-      <button type="button" data-w="med" class="${S.weight === 'med' ? 'on' : ''}" title="The middle coin's move">median coin</button>
+      <button type="button" data-w="vw" class="${S.weight === 'vw' ? 'on' : ''}" title="${W.weightTitle}">${W.weight}</button>
+      <button type="button" data-w="med" class="${S.weight === 'med' ? 'on' : ''}" title="The middle ${W.one}'s move">median ${W.one}</button>
       <span class="fsep"></span>
-      <button type="button" data-s="all" class="${S.set === 'all' ? 'on' : ''}">all coins</button>
-      <button type="button" data-s="large" class="${S.set === 'large' ? 'on' : ''}"${D.sets.large ? '' : ' disabled'}>large caps</button>
+      <button type="button" data-s="all" class="${S.set === 'all' ? 'on' : ''}">all ${W.many}</button>
+      <button type="button" data-s="large" class="${S.set === 'large' ? 'on' : ''}"${D.sets.large ? '' : ' disabled'}>${W.large}</button>
     </span>`;
   document.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => { S.weight = b.dataset.w; save(); render(); }));
   document.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => { S.set = b.dataset.s; save(); render(); }));
 
   const cats = D.categories.filter(c => today[c]).sort((a, b) => v(today[b]) - v(today[a]));
-  const maxAbs = Math.max(1, ...cats.map(c => Math.abs(v(today[c]))), Math.abs(v(all)) || 0, Math.abs(v(today.BTC)) || 0);
+  const maxAbs = Math.max(1, ...cats.map(c => Math.abs(v(today[c]))), Math.abs(v(all)) || 0, Math.abs(v(today[REF])) || 0);
   const cm = (x) => set.move ? x.m : x.chg;
   const coinsOf = (c) => D.coins.filter(x => x.c === c && (S.set === 'all' || x.l) && cm(x) != null).sort((a, b) => cm(b) - cm(a));
+  const med = (a) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), h = s.length >> 1; return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2; };
+  const coinCell = (x) => `<div class="coin"><span>${esc(x.n.split('/')[0])} ${x.w.length ? `<span class="w">${x.w.map(([tf, d, st]) => `<span class="${d === 'BULLISH' ? 'up' : 'down'}">${tf}${dirArrow(d)}${st === 'sma50' ? '·50' : ''}</span>`).join(' ')}</span>` : ''}</span><span><span class="${cls(cm(x))}">${pct(cm(x))}</span>${set.move ? `<span class="t ${cls(x.chg)}" title="today">${pct(x.chg)}</span>` : ''}</span></div>`;
+  // PSE: a sector's stocks grouped by subsector (median move in the header).
+  const coinList = (key) => {
+    const list = coinsOf(key);
+    if (mk !== 'pse') return list.map(coinCell).join('');
+    const subs = {};
+    list.forEach(x => (subs[x.s || key] = subs[x.s || key] || []).push(x));
+    return Object.entries(subs).sort((a, b) => med(b[1].map(cm)) - med(a[1].map(cm)))
+      .map(([s, xs]) => `${Object.keys(subs).length > 1 || s !== key ? `<div class="subh">${esc(s.toUpperCase())} <span class="${cls(med(xs.map(cm)))}">${pct(med(xs.map(cm)))}</span> · ${xs.length}</div>` : ''}${xs.map(coinCell).join('')}`).join('');
+  };
   const row = (key, label, isAll) => {
     if (!today[key]) return '';
     const s = today[key], m = v(s), w = Math.min(50, Math.abs(m) / maxAbs * 50), open = S.open.has(key);
     const series = ((set.intraday.series[key] || {})[S.weight]) || [];
     return `<div class="row ${isAll ? 'all' : 'cat'}" data-cat="${isAll ? '' : esc(key)}">
-      <span class="name">${isAll ? '' : `<span class="chev">${open ? '▾' : '▸'}</span>`}${esc(label)}${isAll ? '' : `<a href="dashboard.html?market=crypto&cat=${encodeURIComponent(key)}" title="Open the dashboard filtered to ${esc(key)}">↗</a>`}${!isAll && uxCat[key] ? uxTag(uxCat[key], uxCat[key].name.split('/')[0]) : ''}</span>
+      <span class="name">${isAll ? '' : `<span class="chev">${open ? '▾' : '▸'}</span>`}${esc(label)}${isAll ? '' : `<a href="dashboard.html?market=${mk}&cat=${encodeURIComponent(key)}" title="Open the dashboard filtered to ${esc(key)}">↗</a>`}${!isAll && uxCat[key] ? uxTag(uxCat[key], uxCat[key].name.split('/')[0]) : ''}</span>
       <span class="bar"><span class="mid"></span><span class="fill" style="${m >= 0 ? 'left' : 'right'}:50%;width:${w}%;background:var(--${m >= 0 ? 'gain' : 'loss'})"></span></span>
       <span class="r ${cls(m)}">${pct(m)}</span>
       <span class="r dim ${cls(v(day[key]))}">${set.move ? pct(v(day[key])) : ''}</span>
-      <span class="r">${key === 'BTC' ? '' : `<span class="up">${s.up}</span>/<span class="down">${s.down}</span>`}</span>
+      ${withIx ? `<span class="r ix" title="PSE's own ${esc(key)} index: ${N}×4H move${IX[key] ? ` · today ${pct(IX[key].chg)}` : ''}">${IX[key] ? pct(IX[key].m) : ''}</span>` : ''}
+      <span class="r">${key === REF ? '' : `<span class="up">${s.up}</span>/<span class="down">${s.down}</span>`}</span>
       <span class="r"><span class="up">▲${s.bull || 0}</span> <span class="down">▼${s.bear || 0}</span></span>
       ${spark(series)}
-    </div>${open ? `<div class="coins">${coinsOf(key).map(x => `<div class="coin"><span>${esc(x.n.split('/')[0])} ${x.w.length ? `<span class="w">${x.w.map(([tf, d, st]) => `<span class="${d === 'BULLISH' ? 'up' : 'down'}">${tf}${dirArrow(d)}${st === 'sma50' ? '·50' : ''}</span>`).join(' ')}</span>` : ''}</span><span><span class="${cls(cm(x))}">${pct(cm(x))}</span>${set.move ? `<span class="t ${cls(x.chg)}" title="today">${pct(x.chg)}</span>` : ''}</span></div>`).join('')}</div>` : ''}`;
+    </div>${open ? `<div class="coins">${coinList(key)}</div>` : ''}`;
   };
-  document.getElementById('board').innerHTML = `
-    <div class="row h"><span>CATEGORY</span><span style="text-align:center">${span.toUpperCase()}</span><span class="r">MOVE</span><span class="r">TODAY</span><span class="r">UP/DOWN</span><span class="r">WATCHES</span><span>INTRADAY</span></div>
-    ${row('BTC', 'BTC', true)}${row('ALL', 'all crypto', true)}${cats.map(c => row(c, c, false)).join('')}`;
+  const board = document.getElementById('board');
+  board.classList.toggle('with-ix', withIx);
+  board.innerHTML = `
+    <div class="row h"><span>${W.cat}</span><span style="text-align:center">${span.toUpperCase()}</span><span class="r">MOVE</span><span class="r">TODAY</span>${withIx ? '<span class="r">INDEX</span>' : ''}<span class="r">UP/DOWN</span><span class="r">WATCHES</span><span>INTRADAY</span></div>
+    ${row(REF, REF_L, true)}${row('ALL', ALL_L, true)}${cats.map(c => row(c, c, false)).join('')}`;
   document.querySelectorAll('.row.cat').forEach(r => r.addEventListener('click', (e) => {
     if (e.target.closest('a')) return;
     const k = r.dataset.cat; S.open.has(k) ? S.open.delete(k) : S.open.add(k); render();
@@ -183,26 +232,33 @@ function render() {
       return `<td style="background:color-mix(in srgb, var(--${m >= 0 ? 'gain' : 'loss'}) ${Math.round(12 + a * 58)}%, transparent)" title="${pct(m)} · ${s.up} up / ${s.down} down">${m > 0 ? '+' : ''}${m.toFixed(1)}</td>`;
     };
     document.getElementById(id).innerHTML = `<table><tr><th></th>${cols.map((c, i) => `<th>${label(c, i)}</th>`).join('')}</tr>
-      ${[['BTC', 'BTC'], ['ALL', 'all crypto'], ...D.categories.map(c => [c, c])].map(([k, l]) => `<tr><td class="k">${esc(l)}</td>${cols.map(c => cell(c[k])).join('')}</tr>`).join('')}</table>`;
+      ${[[REF, REF_L], ['ALL', ALL_L], ...D.categories.map(c => [c, c])].map(([k, l]) => `<tr><td class="k">${esc(l)}</td>${cols.map(c => cell(c[k])).join('')}</tr>`).join('')}</table>`;
   };
   const days = set.days;
   heat('history', days, (d, i) => i === days.length - 1 ? 'today' : new Date(`${d.date}T00:00:00Z`).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' }), 15);
   const bars = set.bars_4h || [];
-  document.getElementById('hm4Title').textContent = `LAST ${bars.length} × 4H · ${N}×4H MOVE PER CATEGORY (EACH 4H CLOSE AGAINST ${N} CANDLES BEFORE)`;
+  document.getElementById('hm4Title').textContent = `LAST ${bars.length} × 4H · ${N}×4H MOVE PER ${W.cat} (EACH 4H CLOSE AGAINST ${N} CANDLES BEFORE${mk === 'pse' ? ' · 2 CANDLES A SESSION' : ''})`;
   document.getElementById('hm4Title').hidden = document.getElementById('history4h').hidden = !bars.length;
   // 4H columns in local time, with the date over the first candle of each day.
   const dayOf = (b) => new Date(b.time).toLocaleDateString([], { month: 'short', day: 'numeric' });
   heat('history4h', bars, (b, i) => {
     const t = new Date(b.time), first = i === 0 || dayOf(bars[i - 1]) !== dayOf(b);
-    const hr = i === bars.length - 1 ? 'now' : t.toLocaleTimeString([], { hour: 'numeric' }).replace(' ', '').toLowerCase();
+    const hr = i === bars.length - 1 ? 'now' : t.toLocaleTimeString([], mk === 'pse' ? { hour: 'numeric', minute: '2-digit' } : { hour: 'numeric' }).replace(' ', '').toLowerCase();
     return `<span class="d">${first ? dayOf(b) : '&nbsp;'}</span>${hr}`;
   }, 12);
 }
 
-fetch('crypto.json', { cache: 'no-cache' })
-  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-  .then(d => { D = d; render(); })
-  .catch(err => { document.getElementById('board').innerHTML = `<div class="empty">Couldn't load crypto.json (${esc(err.message)}) — it's written by the hourly scan.</div>`; });
+// crypto.json / pse.json, written by the hourly scan.
+function load(market) {
+  S.market = market; S.open = new Set(); save();
+  document.querySelectorAll('#mkt button').forEach(b => b.classList.toggle('on', b.dataset.m === market));
+  fetch(`${market}.json`, { cache: 'no-cache' })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(d => { if (S.market === market) { D = d; render(); } })
+    .catch(err => { document.getElementById('board').innerHTML = `<div class="empty">Couldn't load ${market}.json (${esc(err.message)}) — it's written by the hourly scan.</div>`; });
+}
+document.querySelectorAll('#mkt button').forEach(b => b.addEventListener('click', () => { if (b.dataset.m !== S.market) load(b.dataset.m); }));
+load(S.market);
 </script>
 </body>
 </html>

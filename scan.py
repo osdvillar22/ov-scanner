@@ -51,7 +51,7 @@ import numpy as np
 import pandas as pd
 
 import config
-import crypto_board
+import market_board
 import fetch
 import indicators
 import unusual
@@ -80,8 +80,9 @@ def build_universe() -> list[dict]:
     excluded = load_pse_exclusions()
     for symbol in fetch.get_pse_symbols():
         if symbol not in excluded or symbol in config.PSE_LARGE_CAPS:
+            sector, sub = fetch.PSE_SECTORS.get(symbol, (None, None))
             universe.append({"asset_class": "pse", "ticker": symbol, "display_name": symbol, "tag": "PSE",
-                             "large_cap": symbol in config.PSE_LARGE_CAPS})
+                             "large_cap": symbol in config.PSE_LARGE_CAPS, "category": sector, "subsector": sub})
 
     for display_name, ticker in config.FOREX_PAIRS.items():
         universe.append({"asset_class": "forex", "ticker": ticker, "display_name": display_name})
@@ -98,7 +99,7 @@ def build_universe() -> list[dict]:
     for p in fetch.get_kraken_usd_pairs():
         universe.append({"asset_class": "crypto", "ticker": p["pair"], "display_name": p["display_name"], "tag": p["tag"],
                          "large_cap": p["display_name"].split("/")[0] in config.CRYPTO_LARGE_CAPS,
-                         "category": None if p["tag"] else crypto_board.category_of(p["display_name"])})
+                         "category": None if p["tag"] else market_board.category_of(p["display_name"])})
 
     logger.info("Universe built: %d assets", len(universe))
     return universe
@@ -575,10 +576,10 @@ def scan_asset(asset: dict, state: dict) -> None:
     for tf in auto_tfs:
         tf_data[tf] = fetch_and_compute(asset, tf, min_bars=config.LSMA_WARMUP_BARS)
 
-    # Crypto category board (crypto.html): today's moves from these candles.
-    if asset["asset_class"] == "crypto" and not asset.get("tag"):
-        crypto_board.record(asset, tf_data.get("1H"), tf_data.get("4H"), tf_data.get("1D"))
-        unusual.record(asset, tf_data.get("1H"))
+    # Crypto / PSE board (crypto.html): the moves from these candles.
+    if (asset["asset_class"] == "crypto" and not asset.get("tag")) or asset["asset_class"] == "pse":
+        market_board.record(asset, tf_data.get("1H"), tf_data.get("4H"), tf_data.get("1D"))
+    unusual.record(asset, tf_data.get("1H"))  # crypto and PSE only
 
     # Lower-tf charts reuse a frame already fetched here (e.g. 1H for 4H).
     ltf_cache = {tf: df for tf, df in tf_data.items() if tf in htfs and df is not None}
@@ -675,10 +676,11 @@ def run() -> None:
     basket_status = basket.run_hourly(state)
     unusual.tag_watches(state)
     write_output(state, basket_status, removed)
-    try:
-        crypto_board.build(state, unusual.flags())
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Crypto board failed: %s", exc)
+    for market in ("crypto", "pse"):
+        try:
+            market_board.build(market, state, unusual.flags(market))
+        except Exception as exc:  # noqa: BLE001
+            logger.error("%s board failed: %s", market, exc)
     try:
         unusual_sent = unusual.send_alerts(state, unusual_sent)
     except Exception as exc:  # noqa: BLE001
