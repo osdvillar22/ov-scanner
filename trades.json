@@ -316,9 +316,9 @@
       ],
       "pick_direction": "BULLISH",
       "plan_tf": "15m",
-      "entry": 4.35e-06,
-      "cl": 4.26e-06,
-      "tp": 4.44e-06,
+      "entry": 0.00000435,
+      "cl": 0.00000426,
+      "tp": 0.00000444,
       "ratio": 1,
       "status": "cl",
       "created_at": "2026-10-06T10:51:21.870Z",
@@ -328,7 +328,7 @@
       "fill_tf": "15m",
       "closed_at": "2026-10-06T19:25:00+00:00",
       "exit_tf": "5m",
-      "exit": 4.26e-06,
+      "exit": 0.00000426,
       "result_r": -1,
       "note": null
     },
@@ -442,7 +442,7 @@
       "filled_at": "2026-10-08T02:40:00+00:00",
       "fill_end": "2026-10-08T02:45:00+00:00",
       "fill_tf": "5m",
-      "fill_note": "gapped through the entry (9.49 \u2192 10.0)",
+      "fill_note": "gapped through the entry (9.49 → 10.0)",
       "closed_at": "2026-10-12T03:15:00+00:00",
       "exit_tf": "5m",
       "exit": 11.52,
@@ -475,8 +475,28 @@
       "closed_at": "2026-10-10T23:25:00+00:00",
       "exit_tf": "5m",
       "exit": 17.14,
-      "result_r": 1.0,
+      "result_r": 1,
       "note": null
+    },
+    {
+      "id": "mv4sbbv4wp3y",
+      "asset_class": "pse",
+      "ticker": "PNB",
+      "display_name": "PNB",
+      "tag": "PSE",
+      "higher_tf": "1W",
+      "setup": "trend",
+      "lines": [
+        "sma50"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "4H",
+      "entry": 76.95,
+      "cl": 71.9,
+      "tp": 82,
+      "ratio": 1,
+      "status": "pending",
+      "created_at": "2026-10-12T05:01:25.073Z"
     }
   ]
 }
