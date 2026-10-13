@@ -84,10 +84,14 @@ jobs:
         run: |
           mkdir -p _site
           cp dashboard.html forward.html crypto.html ov.js ov.css data.json _site/
-          [ -f crypto.json ] && cp crypto.json _site/ || true
-          [ -f pse.json ] && cp pse.json _site/ || true
-          [ -f bear_log.json ] && cp bear_log.json _site/ || true
-          [ -f trades_data.json ] && cp trades_data.json _site/ || true
+          # A board / chart file this run couldn't write (e.g. TradingView
+          # down for PSE) keeps the last published copy instead of vanishing
+          # from the site — its own generated_at shows how old it is.
+          SITE="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          for f in crypto.json pse.json bear_log.json trades_data.json; do
+            if [ -f "$f" ]; then cp "$f" _site/
+            else curl -sfL "$SITE/$f" -o "_site/$f" && echo "kept the published $f" || { rm -f "_site/$f"; echo "no $f this run"; }; fi
+          done
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
