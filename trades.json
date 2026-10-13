@@ -497,6 +497,30 @@
       "ratio": 1,
       "status": "pending",
       "created_at": "2026-10-12T05:01:25.073Z"
+    },
+    {
+      "id": "mv6430gldoso",
+      "asset_class": "pse",
+      "ticker": "PHR",
+      "display_name": "PHR",
+      "tag": "PSE",
+      "higher_tf": "1H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "15m",
+      "entry": 0.226,
+      "cl": 0.207,
+      "tp": 0.245,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-13T03:18:38.614Z",
+      "missed": true,
+      "filled_at": "2026-10-12T06:15:00.000Z",
+      "fill_end": "2026-10-12T06:30:00.000Z",
+      "fill_tf": "15m"
     }
   ]
 }
