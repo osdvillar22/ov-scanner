@@ -229,7 +229,10 @@
       "display_name": "STRK/USD",
       "higher_tf": "1D",
       "direction": "BULLISH",
-      "added_at": "2026-10-13T08:13:51.492Z"
+      "added_at": "2026-10-13T08:13:51.492Z",
+      "muted": [
+        "4H"
+      ]
     }
   ]
 }
