@@ -278,14 +278,6 @@
       "muted": [
         "15m"
       ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "BABYUSD",
-      "display_name": "BABY/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-13T10:35:09.604Z"
     }
   ]
 }
