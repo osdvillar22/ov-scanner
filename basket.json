@@ -264,20 +264,6 @@
       "lines": [
         "sma50"
       ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "SYRUPUSD",
-      "display_name": "SYRUP/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-13T10:33:51.547Z",
-      "lines": [
-        "lsma"
-      ],
-      "muted": [
-        "15m"
-      ]
     }
   ]
 }
