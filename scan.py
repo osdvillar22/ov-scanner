@@ -459,8 +459,19 @@ def scan_higher_timeframe(
     ltf_cache = {} if ltf_cache is None else ltf_cache
 
     if df_htf is None or (has_auto and df_auto is None):
+        # A failed fetch leaves a watch as it was (one bad fetch mustn't
+        # wipe it) — unless SMA 50 watches are off, or its chart has had no
+        # new candle for STALE_WATCH_DAYS (delisted / renamed / suspended).
+        if not config.SMA50_WATCHES_ON:
+            state.pop(f"{key}:sma50", None)
         for k in (key, f"{key}:sma50"):
-            if k in state:
+            if k not in state:
+                continue
+            rows = (state[k].get("candles") or {}).get("rows") or []
+            last = pd.Timestamp(rows[-1][0], unit="s", tz="UTC") if rows else None
+            if last is not None and pd.Timestamp.now(tz="UTC") - last > pd.Timedelta(days=config.STALE_WATCH_DAYS):
+                _drop(state, k, f"no new candles since {last:%b %d}")
+            else:
                 logger.warning("Fetch too short/failed for tracked entry %s — leaving state untouched this run", k)
         return
 
