@@ -267,13 +267,15 @@ function render() {
     if (!s) return '';
     const m = v(s), t = v(day[key]), open = S.open.has(key), ix = IX[key];
     const ud = key === REF ? '' : `<span class="b"><i style="width:${s.n ? s.up / s.n * 100 : 0}%"></i></span>${s.up}/${s.down}`;
-    const attrs = `data-k="${ref ? '' : esc(key)}"`;
-    return `<div class="c nm ${ref ? 'ref' : ''}" ${attrs}>${ref ? '' : `<span class="chev">${open ? '▾' : '▸'}</span>`}${esc(label)}${ref ? '' : `<a href="dashboard.html?market=${mk}&cat=${encodeURIComponent(key)}" title="Open the dashboard filtered to ${esc(key)}">↗</a>`}${!ref && uxCat[key] ? uxTag(uxCat[key], uxCat[key].name.split('/')[0]) : ''}</div>
+    // Every row opens its larger line; categories / sectors also list
+    // their coins / stocks.
+    const attrs = `data-k="${esc(key)}"`;
+    return `<div class="c nm ${ref ? 'ref' : ''}" ${attrs}><span class="chev">${open ? '▾' : '▸'}</span>${esc(label)}${ref ? '' : `<a href="dashboard.html?market=${mk}&cat=${encodeURIComponent(key)}" title="Open the dashboard filtered to ${esc(key)}">↗</a>`}${!ref && uxCat[key] ? uxTag(uxCat[key], uxCat[key].name.split('/')[0]) : ''}</div>
       <div class="c mv ${ref ? 'ref' : ''} ${cls(m)}" ${attrs}>${pct(m)}${ix ? `<small title="PSE's own ${esc(key)} index">index ${pct(ix.m)}</small>` : ''}</div>
       <div class="c" ${attrs}>${S.tape === 'line' ? spark(key) : tape(key)}</div>
       <div class="c td ${cls(t)}" ${attrs}>${pct(t)}</div>
       <div class="c br" ${attrs}>${ud}</div>
-      ${open ? `${bigView(key, label)}<div class="kids">${kids(key)}</div>` : ''}`;
+      ${open ? `${bigView(key, label)}${ref ? '' : `<div class="kids">${kids(key)}</div>`}` : ''}`;
   };
   const tapeHead = S.tape === 'line' ? (bars.length ? `${N}×4H MOVE · LAST ${bars.length} × 4H → NOW` : '')
     : !cols.length ? '' : S.tape === 'd' ? `LAST ${cols.length} ${W.days.toUpperCase()} → TODAY` : `LAST ${cols.length} × 4H → NOW`;
