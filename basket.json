@@ -200,6 +200,14 @@
       "lines": [
         "sma50"
       ]
+    },
+    {
+      "asset_class": "pse",
+      "ticker": "PHR",
+      "display_name": "PHR",
+      "higher_tf": "1H",
+      "direction": "BULLISH",
+      "added_at": "2026-10-13T03:18:15.129Z"
     }
   ]
 }
