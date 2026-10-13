@@ -264,7 +264,7 @@ function selectTrade(id) {
   const p = lastPrice(t), r = p == null ? null : tradeR(t, p);
   const status = t.status === 'open' ? `open${r == null ? '' : ` ${fmtR(r)}`}` : t.status === 'pending' ? 'pending' : `${t.status.toUpperCase()} ${fmtR(t.result_r)}`;
   const statusCls = t.status === 'tp' ? 'up' : t.status === 'cl' ? 'down' : t.status;
-  const act = t.status === 'pending' ? 'cancel plan' : t.status === 'open' ? 'cancel trade' : '';
+  const act = t.status === 'pending' ? 'cancel plan' : t.status === 'open' ? 'cancel trade' : 'delete';
   const market = [...marketsOf(t)].includes('pse') ? 'pse' : t.asset_class;
   const dash = `dashboard.html?market=${market}&q=${encodeURIComponent(t.display_name.split('/')[0])}`;
   const end = t.closed_at ? parseTime(t.closed_at) : new Date();
@@ -312,7 +312,22 @@ function selectTrade(id) {
   draw(big, 'fc-big', 'fm-big');
   minis.forEach((tf, i) => draw(tf, `fc-${i}`, `fm-${i}`));
   const cancel = document.getElementById('cancelBtn');
-  if (cancel) cancel.addEventListener('click', () => cancelTrade(t));
+  if (cancel) cancel.addEventListener('click', () => (VIEWS.closed.includes(t.status) ? deleteTrade(t) : cancelTrade(t)));
+}
+
+// Closed trades can be deleted: gone from trades.json, the list and the
+// results (the repo's history keeps the old file).
+async function deleteTrade(t) {
+  if (!requireToken()) return;
+  if (!confirm(`Delete this closed trade? It comes out of the list and the results.
+${t.display_name} · ${t.status.toUpperCase()} ${fmtR(t.result_r)} · closed ${fmtTime(t.closed_at)}`)) return;
+  const msg = document.getElementById('cancelMsg');
+  msg.textContent = ' · deleting…';
+  try {
+    trades = await updateTrades(list => list.filter(x => x.id !== t.id), `Trades: delete ${t.display_name} ${t.status}`);
+    currentId = null;
+    render();
+  } catch (err) { msg.textContent = ` · couldn't delete: ${err.message}`; }
 }
 
 async function cancelTrade(t) {
