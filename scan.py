@@ -665,6 +665,7 @@ def run() -> None:
     state = load_state()
     removed = state.pop(REMOVED_KEY, [])
     unusual_sent = state.pop(unusual.STATE_KEY, {})
+    unusual.load_bear_log(state.pop(unusual.BEAR_KEY, []))
     before = dict(state)
     universe = build_universe()
 
@@ -686,8 +687,11 @@ def run() -> None:
         unusual_sent = unusual.send_alerts(state, unusual_sent)
     except Exception as exc:  # noqa: BLE001
         logger.error("Unusual-volume alerts failed: %s", exc)
+    unusual.add_context(market_board.ref_move)
+    bear_log = unusual.bear_log()
+    Path(unusual.BEAR_LOG_FILE).write_text(json.dumps({"generated_at": now_iso(), "entries": bear_log}, separators=(",", ":")))
     run_trades()
-    save_state({**state, REMOVED_KEY: removed, unusual.STATE_KEY: unusual_sent})
+    save_state({**state, REMOVED_KEY: removed, unusual.STATE_KEY: unusual_sent, unusual.BEAR_KEY: bear_log})
 
 
 def run_trades() -> None:

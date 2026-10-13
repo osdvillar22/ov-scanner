@@ -68,6 +68,7 @@ PSE_SECTOR_ORDER = list(PSE_SECTOR_INDICES)
 _cats: dict | None = None
 # market -> ticker -> {"name", "cat", "sub", "large", "member", "ref", "daily", "hourly", "h4"}
 _bars: dict = {m: {} for m in MARKETS}
+_refs: dict = {}     # market -> its reference (BTC coin / the PSEi), for ref_move
 
 
 def _load() -> dict:
@@ -275,6 +276,13 @@ def _pse_extras(today) -> tuple:
     return psei, sectors
 
 
+def ref_move(market: str, at) -> float | None:
+    """BTC's / the PSEi's 40x4H move (%) at the 4H candle containing `at`
+    (after build has run for the market)."""
+    ref = _refs.get(market)
+    return None if ref is None else _pct(_move_at(ref, at=at))
+
+
 def build(market: str, state: dict, unusual: list | None = None) -> None:
     """Write the market's board file from the names recorded this scan, the
     watch state and (crypto) the unusual-volume flags (unusual.py)."""
@@ -294,6 +302,9 @@ def build(market: str, state: dict, unusual: list | None = None) -> None:
         psei, sector_index = _pse_extras(today)
         if psei:
             coins.append({**psei, "ticker": PSEI_SYMBOL})
+    ref = next((c for c in coins if c["ref"]), None)
+    if ref:
+        _refs[market] = ref
 
     def watch_counts(subset):
         out = {}

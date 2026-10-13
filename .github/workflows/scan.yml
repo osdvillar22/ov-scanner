@@ -86,6 +86,7 @@ jobs:
           cp dashboard.html forward.html crypto.html ov.js ov.css data.json _site/
           [ -f crypto.json ] && cp crypto.json _site/ || true
           [ -f pse.json ] && cp pse.json _site/ || true
+          [ -f bear_log.json ] && cp bear_log.json _site/ || true
           [ -f trades_data.json ] && cp trades_data.json _site/ || true
 
       - name: Upload Pages artifact

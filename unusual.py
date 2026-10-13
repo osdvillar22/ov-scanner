@@ -29,6 +29,15 @@ at most once per name every `cooldown` candles. Per market (RULES):
 
 An early look, not an entry signal — many spikes fade.
 
+Bearish spikes (the same rules with price DOWN >= `move`) aren't alerted:
+a 14-/60-day test (Oct 2026) found they bounce more often than they keep
+falling, but nothing at alert time told the two apart. They're logged
+instead (BEAR_KEY in state.json, published as bear_log.json) with what
+the scanner saw — where the candle closed, the trend before, a break of
+the prior low, BTC's / the PSEi's 40x4H move — and, once the window has
+passed, what happened next, so the test can be rerun on a few weeks of
+cases across different market phases.
+
 Recomputed from the scan's 1H candles each run; only the last alert sent
 per name is kept (in state.json) so Discord gets each one once.
 """
@@ -52,8 +61,17 @@ SHOW_HOURS = 24
 # Only alert candles this recent (a first run mustn't send old ones).
 ALERT_HOURS = 3
 STATE_KEY = "__unusual__"
+BEAR_KEY = "__bear_log__"
+BEAR_LOG_FILE = "bear_log.json"
+# Bearish log: trend before the drop over this many candles (~7 days /
+# ~7 sessions), the prior low over this many (~14 days / ~14 sessions),
+# entries kept this long.
+TREND_CANDLES = {"crypto": 168, "pse": 35}
+LOW_CANDLES = {"crypto": 336, "pse": 70}
+BEAR_KEEP_DAYS = 120
 
 _flags: dict = {}    # (market, ticker) -> latest flag within SHOW_HOURS
+_bear: list = []     # the bearish log (loaded from state each run)
 
 
 def _utc(idx) -> pd.DatetimeIndex:
@@ -69,13 +87,14 @@ def market_of(asset: dict) -> str | None:
     return None
 
 
-def events(df_1h: pd.DataFrame, now: pd.Timestamp, market: str = "crypto") -> list:
+def events(df_1h: pd.DataFrame, now: pd.Timestamp, market: str = "crypto", side: int = 1) -> list:
     """Flags on the closed 1H candles of the last cooldown + 48 candles,
-    replaying the cooldown from there."""
+    replaying the cooldown from there. side=-1: the same rules for price
+    falling (the bearish log), with what the candle looked like."""
     r = RULES[market]
     if df_1h is None or len(df_1h) < r["base"] // 2 + 5:
         return []
-    df = df_1h[["close", "volume"]].astype(float).copy()
+    df = df_1h[["high", "low", "close", "volume"]].astype(float).copy()
     df.index = _utc(df.index)
     df = df[df.index + pd.Timedelta(hours=1) <= now]          # closed candles only
     value = df["close"] * df["volume"]
@@ -85,15 +104,74 @@ def events(df_1h: pd.DataFrame, now: pd.Timestamp, market: str = "crypto") -> li
     out, last = [], None
     for i in range(max(0, len(df) - r["cooldown"] - 48), len(df)):
         b, u, m = base.iloc[i], value.iloc[i], mv4.iloc[i]
-        if not (b > 0 and u >= r["min_value"] and m >= r["move"] and u >= r["ratio"] * b):
+        if not (b > 0 and u >= r["min_value"] and side * m >= r["move"] and u >= r["ratio"] * b):
             continue  # (NaN comparisons are False)
         if last is not None and i - last < r["cooldown"]:
             continue
         last = i
         t = df.index[i]
-        out.append({"t": (t + pd.Timedelta(hours=1)).isoformat(), "x": round(u / b), "mv4": round(float(m) * 100, 1),
-                    "usd": round(float(u)), "price": float(df["close"].iloc[i])})
+        e = {"t": (t + pd.Timedelta(hours=1)).isoformat(), "x": round(u / b), "mv4": round(float(m) * 100, 1),
+             "usd": round(float(u)), "price": float(df["close"].iloc[i])}
+        if side < 0:
+            hi, lo, c = df["high"].iloc[i], df["low"].iloc[i], df["close"]
+            tn, ln = TREND_CANDLES[market], LOW_CANDLES[market]
+            prior_low = df["low"].iloc[max(0, i - ln):max(0, i - 4)]
+            e.update(closepos=round(float((c.iloc[i] - lo) / (hi - lo)), 2) if hi > lo else 0.5,
+                     trend=round(float(c.iloc[i - 4] / c.iloc[i - 4 - tn] - 1) * 100, 1) if i - 4 - tn >= 0 else None,
+                     newlow=bool(len(prior_low) and c.iloc[i] < prior_low.min()))
+        out.append(e)
     return out
+
+
+# ---- Bearish log ----
+def load_bear_log(entries: list) -> None:
+    global _bear
+    _bear = list(entries or [])
+
+
+def _log_bear(market: str, asset: dict, df_1h: pd.DataFrame, now: pd.Timestamp) -> None:
+    """Add this name's new bearish spikes, and fill in the outcome of its
+    logged ones whose window (`cooldown` candles after the next one) has
+    passed: lowest / highest close in it against the next candle's close
+    and against the alert, and whether that next candle closed higher."""
+    seen = {(e["market"], e["ticker"], e["t"]) for e in _bear}
+    for e in events(df_1h, now, market, side=-1):
+        if pd.Timestamp(e["t"]) >= now - pd.Timedelta(hours=SHOW_HOURS) and (market, asset["ticker"], e["t"]) not in seen:
+            _bear.append({**e, "market": market, "ticker": asset["ticker"], "name": asset["display_name"],
+                          "cat": asset.get("category"), "logged_at": now.isoformat()})
+    pending = [e for e in _bear if e["market"] == market and e["ticker"] == asset["ticker"] and "outcome" not in e]
+    if not pending:
+        return
+    c = df_1h["close"].astype(float).copy()
+    c.index = _utc(c.index)
+    c = c[c.index + pd.Timedelta(hours=1) <= now]
+    w = RULES[market]["cooldown"]
+    for e in pending:
+        i = c.index.searchsorted(pd.Timestamp(e["t"]) - pd.Timedelta(hours=1))
+        if i >= len(c) or len(c) - (i + 2) < w:
+            continue  # window not over yet
+        nxt, fut = c.iloc[i + 1], c.iloc[i + 2:i + 2 + w]
+        e["outcome"] = {"next_up": bool(nxt > c.iloc[i]),
+                        "low": round(float(fut.min() / nxt - 1) * 100, 1), "high": round(float(fut.max() / nxt - 1) * 100, 1),
+                        "low_from_alert": round(float(fut.min() / c.iloc[i] - 1) * 100, 1),
+                        "high_from_alert": round(float(fut.max() / c.iloc[i] - 1) * 100, 1),
+                        "at": now.isoformat()}
+
+
+def add_context(ref_move) -> None:
+    """The market's 40x4H move (BTC / the PSEi) at each new entry's candle:
+    ref_move(market, time) -> % or None (market_board.ref_move)."""
+    for e in _bear:
+        if "ref_move" not in e:
+            try:
+                e["ref_move"] = ref_move(e["market"], pd.Timestamp(e["t"]) - pd.Timedelta(hours=1))
+            except Exception:  # noqa: BLE001
+                e["ref_move"] = None
+
+
+def bear_log() -> list:
+    cutoff = (pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=BEAR_KEEP_DAYS)).isoformat()
+    return sorted((e for e in _bear if e["t"] >= cutoff), key=lambda e: e["t"])
 
 
 def record(asset: dict, df_1h: pd.DataFrame | None) -> None:
@@ -110,6 +188,10 @@ def record(asset: dict, df_1h: pd.DataFrame | None) -> None:
     if ev:
         _flags[(market, asset["ticker"])] = {**ev[-1], "market": market, "ticker": asset["ticker"],
                                              "name": asset["display_name"], "cat": asset.get("category")}
+    try:
+        _log_bear(market, asset, df_1h, now)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Bearish log failed for %s: %s", asset["display_name"], exc)
 
 
 def flags(market: str | None = None) -> list:
