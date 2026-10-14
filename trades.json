@@ -886,6 +886,30 @@
       "filled_at": "2026-10-13T10:00:00.000Z",
       "fill_end": "2026-10-13T10:15:00.000Z",
       "fill_tf": "15m"
+    },
+    {
+      "id": "mv7tnmj2hq3v",
+      "asset_class": "crypto",
+      "ticker": "LUNAUSD",
+      "display_name": "LUNA/USD",
+      "tag": null,
+      "higher_tf": "4H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BEARISH",
+      "plan_tf": "15m",
+      "entry": 0.00004948,
+      "cl": 0.00005004,
+      "tp": 0.00004892,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-14T08:02:16.910Z",
+      "missed": true,
+      "filled_at": "2026-10-13T09:00:00.000Z",
+      "fill_end": "2026-10-13T09:15:00.000Z",
+      "fill_tf": "15m"
     }
   ]
 }
