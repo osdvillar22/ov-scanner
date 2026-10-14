@@ -232,14 +232,6 @@
       "added_at": "2026-10-14T02:30:00.108Z"
     },
     {
-      "asset_class": "pse",
-      "ticker": "PHR",
-      "display_name": "PHR",
-      "higher_tf": "4H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-14T03:54:20.017Z"
-    },
-    {
       "asset_class": "crypto",
       "ticker": "OXTUSD",
       "display_name": "OXT/USD",
