@@ -192,17 +192,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "GTCUSD",
-      "display_name": "GTC/USD",
-      "higher_tf": "1D",
-      "direction": "BULLISH",
-      "added_at": "2026-10-13T07:55:20.546Z",
-      "muted": [
-        "4H"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "STRKUSD",
       "display_name": "STRK/USD",
       "higher_tf": "1D",
