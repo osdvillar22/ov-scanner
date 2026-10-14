@@ -1216,8 +1216,11 @@
       "cl": 0.33301,
       "tp": 0.32453,
       "ratio": 1,
-      "status": "pending",
-      "created_at": "2026-10-14T19:50:29.488Z"
+      "status": "open",
+      "created_at": "2026-10-14T19:50:29.488Z",
+      "filled_at": "2026-10-14T20:20:00+00:00",
+      "fill_end": "2026-10-14T20:25:00+00:00",
+      "fill_tf": "5m"
     },
     {
       "id": "mv8izv3j2m5q",
@@ -1236,12 +1239,17 @@
       "cl": 0.23651,
       "tp": 0.22769,
       "ratio": 1,
-      "status": "open",
+      "status": "cl",
       "created_at": "2026-10-14T19:51:38.287Z",
       "missed": true,
       "filled_at": "2026-10-14T18:05:00.000Z",
       "fill_end": "2026-10-14T18:10:00.000Z",
-      "fill_tf": "5m"
+      "fill_tf": "5m",
+      "closed_at": "2026-10-14T20:20:00+00:00",
+      "exit_tf": "5m",
+      "exit": 0.23651,
+      "result_r": -1.0,
+      "note": null
     },
     {
       "id": "mv8j111idq64",
@@ -1497,8 +1505,11 @@
       "cl": 0.025629,
       "tp": 0.024887,
       "ratio": 1,
-      "status": "pending",
-      "created_at": "2026-10-14T20:08:40.653Z"
+      "status": "open",
+      "created_at": "2026-10-14T20:08:40.653Z",
+      "filled_at": "2026-10-14T20:20:00+00:00",
+      "fill_end": "2026-10-14T20:25:00+00:00",
+      "fill_tf": "5m"
     },
     {
       "id": "mv8jnaa1dyns",
