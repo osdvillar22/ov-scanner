@@ -342,6 +342,14 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T08:00:14.620Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "KATUSD",
+      "display_name": "KAT/USD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T08:00:53.970Z"
     }
   ]
 }
