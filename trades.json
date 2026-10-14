@@ -1083,6 +1083,30 @@
       "filled_at": "2026-10-14T10:05:00.000Z",
       "fill_end": "2026-10-14T10:10:00.000Z",
       "fill_tf": "5m"
+    },
+    {
+      "id": "mv81ow0x8yx4",
+      "asset_class": "crypto",
+      "ticker": "GTCUSD",
+      "display_name": "GTC/USD",
+      "tag": null,
+      "higher_tf": "1H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BEARISH",
+      "plan_tf": "1m",
+      "entry": 0.1978,
+      "cl": 0.2,
+      "tp": 0.1956,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-14T11:47:12.801Z",
+      "missed": true,
+      "filled_at": "2026-10-14T10:22:00.000Z",
+      "fill_end": "2026-10-14T10:23:00.000Z",
+      "fill_tf": "1m"
     }
   ]
 }
