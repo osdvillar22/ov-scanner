@@ -294,6 +294,14 @@
       "higher_tf": "1H",
       "direction": "BULLISH",
       "added_at": "2026-10-14T05:09:22.153Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "MUBARAKUSD",
+      "display_name": "MUBARAK/USD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T07:04:05.712Z"
     }
   ]
 }
