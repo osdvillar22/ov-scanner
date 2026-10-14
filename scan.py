@@ -43,6 +43,7 @@ just log what it would have sent, instead of failing.
 """
 
 import json
+import re
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -133,6 +134,8 @@ def now_iso() -> str:
 _run_started: str | None = None
 # Watches removed this run: state key -> reason (see _drop, update_removed).
 _removals: dict[str, str] = {}
+# This run's third, finer charts: watch key (no :sma50) -> chart.
+_extra_charts: dict = {}
 
 # Key in state.json holding the recently removed watches (not a watch).
 REMOVED_KEY = "__removed__"
@@ -445,6 +448,17 @@ def _fill_charts(entry: dict, asset: dict, htf: str, df_htf: pd.DataFrame, ltf_c
             # trigger arrows there too.
             if ltf in marks_by_tf:
                 entry["lower_tf_marks"][ltf] = _marks_in(marks_by_tf[ltf], chart)
+    # The third, finer chart: kept apart (write_extra_charts), not in data.json.
+    xtf = config.EXTRA_CHART_TF.get(htf)
+    entry.pop("extra_tf", None)
+    if xtf:
+        if xtf not in ltf_cache:
+            ltf_cache[xtf] = fetch_and_compute(asset, xtf, min_bars=60)
+        if ltf_cache[xtf] is not None:
+            chart = serialize_candles(ltf_cache[xtf], n=config.EXTRA_CHART_CANDLES)
+            _extra_charts[f"{asset['asset_class']}:{asset['ticker']}:{htf}"] = {
+                "tf": xtf, "candles": chart, "marks": _marks_in(marks_by_tf[xtf], chart) if xtf in marks_by_tf else None}
+            entry["extra_tf"] = xtf
 
 
 def scan_higher_timeframe(
@@ -639,6 +653,28 @@ def update_removed(log: list, before: dict, state: dict) -> list:
     return log
 
 
+def _chart_file(key: str) -> str:
+    """charts/<watch>.json — the same name as ov.js's chartFileOf."""
+    return f"{config.EXTRA_CHARTS_DIR}/{re.sub(r'[^A-Za-z0-9_-]', '_', key)}.json"
+
+
+def write_extra_charts(state: dict) -> None:
+    """One small file per watch for its third chart, loaded by the dashboard
+    only when that watch is opened. The folder is rebuilt each run."""
+    out = Path(config.EXTRA_CHARTS_DIR)
+    if out.exists():
+        for f in out.glob("*.json"):
+            f.unlink()
+    out.mkdir(exist_ok=True)
+    n = 0
+    for key in {k.removesuffix(":sma50") for k in state if not k.startswith("__")}:
+        chart = _extra_charts.get(key)
+        if chart:
+            Path(_chart_file(key)).write_text(json.dumps(chart, separators=(",", ":"), default=str))
+            n += 1
+    logger.info("Wrote %d extra charts to %s/.", n, config.EXTRA_CHARTS_DIR)
+
+
 def write_output(state: dict, basket_status: dict, removed: list) -> None:
     Path(config.OUTPUT_FILE).write_text(json.dumps({
         "generated_at": now_iso(),
@@ -673,6 +709,7 @@ def run() -> None:
     global _run_started
     _run_started = now_iso()
     _removals.clear()
+    _extra_charts.clear()
     state = load_state()
     removed = state.pop(REMOVED_KEY, [])
     unusual_sent = state.pop(unusual.STATE_KEY, {})
@@ -689,6 +726,10 @@ def run() -> None:
     basket_status = basket.run_hourly(state)
     unusual.tag_watches(state)
     write_output(state, basket_status, removed)
+    try:
+        write_extra_charts(state)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Extra charts failed: %s", exc)
     for market in ("crypto", "pse"):
         try:
             market_board.build(market, state, unusual.flags(market))

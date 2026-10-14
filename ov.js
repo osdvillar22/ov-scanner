@@ -2,6 +2,10 @@
 // block (candles + indicators + MACD), GitHub read/write, the token panel.
 
 const LOWER_TF_MAP = { '1H': ['15m', '5m'], '4H': ['1H', '15m'], '1D': ['4H', '1H'], '1W': ['1D', '4H'] };
+// A third, finer chart per watch (config.EXTRA_CHART_TF) — charts only,
+// loaded on demand from charts/<watch>.json.
+const EXTRA_CHART_TF = { '1H': '1m', '4H': '5m', '1D': '15m', '1W': '1H' };
+const chartFileOf = (key) => `charts/${key.replace(/[^A-Za-z0-9_-]/g, '_')}.json`;
 const dirClass = (d) => (d || '').toLowerCase();
 const dirArrow = (d) => d === 'BULLISH' ? '▲' : '▼';
 const isS50 = (w) => w.setup === 'sma50';
@@ -113,6 +117,31 @@ function attachCtrlWheelZoom(chart, el, lastIndex) {
 
 // Axis decimals sized to the price: ~3 significant digits (5 for forex,
 // to keep pips), at least 2 decimals — 3.60, 0.0977, 1.3235.
+// Teal: the first trigger arrow after an LSMA / SMA 50 crossover.
+const FIRST_ARROW = '#3FC8B4';
+// Times of the trigger marks ([time, rsi, ±1]) that are the first after an
+// LSMA / SMA 50 crossover in the same direction (LSMA crossing above the
+// SMA 50 = bullish), before the next crossover. Crossovers before the
+// chart's first candle aren't known, so marks before the first one seen
+// aren't highlighted.
+function firstAfterCross(candles, marks) {
+  const crosses = [];
+  let prev = null;
+  candles.forEach(c => {
+    if (c.lsma == null || c.sma50 == null) return;
+    const side = c.lsma > c.sma50 ? 1 : c.lsma < c.sma50 ? -1 : 0;
+    if (side && prev && side !== prev) crosses.push({ time: c.time, dir: side });
+    if (side) prev = side;
+  });
+  const out = new Set(), used = new Set();
+  [...marks].sort((a, b) => a[0] - b[0]).forEach(([t, , d]) => {
+    let k = -1;
+    crosses.forEach((c, i) => { if (c.time <= t) k = i; });
+    if (k >= 0 && crosses[k].dir === d && !used.has(k)) { used.add(k); out.add(t); }
+  });
+  return out;
+}
+
 const pricePrecision = (price, forex) => Math.min(12, Math.max(2, Math.ceil(-Math.log10(Math.abs(price) || 1)) + (forex ? 4 : 2)));
 
 // Returns { chart, series, el, precision } for the candle chart (or null
@@ -162,9 +191,12 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
     const isBuy = opts.triggers.direction === 'BULLISH';
     // Every qualifying candle on the chart ([time, RSI, ±1] from scan.py),
     // labelled with its RSI. Older data without them: the window's triggers.
+    // The first arrow after each LSMA / SMA 50 crossover in its direction
+    // (the first momentum after the cross) is teal.
+    const firsts = firstAfterCross(candles, opts.triggers.marks || []);
     const marks = opts.triggers.marks
       ? opts.triggers.marks.map(([t, rsi, d]) => ({
-          time: t, position: d > 0 ? 'belowBar' : 'aboveBar', color: ink,
+          time: t, position: d > 0 ? 'belowBar' : 'aboveBar', color: firsts.has(t) ? FIRST_ARROW : ink,
           shape: d > 0 ? 'arrowUp' : 'arrowDown', text: rsi.toFixed(1),
         }))
       : opts.triggers.times.map(toUnixTime).filter(t => t != null).map(t => ({
@@ -225,7 +257,7 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
 // Long when the cut loss is below the entry. Prices snap to the PSE tick
 // table for PSE, else to the chart's decimals.
 // ---------------------------------------------------------------------------
-const TF_MINUTES = { '5m': 5, '15m': 15, '1H': 60, '4H': 240, '1D': 1440, '1W': 10080 };
+const TF_MINUTES = { '1m': 1, '5m': 5, '15m': 15, '1H': 60, '4H': 240, '1D': 1440, '1W': 10080 };
 const tradeLong = (t) => t.entry > t.cl;
 // Where `price` sits in R: 0 at entry, -1 at the cut loss, +ratio at the target.
 const tradeR = (t, price) => (price - t.entry) / Math.abs(t.entry - t.cl) * (tradeLong(t) ? 1 : -1);

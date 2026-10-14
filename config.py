@@ -22,6 +22,14 @@ LOWER_TF_MAP = {
     "1W": ["1D", "4H"],  # PSE and crypto, see EXTRA_HIGHER_TIMEFRAMES
 }
 
+# A third, finer chart per watch, for planning entries on a smaller
+# timeframe — charts only (no basket alerts on it), written to its own
+# charts/<watch>.json so data.json doesn't grow (scan.write_extra_charts),
+# the last EXTRA_CHART_CANDLES candles.
+EXTRA_CHART_TF = {"1H": "1m", "4H": "5m", "1D": "15m", "1W": "1H"}
+EXTRA_CHART_CANDLES = 400
+EXTRA_CHARTS_DIR = "charts"
+
 # PSE and crypto also get a weekly watch. It has no AUTO_HIGHER_TF — its
 # trigger is the other three conditions without the LSMA-vs-next-timeframe
 # check (the user's choice: a monthly LSMA(50) needs 50+ months, far more
@@ -47,7 +55,7 @@ AUTO_HIGHER_TF = {
 # "N candles on the higher timeframe" into an equivalent candle count on a
 # lower timeframe (see scan.lower_tf_candle_count).
 TIMEFRAME_MINUTES = {
-    "5m": 5, "15m": 15, "30m": 30, "1H": 60, "4H": 240, "1D": 1440, "1W": 10080,
+    "1m": 1, "5m": 5, "15m": 15, "30m": 30, "1H": 60, "4H": 240, "1D": 1440, "1W": 10080,
 }
 
 # The watch-trigger window: an asset is watchlisted if the entry condition
@@ -93,6 +101,7 @@ REMOVED_SHOW_HOURS = 24
 # yfinance's native intraday intervals. Anything not in this dict (4H) has to
 # be resampled from 1H bars ourselves — see fetch.resample_to_4h().
 YFINANCE_NATIVE_INTERVAL = {
+    "1m": "1m",
     "5m": "5m",
     "15m": "15m",
     "30m": "30m",
@@ -105,6 +114,7 @@ YFINANCE_NATIVE_INTERVAL = {
 # natively — Kraken's weeks start on Thursday; fetch.py builds Monday weeks
 # from the 1D candles instead (~720 days -> ~100 weeks).
 KRAKEN_NATIVE_INTERVAL = {
+    "1m": 1,
     "5m": 5,
     "15m": 15,
     "30m": 30,
@@ -117,6 +127,7 @@ KRAKEN_NATIVE_INTERVAL = {
 # sub-daily intervals. We ask for the max allowed per interval; anything
 # beyond this is simply unavailable for free.
 YFINANCE_MAX_INTRADAY_PERIOD = {
+    "1m": "7d",   # Yahoo's limit for 1m
     "5m": "60d",
     "15m": "60d",
     "30m": "60d",
@@ -203,7 +214,7 @@ PSE_EDGE_RATE_LIMIT_SECONDS = 0.6  # be polite to a small exchange's site
 
 # TradingView interval per timeframe (tvdatafeed Interval member names).
 TV_INTERVAL = {
-    "5m": "in_5_minute", "15m": "in_15_minute", "30m": "in_30_minute",
+    "1m": "in_1_minute", "5m": "in_5_minute", "15m": "in_15_minute", "30m": "in_30_minute",
     "1H": "in_1_hour", "4H": "in_4_hour", "1D": "in_daily", "1W": "in_weekly",
 }
 # Bars per TradingView request — enough warm-up plus the longest lower-tf

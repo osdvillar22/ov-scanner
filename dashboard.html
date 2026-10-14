@@ -182,11 +182,14 @@
   .dash .minis .chart-box { height: 220px; }
   .dash .minis .macd-box { height: 56px; }
   .cyc-key { font-size: 10px; color: var(--ink-faint); margin-top: 6px; }
+  .minis.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .snap-tip { position: absolute; z-index: 4; pointer-events: none; font-size: 10px; padding: 1px 5px; border-radius: 3px;
+    background: var(--surface-raised); border: 1px solid var(--gold-bright); color: var(--gold-bright); white-space: nowrap; display: none; }
   @media (max-width: 860px) {
     .dash .side-panel { width: 100%; border-right: 0; padding-right: 0; border-bottom: 1px solid var(--hair); padding-bottom: 8px; }
     .dash .detail-panel { padding: 12px 0 0; }
     .dash .scroll { max-height: 300px; }
-    .minis { grid-template-columns: 1fr; }
+    .minis, .minis.three { grid-template-columns: 1fr; }
     .dash .d-actions .lg { margin-left: 0; }
   }
 </style>
@@ -847,6 +850,21 @@ function selectAsset(id) {
                opts: { forex, trades, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50: !!cycleStatus[ltf].lines } : null,
                        triggers: (entry.lower_tf_marks || {})[ltf] ? { marks: entry.lower_tf_marks[ltf], times: [], direction } : null } };
     }));
+  // The third, finer chart (charts/<watch>.json): drawn once loaded; the
+  // first open of a watch fetches it and redraws.
+  const xtf = entry.extra_tf, xkey = `${entry.asset_class}:${entry.ticker}:${entry.higher_tf}`, xc = extraCharts[xkey];
+  if (xtf && xc && xc.candles) {
+    const c = toCandles(xc.candles);
+    blocks.push({ tf: xtf, candles: c, visible: Math.min(c.length, 160),
+                  opts: { forex, trades, triggers: xc.marks ? { marks: xc.marks, times: [], direction } : null } });
+  } else if (xtf && xc === undefined) {
+    extraCharts[xkey] = null;   // loading
+    fetch(chartFileOf(xkey), { cache: 'no-cache' }).then(r => r.ok ? r.json() : false).catch(() => false).then(d => {
+      extraCharts[xkey] = d || false;
+      const open = document.querySelector('#detail [data-current-id]');
+      if (d && open && open.dataset.currentId === id && !plan) selectAsset(id);
+    });
+  }
   const bigIdx = Math.max(0, blocks.findIndex(b => b.tf === bigTf));
   const main = blocks[bigIdx], minis = blocks.filter((_, i) => i !== bigIdx);
   // A lower tf's entry status (basket picks), for its chart's header.
@@ -875,7 +893,7 @@ function selectAsset(id) {
     <div class="price-line"><span id="detail-price">—</span><span id="detail-pct">—</span></div>
     ${cycleStatus ? `<div class="cyc-key"><span style="color:var(--gold-bright)">●</span> pulled back &nbsp;<span style="color:var(--violet)">●</span> armed &nbsp;<span>${dirArrow(direction)}</span> entry${Object.values(cycleStatus).some(c => c && c.lines) ? ` (S = SMA 50, L = LSMA${s50 ? ' · first cross of each only' : ''})` : ''}</div>` : ''}
 
-    <div class="minis">${minis.map((b, i) => `
+    <div class="minis${minis.length > 2 ? ' three' : ''}">${minis.map((b, i) => `
       <div>
         <div class="mini-head"><span><b>${b.tf}</b> <span class="st">${esc(ltfStatus(b.tf))}</span></span>
           <span><button class="reset" id="detail-mini-${i}-reset" type="button">reset</button> &nbsp;<button class="big" type="button" data-tf="${b.tf}">enlarge</button></span></div>
@@ -917,6 +935,7 @@ let tradesList = [];         // trades.json, as last read
 // entry — the plan saves already filled there (unless switched to a
 // pending plan). Clicks right of the last candle make a pending plan.
 let bigTf = null, bigFor = null;   // the enlarged lower tf, and for which watch
+const extraCharts = {};      // watch key -> its third chart (null = loading, false = none)
 let plan = null;             // { pick, step: 'entry'|'cl'|'adjust', entry, cl, tp, ratio, custom, tf, precision, candles, from, asPending }
 let planCharts = [];         // [{ tf, chart, series, el, precision, lines }]
 const RATIOS = [1, 1.5, 2, 3];
@@ -941,6 +960,28 @@ function addPlanChart(tf, h) {
 }
 
 const planSnap = (price) => snapPrice(price, plan.pick.asset_class, plan.precision);
+// Clicks and drags within SNAP_PX of the candle's open / high / low / close
+// or a shown line (EMA10, EMA20, LSMA, SMA 50) land exactly on it.
+const SNAP_PX = 10;
+const OHLC = ['open', 'high', 'low', 'close'];
+function snapAt(pc, x, y) {
+  const t = pc.chart.timeScale().coordinateToTime(x);
+  const c = t == null ? null : (pc.candles || []).find(k => k.time === t);
+  if (!c) return null;
+  const cands = [...OHLC.map(k => [k, c[k]]),
+    ...INDICATORS.filter(i => i.key !== 'macd' && shown[i.key]).map(i => [i.label.split(' ')[0], c[i.key]])];
+  let best = null, gap = SNAP_PX;
+  cands.forEach(([label, v]) => {
+    if (v == null) return;
+    // A line has to be clearly closer than the candle's own prices to win.
+    const yy = pc.series.priceToCoordinate(v), line = !OHLC.includes(label), d = yy == null ? Infinity : Math.abs(yy - y) + (line ? 3 : 0);
+    if (d < gap) { gap = d; best = { label, price: v, line }; }
+  });
+  return best;
+}
+// The price a click / drag sets: the snapped value (candle prices exact,
+// lines on the PSE tick / chart decimals) or the pointer's price.
+const planPrice = (snap, raw) => snap ? (snap.line ? planSnap(snap.price) : +snap.price.toPrecision(10)) : planSnap(raw);
 const missedFill = () => plan && plan.from != null ? plan.candles.slice(plan.from).find(c => c.low <= plan.entry && plan.entry <= c.high) || null : null;
 const missedCandle = () => plan && !plan.asPending ? missedFill() : null;
 const planTp = () => planSnap(plan.entry + plan.ratio * (plan.entry - plan.cl));
@@ -949,14 +990,16 @@ function onPlanClick(pc, p) {
   if (!plan || plan.step === 'adjust' || !p || !p.point) return;
   const raw = pc.series.coordinateToPrice(p.point.y);
   if (raw == null) return;
+  const snap = snapAt(pc, p.point.x, p.point.y);
   if (plan.step === 'entry') {
     const from = (pc.candles || []).findIndex(c => c.time === p.time);
-    Object.assign(plan, { tf: pc.tf, precision: pc.precision, candles: pc.candles || [], from: from < 0 ? null : from, asPending: false });
-    plan.entry = planSnap(raw); plan.step = 'cl';
+    // Two decimals finer than the chart's axis, so e.g. 0.01198 isn't 0.0120.
+    Object.assign(plan, { tf: pc.tf, precision: Math.min(12, pc.precision + 2), candles: pc.candles || [], from: from < 0 ? null : from, asPending: false });
+    plan.entry = planPrice(snap, raw); plan.src = { entry: snap && snap.label }; plan.step = 'cl';
   } else {
-    const cl = planSnap(raw);
+    const cl = planPrice(snap, raw);
     if (cl === plan.entry) return;
-    plan.cl = cl; plan.tp = planTp(); plan.step = 'adjust';
+    plan.cl = cl; plan.src.cl = snap && snap.label; plan.tp = planTp(); plan.step = 'adjust';
   }
   drawPlan(); paintPlanBar();
 }
@@ -979,6 +1022,18 @@ function wirePlanDrag(pc) {
     return best;
   };
   let drag = null;
+  // What a click / drag here would snap to, shown by the pointer.
+  const tip = document.createElement('div');
+  tip.className = 'snap-tip';
+  el.appendChild(tip);
+  const showTip = (snap, x, y) => {
+    if (!snap) { tip.style.display = 'none'; return; }
+    const prec = plan.precision || Math.min(12, pc.precision + 2);
+    const v = snap.line ? snapPrice(snap.price, plan.pick.asset_class, prec) : +snap.price.toPrecision(10);
+    tip.textContent = `${snap.label} ${plan.pick.asset_class === 'pse' ? v : +v.toFixed(prec)}`;
+    tip.style.display = 'block'; tip.style.left = `${x + 12}px`; tip.style.top = `${y - 22}px`;
+  };
+  el.addEventListener('pointerleave', () => { tip.style.display = 'none'; });
   el.addEventListener('pointerdown', (e) => {
     const k = near(yOf(e)); if (!k) return;
     drag = k; e.preventDefault(); e.stopPropagation();
@@ -986,12 +1041,18 @@ function wirePlanDrag(pc) {
     pc.chart.applyOptions({ handleScroll: false, handleScale: false });
   }, true);
   el.addEventListener('pointermove', (e) => {
-    if (!drag) { el.style.cursor = near(yOf(e)) ? 'ns-resize' : ''; return; }
+    const x = e.clientX - el.getBoundingClientRect().left, y = yOf(e);
+    if (!drag) {
+      el.style.cursor = near(y) ? 'ns-resize' : '';
+      showTip(plan && plan.step !== 'adjust' ? snapAt(pc, x, y) : null, x, y);
+      return;
+    }
     e.stopPropagation();
-    const p = pc.series.coordinateToPrice(yOf(e));
-    if (p != null) movePlan(drag, planSnap(p));
+    const snap = snapAt(pc, x, y), p = pc.series.coordinateToPrice(y);
+    showTip(snap, x, y);
+    if (p != null) { movePlan(drag, planPrice(snap, p)); if (plan.src) plan.src[drag] = snap && snap.label; paintPlanBar(); }
   }, true);
-  const end = () => { if (!drag) return; drag = null; pc.chart.applyOptions({ handleScroll: chartTheme.handleScroll, handleScale: chartTheme.handleScale }); };
+  const end = () => { if (!drag) return; drag = null; tip.style.display = 'none'; pc.chart.applyOptions({ handleScroll: chartTheme.handleScroll, handleScale: chartTheme.handleScale }); };
   el.addEventListener('pointerup', end, true);
   el.addEventListener('pointercancel', end, true);
   ['mousedown', 'touchstart'].forEach(ev => el.addEventListener(ev, (e) => { if (drag) e.stopPropagation(); }, true));
@@ -1006,6 +1067,7 @@ function movePlan(k, price) {
     const next = { ...plan, [k]: price };
     if (next.entry === next.cl) return;
     plan[k] = price; plan.tp = planTp();
+    if (plan.src) plan.src.tp = null;   // the target followed the ratio
   }
   drawPlan(); paintPlanBar();
 }
@@ -1016,13 +1078,14 @@ function paintPlanBar() {
   bar.classList.toggle('is-hidden', !plan);
   if (!plan) return;
   const pct = (v) => `${v >= plan.entry ? '+' : '−'}${Math.abs((v - plan.entry) / plan.entry * 100).toFixed(2)}%`;
-  const px = (v) => plan.pick.asset_class === 'pse' ? String(v) : v.toFixed(plan.precision);
+  const px = (v) => plan.pick.asset_class === 'pse' ? String(v) : String(+v.toFixed(plan.precision));
+  const src = (k) => plan.src && plan.src[k] ? ` <span style="color:var(--ink-faint)">(${esc(plan.src[k])})</span>` : '';
   const cancel = '<button class="text-btn" type="button" data-act="cancel">cancel</button>';
-  if (plan.step === 'entry') bar.innerHTML = `<span><b>① click the entry</b> on any chart</span><span class="push">${cancel}</span>`;
-  else if (plan.step === 'cl') bar.innerHTML = `<span>entry <b>${px(plan.entry)}</b> · <b>② click the cut loss</b></span><span class="push">${cancel}</span>`;
+  if (plan.step === 'entry') bar.innerHTML = `<span><b>① click the entry</b> on any chart · near a high, low, open, close or line it snaps to it</span><span class="push">${cancel}</span>`;
+  else if (plan.step === 'cl') bar.innerHTML = `<span>entry <b>${px(plan.entry)}</b>${src('entry')} · <b>② click the cut loss</b></span><span class="push">${cancel}</span>`;
   else {
     const long = plan.entry > plan.cl, opts = RATIOS.map(r => `<option value="${r}"${!plan.custom && r === plan.ratio ? ' selected' : ''}>1:${r}</option>`).join('');
-    bar.innerHTML = `<span><b class="${long ? 'bullish' : 'bearish'}">${long ? 'long' : 'short'}</b> on ${plan.tf} · entry <b>${px(plan.entry)}</b> · CL <b>${px(plan.cl)}</b> (${pct(plan.cl)}) · TP <b>${px(plan.tp)}</b> (${pct(plan.tp)})</span>
+    bar.innerHTML = `<span><b class="${long ? 'bullish' : 'bearish'}">${long ? 'long' : 'short'}</b> on ${plan.tf} · entry <b>${px(plan.entry)}</b>${src('entry')} · CL <b>${px(plan.cl)}</b>${src('cl')} (${pct(plan.cl)}) · TP <b>${px(plan.tp)}</b>${src('tp')} (${pct(plan.tp)})</span>
       <span>ratio <select data-act="ratio">${plan.custom ? `<option selected>1:${plan.ratio.toFixed(2)}</option>` : ''}${opts}</select></span>
       <span>${missedCandle()
         ? `<b style="color:var(--gold-bright)">missed entry</b> · filled on the ${plan.tf} candle ${fmtTime(new Date(missedCandle().time * 1000).toISOString())} · <button class="link-btn" type="button" data-act="pending">make it a pending plan</button>`

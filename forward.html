@@ -74,6 +74,7 @@
   .fwd .ind { border: 0; padding: 0; font-size: 10.5px; gap: 4px; }
   .fwd .ind.off { color: var(--ink-faint); text-decoration: line-through; }
   .minis { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+  .minis.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .mini-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 11px; padding: 6px 0 2px; border-top: 1px solid var(--hair); }
   .mini-head .dim { color: var(--ink-dim); }
   .mini-head .big { color: var(--gold-bright); font-size: 10.5px; }
@@ -84,7 +85,7 @@
     .fwd .side-panel { width: 100%; border-right: 0; padding-right: 0; border-bottom: 1px solid var(--hair); padding-bottom: 8px; }
     .fwd .detail-panel { padding: 12px 0 0; }
     .fwd .scroll { max-height: 320px; }
-    .minis { grid-template-columns: 1fr; }
+    .minis, .minis.three { grid-template-columns: 1fr; }
     .acts .lg { margin-left: 0; }
   }
 </style>
@@ -130,7 +131,8 @@
 let trades = [], charts = {}, chartsAt = null, currentId = null, groupBy = 'market', bigTf = null;
 const VIEWS = { open: ['open'], pending: ['pending'], closed: ['tp', 'cl'] };
 const chartKey = (t) => `${t.asset_class}:${t.ticker}:${t.higher_tf}`;
-const tfsOf = (t) => [t.higher_tf, ...LOWER_TF_MAP[t.higher_tf]];
+// The pick's tf, its two lower tfs and the third, finer one (if charted).
+const tfsOf = (t) => [t.higher_tf, ...LOWER_TF_MAP[t.higher_tf], EXTRA_CHART_TF[t.higher_tf]].filter(tf => tf && (tf !== EXTRA_CHART_TF[t.higher_tf] || (charts[chartKey(t)] || {})[tf]));
 const ratioOf = (t) => Math.abs(t.tp - t.entry) / Math.abs(t.entry - t.cl);
 const lastTime = (t) => t.closed_at || t.filled_at || t.created_at;
 const byRecent = (a, b) => lastTime(b).localeCompare(lastTime(a));
@@ -295,7 +297,7 @@ function selectTrade(id) {
     <div class="chart-head" title="ctrl+scroll or pinch to zoom · drag to pan"><span class="chart-label">${big}${bigTf && big !== (tfs.includes(t.plan_tf) ? t.plan_tf : tfs[0]) ? ` <span class="dim">enlarged · <button class="link-btn" type="button" id="bigBack">back</button></span>` : ''}</span><button class="reset" id="fc-big-reset" type="button">reset zoom</button></div>
     <div class="chart-box" id="fc-big"></div>
     <div class="macd-box" id="fm-big"></div>
-    <div class="minis">${minis.map((tf, i) => `
+    <div class="minis${minis.length > 2 ? ' three' : ''}">${minis.map((tf, i) => `
       <div>
         <div class="mini-head"><span><b>${tf}</b> <span class="dim">${label(tf)}</span></span><span><button class="reset" id="fc-${i}-reset" type="button">reset</button> &nbsp;<button class="big" type="button" data-tf="${tf}">enlarge</button></span></div>
         <div class="chart-box" id="fc-${i}"></div>

@@ -84,6 +84,7 @@ jobs:
         run: |
           mkdir -p _site
           cp dashboard.html forward.html crypto.html ov.js ov.css data.json _site/
+          [ -d charts ] && cp -r charts _site/ || true
           # A board / chart file this run couldn't write (e.g. TradingView
           # down for PSE) keeps the last published copy instead of vanishing
           # from the site — its own generated_at shows how old it is.

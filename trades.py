@@ -261,6 +261,11 @@ def write_charts() -> None:
             d = scan.fetch_and_compute(asset, ltf, min_bars=60)
             if d is not None:
                 entry[ltf] = scan.serialize_candles(d, n=scan.lower_tf_candle_count(t["higher_tf"], ltf))
+        xtf = config.EXTRA_CHART_TF.get(t["higher_tf"])
+        if xtf:
+            d = scan.fetch_and_compute(asset, xtf, min_bars=60)
+            if d is not None:
+                entry[xtf] = scan.serialize_candles(d, n=config.EXTRA_CHART_CANDLES)
         charts[key] = entry
     Path(TRADES_DATA_FILE).write_text(json.dumps({"generated_at": now.isoformat(), "charts": charts},
                                                  separators=(",", ":"), default=str))
