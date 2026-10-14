@@ -241,14 +241,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "OPUSD",
-      "display_name": "OP/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-14T04:00:02.516Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "OXTUSD",
       "display_name": "OXT/USD",
       "higher_tf": "4H",
