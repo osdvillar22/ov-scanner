@@ -318,6 +318,14 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T07:41:04.062Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "SANDUSD",
+      "display_name": "SAND/USD",
+      "higher_tf": "1D",
+      "direction": "BULLISH",
+      "added_at": "2026-10-14T07:41:41.138Z"
     }
   ]
 }
