@@ -306,6 +306,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T19:49:48.548Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "EIGENUSD",
+      "display_name": "EIGEN/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T19:50:54.087Z"
     }
   ]
 }
