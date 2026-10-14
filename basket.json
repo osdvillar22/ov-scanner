@@ -322,6 +322,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T19:51:55.937Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "FILUSD",
+      "display_name": "FIL/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T19:52:56.969Z"
     }
   ]
 }
