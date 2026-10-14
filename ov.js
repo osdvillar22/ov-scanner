@@ -117,8 +117,8 @@ function attachCtrlWheelZoom(chart, el, lastIndex) {
 
 // Axis decimals sized to the price: ~3 significant digits (5 for forex,
 // to keep pips), at least 2 decimals — 3.60, 0.0977, 1.3235.
-// Teal: the first trigger arrow after an LSMA / SMA 50 crossover.
-const FIRST_ARROW = '#3FC8B4';
+// Bright yellow: the first trigger arrow after an LSMA / SMA 50 crossover.
+const FIRST_ARROW = '#FFE600';
 // Times of the trigger marks ([time, rsi, ±1]) that are the first after an
 // LSMA / SMA 50 crossover in the same direction (LSMA crossing above the
 // SMA 50 = bullish), before the next crossover. Crossovers before the
@@ -192,7 +192,7 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
     // Every qualifying candle on the chart ([time, RSI, ±1] from scan.py),
     // labelled with its RSI. Older data without them: the window's triggers.
     // The first arrow after each LSMA / SMA 50 crossover in its direction
-    // (the first momentum after the cross) is teal.
+    // (the first momentum after the cross) is bright yellow.
     const firsts = firstAfterCross(candles, opts.triggers.marks || []);
     const marks = opts.triggers.marks
       ? opts.triggers.marks.map(([t, rsi, d]) => ({
