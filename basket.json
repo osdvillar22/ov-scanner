@@ -309,14 +309,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "EIGENUSD",
-      "display_name": "EIGEN/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-14T19:50:54.087Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "FETUSD",
       "display_name": "FET/USD",
       "higher_tf": "1H",
