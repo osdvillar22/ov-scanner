@@ -910,6 +910,30 @@
       "filled_at": "2026-10-13T09:00:00.000Z",
       "fill_end": "2026-10-13T09:15:00.000Z",
       "fill_tf": "15m"
+    },
+    {
+      "id": "mv7toqrpn6og",
+      "asset_class": "crypto",
+      "ticker": "SRMUSD",
+      "display_name": "SRM/USD",
+      "tag": null,
+      "higher_tf": "4H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BEARISH",
+      "plan_tf": "15m",
+      "entry": 0.00579,
+      "cl": 0.00586,
+      "tp": 0.00572,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-14T08:03:09.061Z",
+      "missed": true,
+      "filled_at": "2026-10-13T09:00:00.000Z",
+      "fill_end": "2026-10-13T09:15:00.000Z",
+      "fill_tf": "15m"
     }
   ]
 }
