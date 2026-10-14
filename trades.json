@@ -1242,6 +1242,30 @@
       "filled_at": "2026-10-14T18:05:00.000Z",
       "fill_end": "2026-10-14T18:10:00.000Z",
       "fill_tf": "5m"
+    },
+    {
+      "id": "mv8j111idq64",
+      "asset_class": "crypto",
+      "ticker": "FETUSD",
+      "display_name": "FET/USD",
+      "tag": null,
+      "higher_tf": "1H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BEARISH",
+      "plan_tf": "5m",
+      "entry": 0.2054,
+      "cl": 0.20899,
+      "tp": 0.20181,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-14T19:52:32.646Z",
+      "missed": true,
+      "filled_at": "2026-10-14T17:50:00.000Z",
+      "fill_end": "2026-10-14T17:55:00.000Z",
+      "fill_tf": "5m"
     }
   ]
 }
