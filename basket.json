@@ -256,14 +256,6 @@
       "added_at": "2026-10-14T04:43:45.547Z"
     },
     {
-      "asset_class": "forex",
-      "ticker": "GBPUSD=X",
-      "display_name": "GBPUSD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-14T05:06:50.737Z"
-    },
-    {
       "asset_class": "crypto",
       "ticker": "TXUSD",
       "display_name": "TX/USD",
