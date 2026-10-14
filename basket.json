@@ -264,14 +264,6 @@
       "added_at": "2026-10-14T05:06:50.737Z"
     },
     {
-      "asset_class": "forex",
-      "ticker": "NZDUSD=X",
-      "display_name": "NZDUSD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-14T05:08:59.899Z"
-    },
-    {
       "asset_class": "crypto",
       "ticker": "TXUSD",
       "display_name": "TX/USD",
