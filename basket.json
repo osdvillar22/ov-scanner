@@ -366,6 +366,14 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T08:02:51.014Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "TRIAUSD",
+      "display_name": "TRIA/USD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T08:04:10.301Z"
     }
   ]
 }
