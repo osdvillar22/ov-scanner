@@ -346,6 +346,14 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T19:55:30.394Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "MOGUSD",
+      "display_name": "MOG/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T19:57:03.756Z"
     }
   ]
 }
