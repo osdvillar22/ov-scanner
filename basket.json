@@ -269,6 +269,14 @@
         "1H",
         "15m"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "GALAUSD",
+      "display_name": "GALA/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T10:41:15.088Z"
     }
   ]
 }
