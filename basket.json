@@ -282,6 +282,14 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T12:09:14.615Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "FLRUSD",
+      "display_name": "FLR/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T19:44:26.663Z"
     }
   ]
 }
