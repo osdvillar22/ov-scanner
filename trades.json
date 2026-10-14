@@ -890,12 +890,17 @@
       "cl": 0.00445,
       "tp": 0.00421,
       "ratio": 1,
-      "status": "open",
+      "status": "tp",
       "created_at": "2026-10-14T08:01:20.685Z",
       "missed": true,
       "filled_at": "2026-10-13T10:00:00.000Z",
       "fill_end": "2026-10-13T10:15:00.000Z",
-      "fill_tf": "15m"
+      "fill_tf": "15m",
+      "closed_at": "2026-10-14T14:05:00+00:00",
+      "exit_tf": "5m",
+      "exit": 0.00421,
+      "result_r": 1.0,
+      "note": null
     },
     {
       "id": "mv7tnmj2hq3v",
