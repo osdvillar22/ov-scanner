@@ -334,6 +334,14 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T07:58:55.800Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "GUNUSD",
+      "display_name": "GUN/USD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T08:00:14.620Z"
     }
   ]
 }
