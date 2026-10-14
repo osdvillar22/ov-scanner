@@ -386,6 +386,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T20:04:01.851Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "AVAXUSD",
+      "display_name": "AVAX/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T20:05:07.942Z"
     }
   ]
 }
