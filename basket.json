@@ -249,14 +249,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "MUBARAKUSD",
-      "display_name": "MUBARAK/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-14T04:00:39.660Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "OXTUSD",
       "display_name": "OXT/USD",
       "higher_tf": "4H",
