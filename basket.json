@@ -350,6 +350,14 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T08:00:53.970Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "LUNAUSD",
+      "display_name": "LUNA/USD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T08:02:02.920Z"
     }
   ]
 }
