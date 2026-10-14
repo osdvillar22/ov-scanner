@@ -652,6 +652,30 @@
       "filled_at": "2026-10-14T01:35:00.000Z",
       "fill_end": "2026-10-14T01:40:00.000Z",
       "fill_tf": "5m"
+    },
+    {
+      "id": "mv7ngkyjw967",
+      "asset_class": "crypto",
+      "ticker": "AUDUSD",
+      "display_name": "AUD/USD",
+      "tag": "currency",
+      "higher_tf": "1H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "5m",
+      "entry": 0.69963,
+      "cl": 0.69908,
+      "tp": 0.70018,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-14T05:08:50.587Z",
+      "missed": true,
+      "filled_at": "2026-10-14T04:10:00.000Z",
+      "fill_end": "2026-10-14T04:15:00.000Z",
+      "fill_tf": "5m"
     }
   ]
 }
