@@ -338,6 +338,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T19:54:21.755Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "HNTUSD",
+      "display_name": "HNT/USD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T19:55:30.394Z"
     }
   ]
 }
