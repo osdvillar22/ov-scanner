@@ -238,6 +238,14 @@
       "higher_tf": "4H",
       "direction": "BULLISH",
       "added_at": "2026-10-14T03:54:20.017Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "OPUSD",
+      "display_name": "OP/USD",
+      "higher_tf": "1H",
+      "direction": "BULLISH",
+      "added_at": "2026-10-14T04:00:02.516Z"
     }
   ]
 }
