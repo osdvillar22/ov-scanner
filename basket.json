@@ -378,6 +378,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T20:02:39.225Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "ADAUSD",
+      "display_name": "ADA/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T20:04:01.851Z"
     }
   ]
 }
