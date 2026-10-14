@@ -394,6 +394,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T20:05:07.942Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "GRTUSD",
+      "display_name": "GRT/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T20:08:14.291Z"
     }
   ]
 }
