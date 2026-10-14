@@ -261,14 +261,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "GTCUSD",
-      "display_name": "GTC/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-14T10:42:45.154Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "CAPUSD",
       "display_name": "CAP/USD",
       "higher_tf": "1H",
