@@ -370,6 +370,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T19:59:35.002Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "STBLUSD",
+      "display_name": "STBL/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T20:02:39.225Z"
     }
   ]
 }
