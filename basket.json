@@ -362,6 +362,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-14T19:58:58.650Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "TAOUSD",
+      "display_name": "TAO/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-14T19:59:35.002Z"
     }
   ]
 }
