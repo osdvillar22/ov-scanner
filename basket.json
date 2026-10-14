@@ -285,14 +285,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "STORJUSD",
-      "display_name": "STORJ/USD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-14T11:11:46.244Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "DEEPUSD",
       "display_name": "DEEP/USD",
       "higher_tf": "1H",
