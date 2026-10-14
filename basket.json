@@ -257,14 +257,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "WALUSD",
-      "display_name": "WAL/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-14T07:05:08.611Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "GNOTUSD",
       "display_name": "GNOT/USD",
       "higher_tf": "1H",
