@@ -1218,6 +1218,30 @@
       "ratio": 1,
       "status": "pending",
       "created_at": "2026-10-14T19:50:29.488Z"
+    },
+    {
+      "id": "mv8izv3j2m5q",
+      "asset_class": "crypto",
+      "ticker": "EIGENUSD",
+      "display_name": "EIGEN/USD",
+      "tag": null,
+      "higher_tf": "1H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BEARISH",
+      "plan_tf": "5m",
+      "entry": 0.2321,
+      "cl": 0.23651,
+      "tp": 0.22769,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-14T19:51:38.287Z",
+      "missed": true,
+      "filled_at": "2026-10-14T18:05:00.000Z",
+      "fill_end": "2026-10-14T18:10:00.000Z",
+      "fill_tf": "5m"
     }
   ]
 }
