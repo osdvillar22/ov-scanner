@@ -225,20 +225,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "VELODROMEUSD",
-      "display_name": "VELODROME/USD",
-      "higher_tf": "1D",
-      "direction": "BULLISH",
-      "added_at": "2026-10-13T08:15:07.160Z",
-      "muted": [
-        "4H"
-      ],
-      "lines": [
-        "sma50"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "BABYUSD",
       "display_name": "BABY/USD",
       "higher_tf": "4H",
