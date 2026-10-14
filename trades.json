@@ -1523,6 +1523,30 @@
       "filled_at": "2026-10-14T17:45:00.000Z",
       "fill_end": "2026-10-14T17:50:00.000Z",
       "fill_tf": "5m"
+    },
+    {
+      "id": "mv8joxm3gyzu",
+      "asset_class": "crypto",
+      "ticker": "XLTCZUSD",
+      "display_name": "LTC/USD",
+      "tag": null,
+      "higher_tf": "1H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BEARISH",
+      "plan_tf": "5m",
+      "entry": 59.5123,
+      "cl": 59.99,
+      "tp": 59.0346,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-14T20:11:07.947Z",
+      "missed": true,
+      "filled_at": "2026-10-14T18:00:00.000Z",
+      "fill_end": "2026-10-14T18:05:00.000Z",
+      "fill_tf": "5m"
     }
   ]
 }
