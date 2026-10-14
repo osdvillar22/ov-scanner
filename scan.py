@@ -134,8 +134,11 @@ def now_iso() -> str:
 _run_started: str | None = None
 # Watches removed this run: state key -> reason (see _drop, update_removed).
 _removals: dict[str, str] = {}
-# This run's third, finer charts: watch key (no :sma50) -> chart.
+# This run's third, finer charts: watch key (no :sma50) -> chart. Only
+# basket picks get one (_basket_keys, set by run) — fetching it for every
+# watch made each scan noticeably longer.
 _extra_charts: dict = {}
+_basket_keys: set = set()
 
 # Key in state.json holding the recently removed watches (not a watch).
 REMOVED_KEY = "__removed__"
@@ -449,14 +452,15 @@ def _fill_charts(entry: dict, asset: dict, htf: str, df_htf: pd.DataFrame, ltf_c
             if ltf in marks_by_tf:
                 entry["lower_tf_marks"][ltf] = _marks_in(marks_by_tf[ltf], chart)
     # The third, finer chart: kept apart (write_extra_charts), not in data.json.
-    xtf = config.EXTRA_CHART_TF.get(htf)
+    key = f"{asset['asset_class']}:{asset['ticker']}:{htf}"
+    xtf = config.EXTRA_CHART_TF.get(htf) if key in _basket_keys else None
     entry.pop("extra_tf", None)
     if xtf:
         if xtf not in ltf_cache:
             ltf_cache[xtf] = fetch_and_compute(asset, xtf, min_bars=60)
         if ltf_cache[xtf] is not None:
             chart = serialize_candles(ltf_cache[xtf], n=config.EXTRA_CHART_CANDLES)
-            _extra_charts[f"{asset['asset_class']}:{asset['ticker']}:{htf}"] = {
+            _extra_charts[key] = {
                 "tf": xtf, "candles": chart, "marks": _marks_in(marks_by_tf[xtf], chart) if xtf in marks_by_tf else None}
             entry["extra_tf"] = xtf
 
@@ -710,6 +714,8 @@ def run() -> None:
     _run_started = now_iso()
     _removals.clear()
     _extra_charts.clear()
+    _basket_keys.clear()
+    _basket_keys.update(basket.pick_key(p).removesuffix(":sma50") for p in basket.load_basket())
     state = load_state()
     removed = state.pop(REMOVED_KEY, [])
     unusual_sent = state.pop(unusual.STATE_KEY, {})

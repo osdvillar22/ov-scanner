@@ -22,7 +22,7 @@ LOWER_TF_MAP = {
     "1W": ["1D", "4H"],  # PSE and crypto, see EXTRA_HIGHER_TIMEFRAMES
 }
 
-# A third, finer chart per watch, for planning entries on a smaller
+# A third, finer chart per basket pick, for planning entries on a smaller
 # timeframe — charts only (no basket alerts on it), written to its own
 # charts/<watch>.json so data.json doesn't grow (scan.write_extra_charts),
 # the last EXTRA_CHART_CANDLES candles.
