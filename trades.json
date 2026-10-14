@@ -1363,6 +1363,30 @@
       "ratio": 1,
       "status": "pending",
       "created_at": "2026-10-14T19:57:56.501Z"
+    },
+    {
+      "id": "mv8j9s0kxjo0",
+      "asset_class": "crypto",
+      "ticker": "SUIUSD",
+      "display_name": "SUI/USD",
+      "tag": null,
+      "higher_tf": "1H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BEARISH",
+      "plan_tf": "5m",
+      "entry": 1.0246,
+      "cl": 1.0365,
+      "tp": 1.0127,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-14T19:59:20.852Z",
+      "missed": true,
+      "filled_at": "2026-10-14T17:55:00.000Z",
+      "fill_end": "2026-10-14T18:00:00.000Z",
+      "fill_tf": "5m"
     }
   ]
 }
