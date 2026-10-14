@@ -266,7 +266,8 @@
       "direction": "BULLISH",
       "added_at": "2026-10-14T08:58:29.846Z",
       "muted": [
-        "1H"
+        "1H",
+        "15m"
       ]
     },
     {
