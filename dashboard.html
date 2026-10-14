@@ -842,12 +842,19 @@ function selectAsset(id) {
   if (bigFor !== id) { bigTf = null; bigFor = id; }
   const forex = marketsOf(entry).has('forex');
   const trades = tradesFor(entry);
-  const blocks = [{ tf: entry.higher_tf, candles: toCandles(entry.candles), visible: entry.window || 25,
-                    opts: { forex, trades, triggers: { marks: entry.marks, times: entry.trigger_times || [], direction, s50: s50 ? entry : null } } }]
+  // Dotted lines at the candle after each yellow arrow (the first after an
+  // LSMA / SMA 50 cross) on the trigger tf — on it and its lower tfs only.
+  const trigCandles = toCandles(entry.candles);
+  const vlines = [...firstAfterCross(trigCandles, entry.marks || [])].map(t => {
+    const i = trigCandles.findIndex(c => c.time === t);
+    return i >= 0 && i + 1 < trigCandles.length ? trigCandles[i + 1].time : null;
+  }).filter(t => t != null);
+  const blocks = [{ tf: entry.higher_tf, candles: trigCandles, visible: entry.window || 25,
+                    opts: { forex, trades, vlines, triggers: { marks: entry.marks, times: entry.trigger_times || [], direction, s50: s50 ? entry : null } } }]
     .concat(lowerTfs.map(ltf => {
       const c = toCandles(entry.lower_tf_candles[ltf]);
       return { tf: ltf, candles: c, visible: c.length,
-               opts: { forex, trades, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50: !!cycleStatus[ltf].lines } : null,
+               opts: { forex, trades, vlines, cycles: cycleStatus && cycleStatus[ltf] ? { events: cycleStatus[ltf].events, direction, s50: !!cycleStatus[ltf].lines } : null,
                        triggers: (entry.lower_tf_marks || {})[ltf] ? { marks: entry.lower_tf_marks[ltf], times: [], direction } : null } };
     }));
   // The third, finer chart (charts/<watch>.json): drawn once loaded; the
@@ -856,7 +863,7 @@ function selectAsset(id) {
   if (xtf && xc && xc.candles) {
     const c = toCandles(xc.candles);
     blocks.push({ tf: xtf, candles: c, visible: Math.min(c.length, 160),
-                  opts: { forex, trades, triggers: xc.marks ? { marks: xc.marks, times: [], direction } : null } });
+                  opts: { forex, trades, vlines, triggers: xc.marks ? { marks: xc.marks, times: [], direction } : null } });
   } else if (xtf && xc === undefined) {
     extraCharts[xkey] = null;   // loading
     fetch(chartFileOf(xkey), { cache: 'no-cache' }).then(r => r.ok ? r.json() : false).catch(() => false).then(d => {

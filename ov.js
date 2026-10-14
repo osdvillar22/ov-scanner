@@ -124,6 +124,35 @@ const FIRST_ARROW = '#FFE600';
 // SMA 50 = bullish), before the next crossover. Crossovers before the
 // chart's first candle aren't known, so marks before the first one seen
 // aren't highlighted.
+// Dotted vertical lines at given times (Unix s), behind the candles — a
+// series primitive, so they follow zoom and pan. A time between candles
+// goes on the first candle at or after it; times off the chart are skipped.
+function vLines(series, candles, times) {
+  if (!candles.length) return;
+  const at = times.filter(t => t >= candles[0].time).map(t => (candles.find(c => c.time >= t) || {}).time).filter(t => t != null);
+  if (!at.length) return;
+  let chart = null;
+  const color = cssVar('--ink');
+  const renderer = {
+    draw(target) {
+      target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
+        if (!chart) return;
+        ctx.save();
+        ctx.strokeStyle = color; ctx.globalAlpha = 0.4; ctx.lineWidth = 1; ctx.setLineDash([1.5, 3]);
+        at.forEach(t => {
+          const x = chart.timeScale().timeToCoordinate(t);
+          if (x == null) return;
+          const px = Math.round(x) + 0.5;
+          ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, mediaSize.height); ctx.stroke();
+        });
+        ctx.restore();
+      });
+    },
+  };
+  const view = { renderer: () => renderer, zOrder: () => 'bottom' };
+  series.attachPrimitive({ attached: (p) => { chart = p.chart; }, detached: () => { chart = null; }, paneViews: () => [view], updateAllViews() {} });
+}
+
 function firstAfterCross(candles, marks) {
   const crosses = [];
   let prev = null;
@@ -249,6 +278,7 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
     .setData(candles.map(c => ({ time: c.time, value: c.macd_signal })).filter(p => p.value != null));
   macdChart.timeScale().setVisibleLogicalRange(home);
   chart.timeScale().subscribeVisibleLogicalRangeChange(range => { if (range) macdChart.timeScale().setVisibleLogicalRange(range); });
+  if (opts.vlines && opts.vlines.length) vLines(candleSeries, candles, opts.vlines);
   return { chart, series: candleSeries, el: chartEl, precision, candles };
 }
 
