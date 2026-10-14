@@ -676,6 +676,30 @@
       "filled_at": "2026-10-14T04:10:00.000Z",
       "fill_end": "2026-10-14T04:15:00.000Z",
       "fill_tf": "5m"
+    },
+    {
+      "id": "mv7nhoi3xc3s",
+      "asset_class": "crypto",
+      "ticker": "TXUSD",
+      "display_name": "TX/USD",
+      "tag": null,
+      "higher_tf": "1H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BULLISH",
+      "plan_tf": "5m",
+      "entry": 0.00151,
+      "cl": 0.001502,
+      "tp": 0.001518,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-14T05:09:41.835Z",
+      "missed": true,
+      "filled_at": "2026-10-14T03:45:00.000Z",
+      "fill_end": "2026-10-14T03:50:00.000Z",
+      "fill_tf": "5m"
     }
   ]
 }
