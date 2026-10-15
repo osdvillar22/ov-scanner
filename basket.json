@@ -290,14 +290,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "FETUSD",
-      "display_name": "FET/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-14T19:51:55.937Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "ENSUSD",
       "display_name": "ENS/USD",
       "higher_tf": "1H",
