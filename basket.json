@@ -447,6 +447,14 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T02:29:40.822Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "SHXUSD",
+      "display_name": "SHX/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T02:30:15.417Z"
     }
   ]
 }
