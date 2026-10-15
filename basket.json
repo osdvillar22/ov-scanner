@@ -311,6 +311,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T06:01:50.049Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "GNOTUSD",
+      "display_name": "GNOT/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T07:07:29.572Z"
     }
   ]
 }
