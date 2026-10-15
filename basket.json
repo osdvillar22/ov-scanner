@@ -310,6 +310,14 @@
       "lines": [
         "lsma"
       ]
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "SYRUPUSD",
+      "display_name": "SYRUP/USD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T03:40:39.377Z"
     }
   ]
 }
