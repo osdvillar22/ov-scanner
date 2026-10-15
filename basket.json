@@ -230,14 +230,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "KATUSD",
-      "display_name": "KAT/USD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-14T08:00:53.970Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "ENSUSD",
       "display_name": "ENS/USD",
       "higher_tf": "1H",
