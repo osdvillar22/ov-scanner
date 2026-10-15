@@ -415,6 +415,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T00:02:42.553Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "SYRUPUSD",
+      "display_name": "SYRUP/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T00:03:54.144Z"
     }
   ]
 }
