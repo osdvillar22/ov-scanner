@@ -423,6 +423,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T00:03:54.144Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "VELOUSD",
+      "display_name": "VELO/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T00:06:02.483Z"
     }
   ]
 }
