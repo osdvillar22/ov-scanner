@@ -330,14 +330,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "SUIUSD",
-      "display_name": "SUI/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-14T19:58:58.650Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "ENSUSD",
       "display_name": "ENS/USD",
       "higher_tf": "1H",
