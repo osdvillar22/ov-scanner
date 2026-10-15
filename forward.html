@@ -36,7 +36,8 @@
   .fwd .layout { gap: 0; padding-top: 6px; }
   .fwd .side-panel { order: 0; width: 290px; background: none; border: 0; border-right: 1px solid var(--hair); border-radius: 0; padding-right: 14px; }
   .fwd .detail-panel { background: none; border: 0; border-radius: 0; padding: 0 0 0 18px; }
-  .fwd .scroll { max-height: calc(100vh - 40px); }
+  .fwd .scroll { max-height: calc(100vh - 80px); }
+  .fwd .search { border: 1px solid var(--hair); border-radius: 4px; margin-bottom: 4px; }
   .sec { display: flex; justify-content: space-between; color: var(--ink-faint); font-size: 10px; letter-spacing: 0.06em; margin: 12px 6px 4px; }
   .tr { padding: 6px 6px 7px; border-radius: 4px; cursor: pointer; }
   .tr:hover { background: var(--surface-raised); }
@@ -117,7 +118,10 @@
   </main>
 
   <div class="layout">
-    <div class="side-panel"><div class="scroll" id="list"></div></div>
+    <div class="side-panel">
+      <label class="search"><span aria-hidden="true">⌕</span><input type="search" id="search" placeholder="search…" autocomplete="off" spellcheck="false" aria-label="Search trades"><button class="search-clear is-hidden" id="searchClear" type="button" aria-label="Clear search">×</button></label>
+      <div class="scroll" id="list"></div>
+    </div>
     <div class="detail-panel" id="detail"><div class="empty">Loading trades…</div></div>
   </div>
 
@@ -128,7 +132,9 @@
 // GitHub) and their charts (trades_data.json, refreshed by the hourly scan).
 // trades.py moves them pending -> open -> tp / cl.
 // ---------------------------------------------------------------------------
-let trades = [], charts = {}, chartsAt = null, currentId = null, groupBy = 'market', bigTf = null;
+let trades = [], charts = {}, chartsAt = null, currentId = null, groupBy = 'market', bigTf = null, q = '';
+// Search box: ticker or name, anywhere, any case.
+const matches = (t) => !q || `${t.ticker} ${t.display_name}`.toLowerCase().includes(q);
 const VIEWS = { open: ['open'], pending: ['pending'], closed: ['tp', 'cl'] };
 const chartKey = (t) => `${t.asset_class}:${t.ticker}:${t.higher_tf}`;
 // The pick's tf, its two lower tfs and the third, finer one (if charted).
@@ -229,11 +235,12 @@ function renderList() {
     return `<div class="tr${t.id === currentId ? ' active' : ''}" data-id="${t.id}"><div class="tr-head">${name}${right}</div>${extra}</div>`;
   };
   const section = (title, list, note) => list.length ? `<div class="sec"><span>${title}</span><span>${note}</span></div>${list.map(item).join('')}` : '';
-  const open = trades.filter(t => t.status === 'open').sort(byRecent);
-  const pending = trades.filter(t => t.status === 'pending').sort(byRecent);
-  const closed = closedOf().sort(byRecent), total = closed.reduce((s, t) => s + (t.result_r || 0), 0);
-  el.innerHTML = section('OPEN', open, open.length) + section('PENDING', pending, pending.length)
-    + section('CLOSED', closed, `${closed.length} · <span class="${total >= 0 ? 'up' : 'down'}">${fmtR(total)}</span>`);
+  const open = trades.filter(t => t.status === 'open' && matches(t)).sort(byRecent);
+  const pending = trades.filter(t => t.status === 'pending' && matches(t)).sort(byRecent);
+  const closed = closedOf().filter(matches).sort(byRecent), total = closed.reduce((s, t) => s + (t.result_r || 0), 0);
+  el.innerHTML = (section('OPEN', open, open.length) + section('PENDING', pending, pending.length)
+    + section('CLOSED', closed, `${closed.length} · <span class="${total >= 0 ? 'up' : 'down'}">${fmtR(total)}</span>`))
+    || `<div class="empty">No trade matches "${esc(q)}".</div>`;
   el.querySelectorAll('.tr').forEach(r => r.addEventListener('click', () => selectTrade(r.dataset.id)));
 }
 
@@ -373,6 +380,25 @@ async function load(initial) {
 }
 
 wireBasketSettings();
+(() => {
+  const input = document.getElementById('search'), clear = document.getElementById('searchClear');
+  const set = (v) => {
+    input.value = v; q = v.trim().toLowerCase();
+    clear.classList.toggle('is-hidden', !v);
+    renderList();
+    // Open the first match when the trade shown isn't one.
+    const cur = trades.find(t => t.id === currentId);
+    if (q && (!cur || !matches(cur))) { const first = document.querySelector('#list .tr'); if (first) selectTrade(first.dataset.id); }
+  };
+  input.addEventListener('input', () => set(input.value));
+  input.addEventListener('keydown', (e) => { if (e.key === 'Escape') { set(''); input.blur(); } });
+  clear.addEventListener('click', (e) => { e.preventDefault(); set(''); input.focus(); });
+  // "/" jumps to the search box, as on the dashboard.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+    e.preventDefault(); input.focus(); input.select();
+  });
+})();
 window.addEventListener('resize', () => { activeCharts.forEach(({ chart, el }) => chart.applyOptions({ width: el.clientWidth })); renderResults(); });
 load(true);
 // Statuses change from the 5-minute and hourly checks — refresh the list.
