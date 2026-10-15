@@ -222,17 +222,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "GNOTUSD",
-      "display_name": "GNOT/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-14T07:38:55.201Z",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "LAPTOPUSD",
       "display_name": "LAPTOP/USD",
       "higher_tf": "1H",
