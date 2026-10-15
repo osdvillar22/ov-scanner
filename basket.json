@@ -222,14 +222,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "LAPTOPUSD",
-      "display_name": "LAPTOP/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-14T07:39:34.780Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "ENSUSD",
       "display_name": "ENS/USD",
       "higher_tf": "1H",
