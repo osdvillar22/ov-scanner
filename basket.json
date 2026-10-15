@@ -306,7 +306,11 @@
       "display_name": "CC/USD",
       "higher_tf": "1H",
       "direction": "BEARISH",
-      "added_at": "2026-10-15T02:57:08.459Z"
+      "added_at": "2026-10-15T02:57:08.459Z",
+      "lines": [
+        "lsma",
+        "sma50"
+      ]
     }
   ]
 }
