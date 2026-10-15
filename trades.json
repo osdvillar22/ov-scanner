@@ -1640,6 +1640,30 @@
       "filled_at": "2026-10-14T18:00:00.000Z",
       "fill_end": "2026-10-14T18:05:00.000Z",
       "fill_tf": "5m"
+    },
+    {
+      "id": "mv8rz203dzq6",
+      "asset_class": "crypto",
+      "ticker": "COTIUSD",
+      "display_name": "COTI/USD",
+      "tag": null,
+      "higher_tf": "1H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BEARISH",
+      "plan_tf": "5m",
+      "entry": 0.01178,
+      "cl": 0.01191,
+      "tp": 0.01165,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-15T00:02:57.123Z",
+      "missed": true,
+      "filled_at": "2026-10-14T17:40:00.000Z",
+      "fill_end": "2026-10-14T17:45:00.000Z",
+      "fill_tf": "5m"
     }
   ]
 }
