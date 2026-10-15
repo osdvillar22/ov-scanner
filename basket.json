@@ -393,14 +393,6 @@
       "added_at": "2026-10-14T20:10:41.222Z"
     },
     {
-      "asset_class": "metals",
-      "ticker": "PL=F",
-      "display_name": "PLATINUM",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T00:00:29.436Z"
-    },
-    {
       "asset_class": "crypto",
       "ticker": "VELOUSD",
       "display_name": "VELO/USD",
