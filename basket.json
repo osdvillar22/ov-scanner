@@ -258,14 +258,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "DEEPUSD",
-      "display_name": "DEEP/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-14T11:20:26.116Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "AVAAIUSD",
       "display_name": "AVAAI/USD",
       "higher_tf": "4H",
