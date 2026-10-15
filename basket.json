@@ -183,14 +183,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "ENSUSD",
-      "display_name": "ENS/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:28:49.281Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "COTIUSD",
       "display_name": "COTI/USD",
       "higher_tf": "4H",
@@ -215,59 +207,11 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "SHXUSD",
-      "display_name": "SHX/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:30:15.417Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "ALGOUSD",
-      "display_name": "ALGO/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:51:45.585Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "ACTUSD",
       "display_name": "ACT/USD",
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T02:51:49.767Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "2ZUSD",
-      "display_name": "2Z/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:51:53.040Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "APTUSD",
-      "display_name": "APT/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:53:15.105Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "ATOMUSD",
-      "display_name": "ATOM/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:53:50.661Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "BONKUSD",
-      "display_name": "BONK/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:56:20.486Z"
     },
     {
       "asset_class": "crypto",
@@ -298,14 +242,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "OPUSD",
-      "display_name": "OP/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T06:00:44.416Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "JTOUSD",
       "display_name": "JTO/USD",
       "higher_tf": "1H",
@@ -319,14 +255,6 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T07:07:29.572Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "MANAUSD",
-      "display_name": "MANA/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T08:08:25.869Z"
     },
     {
       "asset_class": "crypto",
