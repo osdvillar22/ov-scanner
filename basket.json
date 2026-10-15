@@ -415,6 +415,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T00:06:02.483Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "ENSUSD",
+      "display_name": "ENS/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T02:28:49.281Z"
     }
   ]
 }
