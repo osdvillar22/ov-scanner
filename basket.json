@@ -455,6 +455,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T02:30:15.417Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "ALGOUSD",
+      "display_name": "ALGO/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T02:51:45.585Z"
     }
   ]
 }
