@@ -327,6 +327,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T08:08:25.869Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "SCRTUSD",
+      "display_name": "SCRT/USD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T08:09:23.109Z"
     }
   ]
 }
