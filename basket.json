@@ -511,6 +511,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T02:54:51.061Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "BONKUSD",
+      "display_name": "BONK/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T02:56:20.486Z"
     }
   ]
 }
