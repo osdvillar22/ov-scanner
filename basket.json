@@ -354,14 +354,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "ADAUSD",
-      "display_name": "ADA/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-14T20:04:01.851Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "VELOUSD",
       "display_name": "VELO/USD",
       "higher_tf": "1H",
