@@ -191,22 +191,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "DOSUSD",
-      "display_name": "DOS/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:29:00.433Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "NPCUSD",
-      "display_name": "NPC/USD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:29:40.822Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "ACTUSD",
       "display_name": "ACT/USD",
       "higher_tf": "4H",
@@ -239,14 +223,6 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T03:59:52.688Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "JTOUSD",
-      "display_name": "JTO/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T06:01:50.049Z"
     },
     {
       "asset_class": "crypto",
