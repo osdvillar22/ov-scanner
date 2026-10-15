@@ -310,6 +310,14 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T03:40:39.377Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "QNTUSD",
+      "display_name": "QNT/USD",
+      "higher_tf": "4H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T03:59:52.688Z"
     }
   ]
 }
