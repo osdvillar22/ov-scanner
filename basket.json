@@ -282,14 +282,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "CRVUSD",
-      "display_name": "CRV/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-14T19:49:48.548Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "ENSUSD",
       "display_name": "ENS/USD",
       "higher_tf": "1H",
