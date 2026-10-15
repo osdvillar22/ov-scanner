@@ -297,14 +297,6 @@
       "added_at": "2026-10-15T03:59:52.688Z"
     },
     {
-      "asset_class": "forex",
-      "ticker": "USDJPY=X",
-      "display_name": "USDJPY",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T04:50:58.022Z"
-    },
-    {
       "asset_class": "crypto",
       "ticker": "OPUSD",
       "display_name": "OP/USD",
