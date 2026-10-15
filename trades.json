@@ -1973,6 +1973,30 @@
       "filled_at": "2026-10-15T05:10:00.000Z",
       "fill_end": "2026-10-15T05:15:00.000Z",
       "fill_tf": "5m"
+    },
+    {
+      "id": "mv94t7vd7fsp",
+      "asset_class": "crypto",
+      "ticker": "JTOUSD",
+      "display_name": "JTO/USD",
+      "tag": null,
+      "higher_tf": "1H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BEARISH",
+      "plan_tf": "5m",
+      "entry": 0.49006,
+      "cl": 0.4947,
+      "tp": 0.48542,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-15T06:02:19.801Z",
+      "missed": true,
+      "filled_at": "2026-10-14T23:50:00.000Z",
+      "fill_end": "2026-10-14T23:55:00.000Z",
+      "fill_tf": "5m"
     }
   ]
 }
