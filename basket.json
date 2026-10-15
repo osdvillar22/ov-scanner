@@ -490,14 +490,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "ARBUSD",
-      "display_name": "ARB/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:53:17.332Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "ATOMUSD",
       "display_name": "ATOM/USD",
       "higher_tf": "1H",
