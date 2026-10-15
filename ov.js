@@ -262,7 +262,7 @@ function renderBlock(candles, chartElId, macdElId, visibleCount, opts = {}) {
     const at = (iso) => { const u = toUnixTime(iso); let hit = null; for (const c of candles) { if (c.time <= u) hit = c.time; else break; } return hit; };
     const long = tradeLong(t);
     if (t.filled_at && at(t.filled_at)) allMarks.push({ time: at(t.filled_at), position: long ? 'belowBar' : 'aboveBar', color: cssVar('--gold-bright'), shape: long ? 'arrowUp' : 'arrowDown', text: 'FILL' });
-    if ((t.status === 'tp' || t.status === 'cl') && at(t.closed_at)) allMarks.push({ time: at(t.closed_at), position: (t.status === 'tp') === long ? 'aboveBar' : 'belowBar', color: cssVar(t.status === 'tp' ? '--gain' : '--loss'), shape: 'circle', text: t.status.toUpperCase() });
+    if (['tp', 'cl', 'be'].includes(t.status) && at(t.closed_at)) allMarks.push({ time: at(t.closed_at), position: (t.status === 'tp') === long ? 'aboveBar' : 'belowBar', color: cssVar(t.status === 'tp' ? '--gain' : t.status === 'be' ? '--ink-dim' : '--loss'), shape: 'circle', text: t.status.toUpperCase() });
   });
   // One setMarkers call: a lower-tf chart can have both trigger arrows
   // (when it's also a higher tf) and a basket pick's entry cycle.
@@ -303,10 +303,14 @@ function snapPrice(price, assetClass, precision) {
 
 const TRADE_LINE = { entry: ['ENTRY', '--gold-bright', 0], cl: ['CL', '--loss', 2], tp: ['TP', '--gain', 2] };
 // Draws (or, given existing lines, moves) a trade's three lines on a series.
+// An open trade past breakeven (trades.py: be_at) has its stop at the
+// entry: the CL line moves there, titled CL→BE.
 function tradeLines(series, t, lines) {
+  const be = t.be_at && t.status === 'open';
   return Object.fromEntries(Object.entries(TRADE_LINE).filter(([k]) => t[k] != null).map(([k, [title, color, style]]) => {
-    if (lines && lines[k]) { lines[k].applyOptions({ price: t[k] }); return [k, lines[k]]; }
-    return [k, series.createPriceLine({ price: t[k], color: cssVar(color), lineWidth: 1, lineStyle: style, axisLabelVisible: true, title })];
+    const price = k === 'cl' && be ? t.entry : t[k], label = k === 'cl' && be ? 'CL→BE' : title;
+    if (lines && lines[k]) { lines[k].applyOptions({ price }); return [k, lines[k]]; }
+    return [k, series.createPriceLine({ price, color: cssVar(color), lineWidth: 1, lineStyle: style, axisLabelVisible: true, title: label })];
   }));
 }
 

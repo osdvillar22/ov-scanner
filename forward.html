@@ -135,7 +135,9 @@
 let trades = [], charts = {}, chartsAt = null, currentId = null, groupBy = 'market', bigTf = null, q = '';
 // Search box: ticker or name, anywhere, any case.
 const matches = (t) => !q || `${t.ticker} ${t.display_name}`.toLowerCase().includes(q);
-const VIEWS = { open: ['open'], pending: ['pending'], closed: ['tp', 'cl'] };
+const VIEWS = { open: ['open'], pending: ['pending'], closed: ['tp', 'cl', 'be'] };
+// Result colour: TP green, CL red, BE (breakeven, 0R) neutral.
+const resCls = (t) => t.status === 'tp' ? 'up' : t.status === 'cl' ? 'down' : '';
 const chartKey = (t) => `${t.asset_class}:${t.ticker}:${t.higher_tf}`;
 // The pick's tf, its two lower tfs and the third, finer one (if charted).
 const tfsOf = (t) => [t.higher_tf, ...LOWER_TF_MAP[t.higher_tf], EXTRA_CHART_TF[t.higher_tf]].filter(tf => tf && (tf !== EXTRA_CHART_TF[t.higher_tf] || (charts[chartKey(t)] || {})[tf]));
@@ -163,9 +165,10 @@ function renderResults() {
   const closed = closedOf().sort((a, b) => a.closed_at.localeCompare(b.closed_at));
   const n = (v) => trades.filter(t => VIEWS[v].includes(t.status)).length;
   const wins = closed.filter(t => t.status === 'tp').length, total = closed.reduce((s, t) => s + (t.result_r || 0), 0);
+  const nBe = closed.filter(t => t.status === 'be').length;
   document.getElementById('headline').innerHTML = closed.length
     ? `<div class="k">total over ${closed.length} closed</div><div class="big ${total >= 0 ? 'up' : 'down'}">${fmtR(total)}</div>
-       <div class="kv"><span>win <b>${Math.round(wins / closed.length * 100)}%</b> (${wins}/${closed.length})</span><span>avg <b class="${total >= 0 ? 'up' : 'down'}">${fmtR(total / closed.length)}</b></span><span>open <b>${n('open')}</b></span><span>pending <b>${n('pending')}</b></span></div>`
+       <div class="kv"><span>win <b>${Math.round(wins / closed.length * 100)}%</b> (${wins}/${closed.length})</span>${nBe ? `<span>breakeven <b>${nBe}</b></span>` : ''}<span>avg <b class="${total >= 0 ? 'up' : 'down'}">${fmtR(total / closed.length)}</b></span><span>open <b>${n('open')}</b></span><span>pending <b>${n('pending')}</b></span></div>`
     : `<div class="k">No closed trades yet</div><div class="kv"><span>open <b>${n('open')}</b></span><span>pending <b>${n('pending')}</b></span></div>`;
 
   // Step curve: each closed trade moves the running total by its R.
@@ -183,7 +186,7 @@ function renderResults() {
   svg.innerHTML = `<line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="${ink}" stroke-dasharray="3 4" stroke-width="1"/>
     <text x="${W - 2}" y="${y(0) - 3}" fill="${ink}" font-size="9" text-anchor="end">0R</text>
     <path d="${path}" fill="none" stroke="${col}" stroke-width="1.6"/>
-    ${closed.map((t, i) => `<circle cx="${x(i + 1)}" cy="${y(pts[i + 1])}" r="3" fill="${cssVar(t.status === 'tp' ? '--gain' : '--loss')}" data-id="${t.id}" style="cursor:pointer"><title>${esc(t.display_name)} ${t.status.toUpperCase()} ${fmtR(t.result_r)} · ${fmtTime(t.closed_at)}</title></circle>`).join('')}`;
+    ${closed.map((t, i) => `<circle cx="${x(i + 1)}" cy="${y(pts[i + 1])}" r="3" fill="${cssVar(t.status === 'tp' ? '--gain' : t.status === 'be' ? '--ink-dim' : '--loss')}" data-id="${t.id}" style="cursor:pointer"><title>${esc(t.display_name)} ${t.status.toUpperCase()} ${fmtR(t.result_r)} · ${fmtTime(t.closed_at)}</title></circle>`).join('')}`;
   svg.querySelectorAll('circle').forEach(c => c.addEventListener('click', () => selectTrade(c.dataset.id)));
   renderGroups(closed);
 }
@@ -222,14 +225,14 @@ function renderList() {
     if (t.status === 'open') {
       const p = lastPrice(t), r = p == null ? null : tradeR(t, p);
       right = r == null ? '' : `<span class="${r >= 0 ? 'up' : 'down'}">${fmtR(r)}</span>`;
-      extra = `<div class="ruler"><span class="ln"></span><span class="cl"></span><span class="tp"></span><span class="en" style="left:${rulerX(t, 0)}%"></span>${r == null ? '' : `<span class="now" style="left:${rulerX(t, r)}%;background:var(${r >= 0 ? '--gain' : '--loss'})"></span>`}</div>
-        <div class="tr-sub">filled ${fmtDur(Date.now() - parseTime(t.filled_at))} ago · ${t.higher_tf} pick</div>`;
+      extra = `<div class="ruler"><span class="ln"></span><span class="cl"${t.be_at ? ' style="opacity:.3"' : ''}></span><span class="tp"></span><span class="en" style="left:${rulerX(t, 0)}%"></span>${r == null ? '' : `<span class="now" style="left:${rulerX(t, r)}%;background:var(${r >= 0 ? '--gain' : '--loss'})"></span>`}</div>
+        <div class="tr-sub">filled ${fmtDur(Date.now() - parseTime(t.filled_at))} ago · ${t.higher_tf} pick${t.be_at ? ' · <span style="color:var(--ink-dim)">CL at entry</span>' : ''}</div>`;
     } else if (t.status === 'pending') {
       const p = lastPrice(t);
       right = p == null ? '' : `<span class="tf">${Math.abs((t.entry - p) / p * 100).toFixed(2)}% away</span>`;
       extra = `<div class="tr-sub">entry ${t.entry} · planned ${fmtTime(t.created_at)}</div>`;
     } else {
-      right = `<span class="${t.status === 'tp' ? 'up' : 'down'}">${t.status.toUpperCase()} ${fmtR(t.result_r)}</span>`;
+      right = `<span class="${resCls(t)}">${t.status.toUpperCase()} ${fmtR(t.result_r)}</span>`;
       extra = `<div class="tr-sub">${fmtTime(t.closed_at)}</div>`;
     }
     return `<div class="tr${t.id === currentId ? ' active' : ''}" data-id="${t.id}"><div class="tr-head">${name}${right}</div>${extra}</div>`;
@@ -255,7 +258,9 @@ function ladder(t, p) {
   const mark = (v, label, color, under) => `<span class="m${under ? ' lo' : ''}" style="${pos(v)}"><b>${v}</b>${label}</span><span class="tick" style="left:${x(v)}%;background:var(${color})"></span>`;
   // Gradient runs loss -> gain left to right; flip it for shorts.
   const flip = t.cl > t.tp ? ' style="transform:scaleX(-1)"' : '';
-  let html = `<span class="bar"${flip}></span>${mark(t.cl, `CL ${pct(t.cl)}`, '--loss')}${mark(t.entry, 'entry', '--gold-bright')}${mark(t.tp, `TP ${pct(t.tp)}`, '--gain')}`;
+  // Past breakeven, the stop is the entry; the original CL stays as a reference.
+  const beNow = t.be_at && t.status === 'open';
+  let html = `<span class="bar"${flip}></span>${mark(t.cl, beNow ? `old CL ${pct(t.cl)}` : `CL ${pct(t.cl)}`, '--loss')}${mark(t.entry, beNow ? 'entry · CL now' : 'entry', '--gold-bright')}${mark(t.tp, `TP ${pct(t.tp)}`, '--gain')}`;
   if (p != null && ['open', 'pending'].includes(t.status)) {
     const r = tradeR(t, p);
     html += `<span class="dot" style="left:${x(p)}%;background:var(${r >= 0 ? '--gain' : '--loss'})" title="now ${p}"></span><span class="m lo" style="${pos(p)}">now ${p}</span>`;
@@ -272,7 +277,7 @@ function selectTrade(id) {
   teardownCharts();
   const p = lastPrice(t), r = p == null ? null : tradeR(t, p);
   const status = t.status === 'open' ? `open${r == null ? '' : ` ${fmtR(r)}`}` : t.status === 'pending' ? 'pending' : `${t.status.toUpperCase()} ${fmtR(t.result_r)}`;
-  const statusCls = t.status === 'tp' ? 'up' : t.status === 'cl' ? 'down' : t.status;
+  const statusCls = ['tp', 'cl', 'be'].includes(t.status) ? resCls(t) : t.status;
   const act = t.status === 'pending' ? 'cancel plan' : t.status === 'open' ? 'cancel trade' : 'delete';
   const market = [...marketsOf(t)].includes('pse') ? 'pse' : t.asset_class;
   const dash = `dashboard.html?market=${market}&q=${encodeURIComponent(t.display_name.split('/')[0])}`;
@@ -281,6 +286,7 @@ function selectTrade(id) {
     `planned ${fmtTime(t.created_at)} on ${t.plan_tf}`,
     t.filled_at ? `${t.missed ? 'entry candle' : 'filled'} ${fmtTime(t.filled_at)} (${t.fill_tf})${t.fill_note ? `, ${esc(t.fill_note)}` : ''}` : '',
     t.closed_at ? `${t.status.toUpperCase()} ${fmtTime(t.closed_at)} (${t.exit_tf})` : '',
+    t.be_at ? `reached +0.5R ${fmtTime(t.be_at)}: CL moved to the entry` : '',
     t.filled_at ? `${fmtDur(end - parseTime(t.filled_at))} in trade` : '',
     t.note ? esc(t.note) : '',
   ].filter(Boolean).join(' · ');

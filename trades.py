@@ -10,6 +10,9 @@ Long when the CL is below the entry, short when above.
                      two candles (e.g. 9.49 then 10.00 past 9.55) — no
                      expiry; the user cancels plans
   open    -> tp / cl a candle's high/low touches the TP or the CL
+  open    -> be      breakeven: once price has reached +BE_TRIGGER_R (in R,
+                     from the entry), the stop moves to the entry from the
+                     next candle on; touching it then closes at 0R
 
 Checked on the finest timeframe that still covers the trade's time span
 (5m, then 15m, 1H, 4H, 1D for older stretches), so when one candle on the
@@ -20,8 +23,8 @@ is unknown).
 
 A "missed entry" is saved already open, filled at the past candle the
 entry was clicked on (its range included the entry); from there it's
-checked like any open trade, so a TP / CL hit before it was saved closes
-it on the next check.
+checked like any open trade, so a TP / CL / breakeven before it was saved
+closes it on the next check.
 
 Nothing is stored between runs except the transitions: every run replays
 the candles since the plan was made (or since the fill), so missed runs
@@ -53,6 +56,10 @@ TRADES_FILE = "trades.json"
 TRADES_DATA_FILE = "trades_data.json"
 TF_CHAIN = ["5m", "15m", "1H", "4H", "1D"]
 ACTIVE = ("pending", "open")
+CLOSED = ("tp", "cl", "be")
+# Breakeven: the stop moves to the entry once price reaches this far in
+# the trade's favour, in R (the entry-to-CL distance).
+BE_TRIGGER_R = 0.5
 # Closed trades keep their charts on the forward-test page this long.
 CHART_DAYS_AFTER_CLOSE = 14
 
@@ -114,6 +121,8 @@ def evaluate(t: dict, stream: list, prev_close: float | None = None) -> dict | N
     long, entry, cl, tp = is_long(t), t["entry"], t["cl"], t["tp"]
     status = t["status"]
     fill_end = _utc(t["fill_end"]) if t.get("fill_end") else None
+    be_level = entry + BE_TRIGGER_R * (entry - cl)   # +0.5R, either side
+    be_from = None      # the stop is at the entry from this candle on
     out = {}
     for start, end, high, low, close, tf in stream:
         prev, prev_close = prev_close, close
@@ -132,21 +141,31 @@ def evaluate(t: dict, stream: list, prev_close: float | None = None) -> dict | N
                 return out
             continue
         # Open: the fill candle itself can only add a CL (order unknown).
-        hit_cl = (low <= cl) if long else (high >= cl)
+        # After breakeven the stop is the entry.
+        be = be_from is not None and start >= be_from
+        stop, kind = (entry, "be") if be else (cl, "cl")
+        hit_stop = (low <= stop) if long else (high >= stop)
         hit_tp = ((high >= tp) if long else (low <= tp)) and start >= fill_end
-        if hit_cl and hit_tp:
-            out.update(_close(t, "cl", start, tf, f"TP and CL in the same {tf} candle — counted as CL"))
+        if hit_stop and hit_tp:
+            out.update(_close(t, kind, start, tf, f"TP and {'the entry' if be else 'CL'} in the same {tf} candle — counted as {kind.upper()}"))
             return out
-        if hit_cl or hit_tp:
-            out.update(_close(t, "cl" if hit_cl else "tp", start, tf, None))
+        if hit_stop or hit_tp:
+            out.update(_close(t, kind if hit_stop else "tp", start, tf, None))
             return out
+        # +0.5R reached on a candle after the fill one: the stop moves to the
+        # entry from the next candle (the order inside this one is unknown).
+        if be_from is None and start >= fill_end and ((high >= be_level) if long else (low <= be_level)):
+            be_from = end
+            if not t.get("be_at"):
+                out.update(status="open", be_at=end.isoformat(), be_tf=tf)
     return out or None
 
 
 def _close(t: dict, kind: str, at: pd.Timestamp, tf: str, note: str | None) -> dict:
     ratio = abs(t["tp"] - t["entry"]) / abs(t["entry"] - t["cl"])
-    return {"status": kind, "closed_at": at.isoformat(), "exit_tf": tf, "exit": t[kind],
-            "result_r": round(ratio if kind == "tp" else -1.0, 2), "note": note}
+    result = {"tp": ratio, "cl": -1.0, "be": 0.0}[kind]
+    return {"status": kind, "closed_at": at.isoformat(), "exit_tf": tf, "exit": t["entry"] if kind == "be" else t[kind],
+            "result_r": round(result, 2), "note": note}
 
 
 def check(classes: set | None = None, pse_open: bool = True) -> None:
@@ -222,16 +241,22 @@ def send_alerts(applied: list) -> None:
         side = "long" if is_long(a) else "short"
         name = f"{a['display_name']} {side} · {a['plan_tf']}{' · missed entry' if a.get('missed') else ''}"
         levels = f"entry `{scan._sig(a['entry'])}` · CL `{scan._sig(a['cl'])}` · TP `{scan._sig(a['tp'])}`"
-        if a["status"] == "open":
+        if a["status"] == "open" and a["from"] == "open":
+            embeds.append({"title": f"CL → ENTRY · {name}", "color": 0x6B6858,
+                           "description": f"{levels}\nReached +{BE_TRIGGER_R}R — the cut loss is now the entry "
+                                          f"(0R if price comes back) <t:{int(_utc(a['be_at']).timestamp())}:t>",
+                           "timestamp": sent_at})
+        elif a["status"] == "open":
             embeds.append({"title": f"FILLED · {name}", "color": 0xB8921C,
                            "description": f"{levels}\nFilled on the {a['fill_tf']} candle <t:{int(_utc(a['filled_at']).timestamp())}:t>"
-                                          + (f" — {a['fill_note']}" if a.get("fill_note") else ""),
+                                          + (f" — {a['fill_note']}" if a.get("fill_note") else "")
+                                          + (f"\nAlready reached +{BE_TRIGGER_R}R: cut loss moved to the entry" if a.get("be_at") else ""),
                            "timestamp": sent_at})
         else:
-            tp = a["status"] == "tp"
+            tp, be = a["status"] == "tp", a["status"] == "be"
             how = a.get("note") or f"on the {a['exit_tf']} candle"
-            embeds.append({"title": f"{'TP HIT' if tp else 'CL HIT'} · {name} · {a['result_r']:+.2f}R",
-                           "color": 0x2F7A4F if tp else 0xA8402C,
+            embeds.append({"title": f"{'TP HIT' if tp else 'BREAKEVEN' if be else 'CL HIT'} · {name} · {a['result_r']:+.2f}R",
+                           "color": 0x2F7A4F if tp else 0x6B6858 if be else 0xA8402C,
                            "description": f"{levels}\n{how} <t:{int(_utc(a['closed_at']).timestamp())}:t>",
                            "timestamp": sent_at})
     for i in range(0, len(embeds), 10):
@@ -246,7 +271,7 @@ def write_charts() -> None:
     three charts as the dashboard — the higher tf and its two lower tfs."""
     now = pd.Timestamp.now(tz="UTC")
     keep = [t for t in load_trades() if t.get("status") in ACTIVE
-            or (t.get("status") in ("tp", "cl") and now - _utc(t["closed_at"]) < pd.Timedelta(days=CHART_DAYS_AFTER_CLOSE))]
+            or (t.get("status") in CLOSED and now - _utc(t["closed_at"]) < pd.Timedelta(days=CHART_DAYS_AFTER_CLOSE))]
     charts = {}
     for t in keep:
         key = f"{t['asset_class']}:{t['ticker']}:{t['higher_tf']}"
