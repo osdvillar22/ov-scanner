@@ -2032,6 +2032,30 @@
       "fill_tf": "5m",
       "cancelled_at": "2026-10-15T07:14:28.905Z",
       "cancelled_from": "open"
+    },
+    {
+      "id": "mv97etztu8yq",
+      "asset_class": "crypto",
+      "ticker": "GNOTUSD",
+      "display_name": "GNOT/USD",
+      "tag": null,
+      "higher_tf": "1H",
+      "setup": "trend",
+      "lines": [
+        "lsma"
+      ],
+      "pick_direction": "BEARISH",
+      "plan_tf": "5m",
+      "entry": 0.05557,
+      "cl": 0.06497,
+      "tp": 0.04617,
+      "ratio": 1,
+      "status": "open",
+      "created_at": "2026-10-15T07:15:07.481Z",
+      "missed": true,
+      "filled_at": "2026-10-15T06:05:00.000Z",
+      "fill_end": "2026-10-15T06:10:00.000Z",
+      "fill_tf": "5m"
     }
   ]
 }
