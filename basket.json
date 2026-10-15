@@ -303,6 +303,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T04:50:58.022Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "OPUSD",
+      "display_name": "OP/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T06:00:44.416Z"
     }
   ]
 }
