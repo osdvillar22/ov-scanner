@@ -407,6 +407,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T00:00:29.436Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "COTIUSD",
+      "display_name": "COTI/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T00:02:42.553Z"
     }
   ]
 }
