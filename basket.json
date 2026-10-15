@@ -471,6 +471,14 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T02:51:49.767Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "2ZUSD",
+      "display_name": "2Z/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T02:51:53.040Z"
     }
   ]
 }
