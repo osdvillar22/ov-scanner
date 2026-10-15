@@ -431,6 +431,14 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T02:28:57.805Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "DOSUSD",
+      "display_name": "DOS/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T02:29:00.433Z"
     }
   ]
 }
