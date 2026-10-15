@@ -278,7 +278,11 @@
       "display_name": "SKY/USD",
       "higher_tf": "1H",
       "direction": "BEARISH",
-      "added_at": "2026-10-14T19:46:19.070Z"
+      "added_at": "2026-10-14T19:46:19.070Z",
+      "lines": [
+        "lsma",
+        "sma50"
+      ]
     },
     {
       "asset_class": "crypto",
