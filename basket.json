@@ -503,6 +503,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T02:53:50.661Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "BNBUSD",
+      "display_name": "BNB/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-15T02:54:51.061Z"
     }
   ]
 }
