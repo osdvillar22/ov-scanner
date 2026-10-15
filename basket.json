@@ -206,14 +206,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "BABYUSD",
-      "display_name": "BABY/USD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-14T02:30:00.108Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "ENSUSD",
       "display_name": "ENS/USD",
       "higher_tf": "1H",
