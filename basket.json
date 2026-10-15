@@ -306,14 +306,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "HBARUSD",
-      "display_name": "HBAR/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-14T19:54:21.755Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "ENSUSD",
       "display_name": "ENS/USD",
       "higher_tf": "1H",
