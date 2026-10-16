@@ -228,6 +228,14 @@
       "higher_tf": "1H",
       "direction": "BULLISH",
       "added_at": "2026-10-16T12:14:14.859Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "MNTUSD",
+      "display_name": "MNT/USD",
+      "higher_tf": "1H",
+      "direction": "BULLISH",
+      "added_at": "2026-10-16T12:14:22.943Z"
     }
   ]
 }
