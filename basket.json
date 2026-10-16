@@ -199,17 +199,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "CCUSD",
-      "display_name": "CC/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:57:08.459Z",
-      "lines": [
-        "lsma"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "SYRUPUSD",
       "display_name": "SYRUP/USD",
       "higher_tf": "4H",
