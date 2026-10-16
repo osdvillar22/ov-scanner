@@ -239,14 +239,6 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T08:09:23.109Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "AVLUSD",
-      "display_name": "AVL/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-15T08:58:14.405Z"
     }
   ]
 }
