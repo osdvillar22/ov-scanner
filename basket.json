@@ -212,6 +212,14 @@
       "higher_tf": "1H",
       "direction": "BULLISH",
       "added_at": "2026-10-16T12:13:56.648Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "APTUSD",
+      "display_name": "APT/USD",
+      "higher_tf": "1H",
+      "direction": "BULLISH",
+      "added_at": "2026-10-16T12:14:06.948Z"
     }
   ]
 }
