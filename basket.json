@@ -191,14 +191,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "ACTUSD",
-      "display_name": "ACT/USD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:51:49.767Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "SYRUPUSD",
       "display_name": "SYRUP/USD",
       "higher_tf": "4H",
