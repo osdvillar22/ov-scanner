@@ -207,14 +207,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "APTUSD",
-      "display_name": "APT/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-16T12:14:06.948Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "BASEDUSD",
       "display_name": "BASED/USD",
       "higher_tf": "1H",
@@ -228,14 +220,6 @@
       "higher_tf": "1H",
       "direction": "BULLISH",
       "added_at": "2026-10-16T12:14:33.567Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "INJUSD",
-      "display_name": "INJ/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-16T13:28:18.543Z"
     }
   ]
 }
