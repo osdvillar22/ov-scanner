@@ -206,14 +206,6 @@
       "added_at": "2026-10-15T03:59:52.688Z"
     },
     {
-      "asset_class": "forex",
-      "ticker": "EURJPY=X",
-      "display_name": "EURJPY",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-16T12:13:56.648Z"
-    },
-    {
       "asset_class": "crypto",
       "ticker": "APTUSD",
       "display_name": "APT/USD",
