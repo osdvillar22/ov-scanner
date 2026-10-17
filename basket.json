@@ -204,14 +204,6 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T03:59:52.688Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "BASEDUSD",
-      "display_name": "BASED/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-16T12:14:14.859Z"
     }
   ]
 }
