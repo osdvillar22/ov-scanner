@@ -169,20 +169,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "STRKUSD",
-      "display_name": "STRK/USD",
-      "higher_tf": "1D",
-      "direction": "BULLISH",
-      "added_at": "2026-10-13T08:13:51.492Z",
-      "muted": [
-        "4H"
-      ],
-      "lines": [
-        "sma50"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "COTIUSD",
       "display_name": "COTI/USD",
       "higher_tf": "4H",
