@@ -193,14 +193,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "VVVUSD",
-      "display_name": "VVV/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-18T21:44:44.530Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "AEROUSD",
       "display_name": "AERO/USD",
       "higher_tf": "1H",
