@@ -56,6 +56,7 @@ import market_board
 import fetch
 import indicators
 import unusual
+import breadth
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("scan")
@@ -720,7 +721,9 @@ def run() -> None:
     removed = state.pop(REMOVED_KEY, [])
     unusual_sent = state.pop(unusual.STATE_KEY, {})
     unusual.load_bear_log(state.pop(unusual.BEAR_KEY, []))
+    breadth_hist = breadth.load(state.pop(breadth.STATE_KEY, None))
     before = dict(state)
+    before_1h = breadth.directions(state)
     universe = build_universe()
 
     logger.info("Phase A: higher-timeframe watch-trigger scan (%s)", ", ".join(config.HIGHER_TIMEFRAMES))
@@ -745,11 +748,17 @@ def run() -> None:
         unusual_sent = unusual.send_alerts(state, unusual_sent)
     except Exception as exc:  # noqa: BLE001
         logger.error("Unusual-volume alerts failed: %s", exc)
+    try:
+        breadth_hist = breadth.record(breadth_hist, before_1h, state)
+        breadth.write(breadth_hist)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Breadth failed: %s", exc)
     unusual.add_context(market_board.ref_move)
     bear_log = unusual.bear_log()
     Path(unusual.BEAR_LOG_FILE).write_text(json.dumps({"generated_at": now_iso(), "entries": bear_log}, separators=(",", ":")))
     run_trades()
-    save_state({**state, REMOVED_KEY: removed, unusual.STATE_KEY: unusual_sent, unusual.BEAR_KEY: bear_log})
+    save_state({**state, REMOVED_KEY: removed, unusual.STATE_KEY: unusual_sent, unusual.BEAR_KEY: bear_log,
+                breadth.STATE_KEY: breadth_hist})
 
 
 def run_trades() -> None:

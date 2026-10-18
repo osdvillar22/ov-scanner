@@ -283,6 +283,19 @@ def ref_move(market: str, at) -> float | None:
     return None if ref is None else _pct(_move_at(ref, at=at))
 
 
+def ref_price(market: str) -> float | None:
+    """BTC's / the PSEi's latest price (after build has run for the market)."""
+    ref = _refs.get(market)
+    return None if ref is None else round(float(ref["daily"]["close"].iloc[-1]), 2)
+
+
+def ref_bar(market: str) -> str | None:
+    """The time of the reference's latest 1H bar this session, or None."""
+    ref = _refs.get(market)
+    h = None if ref is None else ref.get("hourly")
+    return None if h is None or not len(h) else h.index[-1].isoformat()
+
+
 def build(market: str, state: dict, unusual: list | None = None) -> None:
     """Write the market's board file from the names recorded this scan, the
     watch state and (crypto) the unusual-volume flags (unusual.py)."""

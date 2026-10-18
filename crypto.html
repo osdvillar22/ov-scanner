@@ -78,6 +78,34 @@
   .scale { display: flex; align-items: center; gap: 6px; }
   .scale i { width: 64px; height: 5px; border-radius: 2px; background: linear-gradient(90deg, var(--loss), var(--hair), var(--gain)); }
   .empty { color: var(--ink-dim); padding: 24px 0; }
+
+  /* 1H bias panel (breadth.json): % of the 1H watchlist that's bullish,
+     new watches over the last 24h / session, the running total, the ref */
+  .bias:empty { display: none; }
+  .bias { margin-top: 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); padding: 10px 14px 12px; }
+  .bias .bh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--ink-dim); }
+  .bias .bh b { color: var(--ink); font-weight: 500; }
+  .bias .bh button { font-size: 10.5px; color: var(--ink-faint); }
+  .bias .bh button:hover { color: var(--ink); }
+  .bias .top { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; margin-top: 8px; }
+  .bias .pc { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+  .btag { font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 3px; white-space: nowrap; }
+  .btag.up { background: color-mix(in srgb, var(--gain) 16%, transparent); }
+  .btag.down { background: color-mix(in srgb, var(--loss) 16%, transparent); }
+  .btag.mix { color: var(--ink-dim); background: var(--hair); }
+  .bias .sub { font-size: 11px; color: var(--ink-dim); }
+  .bias .gauge { position: relative; height: 5px; border-radius: 3px; margin: 10px 0 2px; max-width: 360px;
+    background: linear-gradient(90deg, var(--loss) 0 20%, color-mix(in srgb, var(--loss) 35%, var(--hair)) 20% 40%, var(--hair) 40% 60%, color-mix(in srgb, var(--gain) 35%, var(--hair)) 60% 80%, var(--gain) 80% 100%); }
+  .bias .gauge i { position: absolute; top: -4px; width: 2px; height: 13px; background: var(--ink); border-radius: 1px; }
+  .bias .gk { display: flex; justify-content: space-between; max-width: 360px; font-size: 9px; color: var(--ink-faint); }
+  .bias .lb { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; color: var(--ink-faint); margin: 10px 0 2px; }
+  .bias .plots { position: relative; margin-right: 44px; touch-action: pan-y; }
+  .bias svg { display: block; width: 100%; overflow: visible; }
+  .bias .ya { position: absolute; right: -44px; width: 40px; font-size: 9px; color: var(--ink-faint); transform: translateY(-50%); }
+  .bias .guide { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ink-faint); display: none; pointer-events: none; }
+  .bias .bx { display: flex; justify-content: space-between; margin-right: 44px; font-size: 9.5px; color: var(--ink-faint); margin-top: 3px; }
+  .bias .rd { font-size: 10.5px; color: var(--ink-dim); min-height: 1.4em; margin-top: 4px; }
+  .bias .key { font-size: 10px; color: var(--ink-faint); margin-top: 6px; line-height: 1.5; }
   @media (max-width: 760px) {
     .tbl { grid-template-columns: 100px 72px minmax(0, 1fr) 58px; }
     .tbl > .c, .tbl > .h { padding-right: 10px; }
@@ -107,6 +135,7 @@
       <button type="button" class="opt" data-s="all" id="allBtn">all</button><button type="button" class="opt" data-s="large" id="largeBtn">large caps</button>
     </div>
     <div id="top"></div>
+    <div class="bias" id="bias"></div>
     <div class="tbl" id="tbl"><div class="empty">Loading…</div></div>
     <div class="foot"><span id="cap"></span><span class="scale" id="scale"></span></div>
   </main>
@@ -178,7 +207,7 @@ function render() {
   document.getElementById('top').innerHTML = `
     <div class="hero"><span class="k">${heroKey ? 'PSEi' : 'crypto'}</span><span class="n ${cls(heroMove)}">${pct(heroMove)}</span>
       <span class="s">over ${span} · <span class="${cls(heroToday)}">${pct(heroToday)}</span> today${D.ref_level ? ` · ${D.ref_level.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ''}</span></div>
-    <div class="read">${lead} ${others}${all.up ?? 0} ${W.many} up, ${all.down ?? 0} down · watches <span class="up">▲${all.bull ?? 0}</span> <span class="down">▼${all.bear ?? 0}</span></div>
+    <div class="read">${lead} ${others}${all.up ?? 0} ${W.many} up, ${all.down ?? 0} down · watches <span class="up">▲${all.bull ?? 0}</span> <span class="down">▼${all.bear ?? 0}</span>${(() => { const br = biasRows(mk); return br.length ? ` · 1H bias ${biasTag(br[br.length - 1].pct)}` : ''; })()}</div>
     ${ux.length ? `<div class="uxline">unusual volume today: ${ux.map(f => `<a href="dashboard.html?market=${mk}&q=${encodeURIComponent(f.name.split('/')[0])}" title="${f.x}× its usual volume, +${f.mv4}% in 4h · ${esc(f.cat || '')} · ${fmtTime(f.t)}">${esc(f.name.split('/')[0])} ${f.x}×</a>`).join('')}</div>` : ''}`;
   const uxCat = {};
   ux.forEach(f => { if (f.cat && (!uxCat[f.cat] || f.x > uxCat[f.cat].x)) uxCat[f.cat] = f; });
@@ -302,6 +331,7 @@ function render() {
     el.addEventListener('mouseenter', () => document.querySelectorAll(`#tbl [data-k="${CSS.escape(k)}"]`).forEach(x => x.classList.add('hov')));
     el.addEventListener('mouseleave', () => document.querySelectorAll(`#tbl .hov`).forEach(x => x.classList.remove('hov')));
   });
+  renderBias(mk);
   document.getElementById('cap').textContent = (S.tape === 'line'
     ? `Line: the ${N}×4H move at each 4H close, all rows on one scale · dotted = 0 · dot = now · tap a ${W.cat} for a larger view`
     : S.tape === 'd'
@@ -309,6 +339,105 @@ function render() {
     : `Tape: each cell = the ${N}×4H move at that 4H close · outlined = now`) + ` · ${N}×4H move = price now against the close ${N} 4H candles back · ${W.today} · tap a ${W.cat} for its ${W.many}`;
   document.getElementById('scale').innerHTML = S.tape === 'line' ? `shared scale ±${lineLim}%` : `−${scale}% <i></i> +${scale}%`;
 }
+
+// ---- 1H bias panel (breadth.json, breadth.py) ----
+let B = null;
+const BIAS_DAYS = 21;
+const biasOf = (p) => p == null ? ['—', 'mix'] : p >= 80 ? ['STRONG BULL', 'up'] : p >= 60 ? ['BULL', 'up'] : p > 40 ? ['MIXED', 'mix'] : p > 20 ? ['BEAR', 'down'] : ['STRONG BEAR', 'down'];
+const biasTag = (p) => { const [t, c] = biasOf(p); return `<span class="btag ${c}">${t}${p == null ? '' : ` ${p}%`}</span>`; };
+const sgn = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toLocaleString()}`;
+// Rows for one market over the last BIAS_DAYS, with % bullish, the net
+// of new watches over the window (24 rows crypto = 24h; 6 rows PSE = about
+// one session) and the running total.
+function biasRows(mk) {
+  const all = (B && B[mk]) || [], win = mk === 'pse' ? 6 : 24;
+  let cum = 0;
+  const rows = all.map((r, i) => {
+    cum += r.nu - r.nd;
+    let net = 0;
+    for (let j = Math.max(0, i - win + 1); j <= i; j++) net += all[j].nu - all[j].nd;
+    return { ...r, pct: r.u + r.d ? Math.round(r.u / (r.u + r.d) * 100) : null, net, cum };
+  });
+  const from = Date.now() - BIAS_DAYS * 864e5;
+  return rows.filter(r => parseTime(r.t) >= from);
+}
+function renderBias(mk) {
+  const el = document.getElementById('bias');
+  const rows = biasRows(mk);
+  if (!rows.length) { el.innerHTML = ''; return; }
+  let hidden = false;
+  try { hidden = localStorage.getItem('ovs-bias-hidden') === '1'; } catch (e) {}
+  const last = rows[rows.length - 1], n = rows.length, W = 600, ps = mk === 'pse';
+  const refL = ps ? 'PSEi' : 'BTC', winL = ps ? 'last session' : 'last 24h';
+  const [bt, bc] = biasOf(last.pct);
+  const head = `<div class="bh"><span><b>1H bias</b> · from the 1H watchlist</span><button type="button" id="biasTog">${hidden ? 'show ▾' : 'hide ▴'}</button></div>`;
+  const top = `<div class="top"><span class="pc ${bc === 'mix' ? '' : bc}">${last.pct ?? '—'}% bull</span><span class="btag ${bc}">${bt}</span>
+    <span class="sub">on 1H watch now <span class="up">${last.u} up</span> · <span class="down">${last.d} down</span> · ${winL} new <span class="${cls(last.net)}">${sgn(last.net)}</span></span></div>`;
+  if (hidden) { el.innerHTML = head + top; bindBias(mk); return; }
+  const xp = (i) => n < 2 ? 0 : i / (n - 1) * W;
+  // % bullish: bands above 80 / below 20, dotted 50, line coloured by band.
+  const H1 = 110, y1 = (p) => H1 - p / 100 * H1;
+  let segs = '';
+  for (let i = 1; i < n; i++) {
+    const a = rows[i - 1].pct, b = rows[i].pct;
+    if (a == null || b == null) continue;
+    const c = b >= 60 ? 'var(--gain)' : b <= 40 ? 'var(--loss)' : 'var(--ink-dim)';
+    segs += `<line x1="${xp(i - 1)}" y1="${y1(a)}" x2="${xp(i)}" y2="${y1(b)}" stroke="${c}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`;
+  }
+  const pctSvg = `<svg viewBox="0 0 ${W} ${H1}" preserveAspectRatio="none" style="height:${H1}px">
+    <rect x="0" y="0" width="${W}" height="${y1(80)}" fill="var(--gain)" fill-opacity="0.07"/>
+    <rect x="0" y="${y1(20)}" width="${W}" height="${H1 - y1(20)}" fill="var(--loss)" fill-opacity="0.07"/>
+    <line x1="0" x2="${W}" y1="${y1(50)}" y2="${y1(50)}" stroke="var(--ink-faint)" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>${segs}</svg>`;
+  // New watches over the window, up − down: bars around 0.
+  const H2 = 56, lim2 = Math.max(5, ...rows.map(r => Math.abs(r.net))), y2 = (v) => H2 / 2 - v / lim2 * (H2 / 2 - 1), bw = W / n;
+  const barSvg = `<svg viewBox="0 0 ${W} ${H2}" preserveAspectRatio="none" style="height:${H2}px">
+    <line x1="0" x2="${W}" y1="${H2 / 2}" y2="${H2 / 2}" stroke="var(--ink-faint)" vector-effect="non-scaling-stroke"/>
+    ${rows.map((r, i) => r.net ? `<rect x="${i * bw}" width="${Math.max(bw, 0.6)}" y="${Math.min(y2(r.net), H2 / 2)}" height="${Math.abs(y2(r.net) - H2 / 2)}" fill="var(--${r.net > 0 ? 'gain' : 'loss'})" fill-opacity="0.7"/>` : '').join('')}</svg>`;
+  // Running total (slope only) and the reference price.
+  const line = (vals, h, color) => {
+    const v = vals.filter(x => x != null), lo = Math.min(...v), hi = Math.max(...v), sp = hi - lo || 1;
+    let p = v[0];
+    return `<svg viewBox="0 0 ${W} ${h}" preserveAspectRatio="none" style="height:${h}px"><polyline points="${vals.map((x, i) => `${xp(i)},${h - 2 - ((p = x ?? p) - lo) / sp * (h - 4)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="1.3" vector-effect="non-scaling-stroke"/></svg>`;
+  };
+  const refs = rows.map(r => r.p), rv = refs.filter(x => x != null);
+  const day = (r) => new Date(parseTime(r.t)).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  el.innerHTML = head + top + `
+    <div class="gauge"><i style="left:calc(${last.pct ?? 50}% - 1px)"></i></div><div class="gk"><span>all short</span><span>50</span><span>all long</span></div>
+    <div class="plots" id="biasPlots"><div class="guide" id="biasGuide"></div>
+      <div class="lb"><span>% of the 1H watchlist that's bullish</span><span>dotted = 50</span></div>
+      <div style="position:relative">${pctSvg}<span class="ya" style="top:0">100%</span><span class="ya" style="top:50%">50%</span><span class="ya" style="top:100%">0%</span></div>
+      <div class="lb"><span>new watches, ${winL}: up − down</span><span>0 = as many new longs as shorts</span></div>
+      <div style="position:relative">${barSvg}<span class="ya" style="top:0">+${lim2}</span><span class="ya" style="top:100%">−${lim2}</span></div>
+      <div class="lb"><span>running total of new watches · read the slope, not the level</span></div>
+      ${line(rows.map(r => r.cum), 44, 'var(--ink)')}
+      <div class="lb"><span>${refL}</span></div>
+      <div style="position:relative">${line(refs, 40, 'var(--ink-dim)')}${rv.length ? `<span class="ya" style="top:0">${Math.round(Math.max(...rv)).toLocaleString()}</span><span class="ya" style="top:100%">${Math.round(Math.min(...rv)).toLocaleString()}</span>` : ''}</div>
+    </div>
+    <div class="bx"><span>${day(rows[0])}</span><span>${day(rows[n >> 1])}</span><span>now</span></div>
+    <div class="rd" id="biasRead">hover the charts for values</div>
+    <div class="key">% bull: share of the live 1H setups (triggered within the last 25 hours, not broken) that are long · above 60 bull, below 40 bear, the shaded edges are one-sided markets · the bars turn before the % does · it shows which side the market is on now, not where it goes next</div>`;
+  bindBias(mk, rows);
+}
+function bindBias(mk, rows) {
+  document.getElementById('biasTog').addEventListener('click', () => {
+    let h = false;
+    try { h = localStorage.getItem('ovs-bias-hidden') === '1'; localStorage.setItem('ovs-bias-hidden', h ? '0' : '1'); } catch (e) {}
+    renderBias(mk);
+  });
+  const plots = document.getElementById('biasPlots');
+  if (!plots || !rows) return;
+  const guide = document.getElementById('biasGuide'), read = document.getElementById('biasRead'), refL = mk === 'pse' ? 'PSEi' : 'BTC';
+  const show = (e) => {
+    const box = plots.getBoundingClientRect(), x = Math.max(0, Math.min(box.width, e.clientX - box.left));
+    const i = Math.round(x / box.width * (rows.length - 1)), r = rows[i];
+    guide.style.display = 'block'; guide.style.left = `${i / Math.max(1, rows.length - 1) * box.width}px`;
+    read.innerHTML = `${fmtTime(r.t)} · <b>${r.pct ?? '—'}% bull</b> ${biasTag(r.pct)} · on watch <span class="up">${r.u}↑</span> <span class="down">${r.d}↓</span> · new ${mk === 'pse' ? 'session' : '24h'} <span class="${cls(r.net)}">${sgn(r.net)}</span>${r.p != null ? ` · ${refL} ${r.p.toLocaleString()}` : ''}`;
+  };
+  plots.addEventListener('pointermove', show);
+  plots.addEventListener('pointerdown', show);
+  plots.addEventListener('pointerleave', () => { guide.style.display = 'none'; read.textContent = 'hover the charts for values'; });
+}
+fetch('breadth.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null).then(d => { B = d; if (D) render(); });
 
 // crypto.json / pse.json, written by the hourly scan.
 function load(market) {
