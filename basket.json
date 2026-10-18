@@ -190,6 +190,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-18T21:42:25.742Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "PUMPUSD",
+      "display_name": "PUMP/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-18T21:43:44.624Z"
     }
   ]
 }
