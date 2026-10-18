@@ -409,7 +409,7 @@ function renderBias(mk) {
       <div class="lb"><span>new watches, ${winL}: up − down</span><span>0 = as many new longs as shorts</span></div>
       <div style="position:relative">${barSvg}<span class="ya" style="top:0">+${lim2}</span><span class="ya" style="top:100%">−${lim2}</span></div>
       <div class="lb"><span>running total of new watches · read the slope, not the level</span></div>
-      ${line(rows.map(r => r.cum), 44, 'var(--ink)')}
+      ${line(rows.map(r => r.cum), 110, 'var(--ink)')}
       <div class="lb"><span>${refL}</span></div>
       <div style="position:relative">${line(refs, 40, 'var(--ink-dim)')}${rv.length ? `<span class="ya" style="top:0">${Math.round(Math.max(...rv)).toLocaleString()}</span><span class="ya" style="top:100%">${Math.round(Math.min(...rv)).toLocaleString()}</span>` : ''}</div>
     </div>
