@@ -198,6 +198,14 @@
       "higher_tf": "1H",
       "direction": "BEARISH",
       "added_at": "2026-10-18T21:43:44.624Z"
+    },
+    {
+      "asset_class": "crypto",
+      "ticker": "TIAUSD",
+      "display_name": "TIA/USD",
+      "higher_tf": "1H",
+      "direction": "BEARISH",
+      "added_at": "2026-10-18T21:44:34.085Z"
     }
   ]
 }
