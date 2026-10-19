@@ -66,20 +66,6 @@
       ]
     },
     {
-      "asset_class": "pse",
-      "ticker": "ACR",
-      "display_name": "ACR",
-      "higher_tf": "1W",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T09:36:08.424Z",
-      "muted": [
-        "1D"
-      ],
-      "lines": [
-        "sma50"
-      ]
-    },
-    {
       "asset_class": "crypto",
       "ticker": "QNTUSD",
       "display_name": "QNT/USD",
