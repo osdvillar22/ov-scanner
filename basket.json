@@ -168,14 +168,6 @@
       "higher_tf": "4H",
       "direction": "BEARISH",
       "added_at": "2026-10-15T03:40:39.377Z"
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "AEROUSD",
-      "display_name": "AERO/USD",
-      "higher_tf": "1H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-18T21:45:06.496Z"
     }
   ]
 }
