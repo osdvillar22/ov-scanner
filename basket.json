@@ -94,17 +94,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "DCRUSD",
-      "display_name": "DCR/USD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-10T08:40:12.583Z",
-      "muted": [
-        "15m"
-      ]
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "OGNUSD",
       "display_name": "OGN/USD",
       "higher_tf": "1D",
@@ -152,14 +141,6 @@
       "lines": [
         "sma50"
       ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "SYRUPUSD",
-      "display_name": "SYRUP/USD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T03:40:39.377Z"
     }
   ]
 }
