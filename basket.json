@@ -155,14 +155,6 @@
     },
     {
       "asset_class": "crypto",
-      "ticker": "COTIUSD",
-      "display_name": "COTI/USD",
-      "higher_tf": "4H",
-      "direction": "BEARISH",
-      "added_at": "2026-10-15T02:28:57.805Z"
-    },
-    {
-      "asset_class": "crypto",
       "ticker": "SYRUPUSD",
       "display_name": "SYRUP/USD",
       "higher_tf": "4H",
