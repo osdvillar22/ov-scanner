@@ -119,14 +119,6 @@
       "lines": [
         "sma50"
       ]
-    },
-    {
-      "asset_class": "crypto",
-      "ticker": "DOSUSD",
-      "display_name": "DOS/USD",
-      "higher_tf": "1H",
-      "direction": "BULLISH",
-      "added_at": "2026-10-20T22:31:38.296Z"
     }
   ]
 }
