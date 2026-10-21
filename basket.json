@@ -2,20 +2,6 @@
   "picks": [
     {
       "asset_class": "pse",
-      "ticker": "V",
-      "display_name": "V",
-      "higher_tf": "1D",
-      "direction": "BULLISH",
-      "added_at": "2026-09-25T05:36:23.653Z",
-      "muted": [
-        "1H"
-      ],
-      "lines": [
-        "lsma"
-      ]
-    },
-    {
-      "asset_class": "pse",
       "ticker": "DHI",
       "display_name": "DHI",
       "higher_tf": "1D",
