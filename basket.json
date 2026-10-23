@@ -79,20 +79,6 @@
       "added_at": "2026-10-07T05:04:54.178Z"
     },
     {
-      "asset_class": "crypto",
-      "ticker": "OGNUSD",
-      "display_name": "OGN/USD",
-      "higher_tf": "1D",
-      "direction": "BULLISH",
-      "added_at": "2026-10-11T07:12:28.386Z",
-      "muted": [
-        "4H"
-      ],
-      "lines": [
-        "sma50"
-      ]
-    },
-    {
       "asset_class": "pse",
       "ticker": "PNB",
       "display_name": "PNB",
