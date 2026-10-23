@@ -2209,14 +2209,19 @@
       "cl": 0.1948,
       "tp": 0.2202,
       "ratio": 1,
-      "status": "open",
+      "status": "tp",
       "created_at": "2026-10-20T22:37:09.542Z",
       "missed": true,
       "filled_at": "2026-10-20T17:15:00.000Z",
       "fill_end": "2026-10-20T17:20:00.000Z",
       "fill_tf": "5m",
       "be_at": "2026-10-22T18:20:00+00:00",
-      "be_tf": "5m"
+      "be_tf": "5m",
+      "closed_at": "2026-10-23T02:40:00+00:00",
+      "exit_tf": "5m",
+      "exit": 0.2202,
+      "result_r": 1.0,
+      "note": null
     }
   ]
 }
