@@ -501,7 +501,9 @@
       "missed": true,
       "filled_at": "2026-10-12T01:30:00.000Z",
       "fill_end": "2026-10-12T05:30:00.000Z",
-      "fill_tf": "4H"
+      "fill_tf": "4H",
+      "be_at": "2026-11-16T01:35:00+00:00",
+      "be_tf": "5m"
     },
     {
       "id": "mv7hv3ewpfin",
